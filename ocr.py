@@ -4,6 +4,8 @@
 # Runs on gufangAI enterprise runners, bypasses the China-only iFlytek API.
 import os, io, re, boto3, numpy as np
 from PIL import Image
+# runner CPUs lack some instrs (AVX512) that paddle's fusion passes emit -> SIGILL; disable IR optim to avoid it
+os.environ.setdefault("FLAGS_enable_ir_optim", "0")
 from paddleocr import PaddleOCR
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKET = os.environ["S_BUCKET"]
