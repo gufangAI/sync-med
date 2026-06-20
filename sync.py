@@ -38,13 +38,21 @@ def pan(method, path, body=None):
     h = {"Platform": "open_platform", "Authorization": "Bearer " + token()}
     if body is not None:
         h["Content-Type"] = "application/json"
-    for _ in range(3):
+    delay = 2.0; last = {}
+    for _ in range(7):
         try:
-            return S.request(method, PAN + path, headers=h,
+            last = S.request(method, PAN + path, headers=h,
                              data=json.dumps(body) if body is not None else None, timeout=120).json()
         except Exception:
-            time.sleep(2)
-    return {}
+            time.sleep(delay); delay = min(delay * 2, 30); continue
+        msg = str(last.get("message", "")); code = last.get("code")
+        # 123 rate limit ("tokens number has exceeded the limit") / 429 / expired token -> backoff + retry
+        if "exceeded" in msg or "tokens number" in msg or "频繁" in msg or code in (429, 401):
+            if code == 401:
+                _tok["t"] = 0                     # force token refresh mid-flight
+            time.sleep(delay); delay = min(delay * 2, 60); continue
+        return last
+    return last
 
 
 def put_file(local_path, parent_id, name):
