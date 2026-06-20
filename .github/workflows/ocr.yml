@@ -1,0 +1,43 @@
+name: ocr
+
+on:
+  workflow_dispatch:
+    inputs:
+      total:
+        description: shard count (concurrency)
+        default: "256"
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.g.outputs.shards }}
+    steps:
+      - id: g
+        run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
+        env:
+          T: ${{ github.event.inputs.total }}
+
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 256
+      matrix:
+        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install --quiet "paddlepaddle==2.6.1" "paddleocr<2.8" boto3 pillow numpy
+      - run: python ocr.py
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          ALLOW_KEY: ${{ secrets.ALLOW_KEY }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.total }}
