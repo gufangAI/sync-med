@@ -1,17 +1,15 @@
 # -*- coding: utf-8 -*-
-# CC-down: OCR worker - GitHub Actions + PaddleOCR (open-source CN OCR, free cloud concurrency).
-# R2 med-book images (book/{id}/page_NNNN.webp) -> PaddleOCR -> text -> R2 _ocr/{id}/page_NNNN.txt (SueAI fuel).
-# Runs on gufangAI enterprise runners, bypasses the China-only iFlytek API.
+# CC-down: OCR worker - GitHub Actions + RapidOCR (onnxruntime PP-OCR, free cloud concurrency).
+# R2 med-book images (book/{id}/page_NNNN.webp) -> RapidOCR -> text -> R2 _ocr/{id}/page_NNNN.txt (SueAI fuel).
+# RapidOCR(onnxruntime) avoids paddle's AVX512 SIGILL on runners + ships models in the wheel (no baidu CDN).
 import os, io, re, boto3, numpy as np
 from PIL import Image
-# runner CPUs lack some instrs (AVX512) that paddle's fusion passes emit -> SIGILL; disable IR optim to avoid it
-os.environ.setdefault("FLAGS_enable_ir_optim", "0")
-from paddleocr import PaddleOCR
+from rapidocr_onnxruntime import RapidOCR
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKET = os.environ["S_BUCKET"]
 SHARD = int(os.environ.get("SHARD", "0")); TOTAL = int(os.environ.get("TOTAL", "1"))
 s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK, aws_secret_access_key=SK, region_name="auto")
-ocr = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
+engine = RapidOCR()
 allow = set(s3.get_object(Bucket=BUCKET, Key=os.environ["ALLOW_KEY"])["Body"].read().decode().split())
 
 
@@ -46,9 +44,9 @@ for k in mine:
         pass
     try:
         b = s3.get_object(Bucket=BUCKET, Key=k)["Body"].read()
-        im = np.array(Image.open(io.BytesIO(b)).convert("RGB"))
-        res = ocr.ocr(im, cls=True)
-        txt = "\n".join(l[1][0] for pg in (res or []) if pg for l in pg)
+        im = np.array(Image.open(io.BytesIO(b)).convert("RGB"))[:, :, ::-1]  # PIL decodes webp->RGB; RapidOCR wants BGR (cv2)
+        res, _ = engine(im)
+        txt = "\n".join(l[1] for l in (res or []))   # res = [[box, text, score], ...]
         s3.put_object(Bucket=BUCKET, Key=txtkey, Body=txt.encode("utf-8"))
         done += 1
         if done % 20 == 0:
