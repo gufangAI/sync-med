@@ -199,7 +199,10 @@ def main():
     ledger = []
     ok = 0
     for g, keys in mine:
-        a, b = handle(g, keys)
+        try:
+            a, b = handle(g, keys)
+        except Exception as e:
+            a = b = "err:" + str(e)[:50]      # 一本超时/出错绝不拖垮整 shard,记错继续下一本(幂等下次续)
         ledger.append({"gid": g.split("/")[-1], "pages": len(keys), "zip": a, "pdf": b})
         ok += 1
         if ok % 20 == 0:
