@@ -22,15 +22,26 @@ NAMES = {}
 _nk = os.environ.get("NAME_KEY")
 if _nk:
     NAMES = json.loads(s3.get_object(Bucket=SRC, Key=_nk)["Body"].read().decode("utf-8"))
+# already-backed-up sets (built once by prep step listing the 123 backup folders): skip BEFORE any
+# R2 GET or 123 create call -> no wasted ops, no "filename duplicate" errors.
+DONE_ZIP = set(); DONE_PDF = set()
+_dk = os.environ.get("PAN_DONE_KEY", "_cc/pan_done.json")
+try:
+    _dj = json.loads(s3.get_object(Bucket=SRC, Key=_dk)["Body"].read().decode("utf-8"))
+    DONE_ZIP = set(_dj.get("zip", [])); DONE_PDF = set(_dj.get("pdf", []))
+except Exception:
+    pass
 S = requests.Session()
-_tok = {"v": None, "t": 0}
+_tok = {"v": None}
 
 
 def token():
-    if time.time() - _tok["t"] > 1500:
+    # 123 access_token is valid ~3 months -> fetch once and reuse for the whole run;
+    # only re-fetched on a 401 (pan() clears it). Avoids per-25min re-fetch x many shards.
+    if _tok["v"] is None:
         r = S.post(PAN + "/api/v1/access_token", headers={"Platform": "open_platform"},
                    json={"clientID": PCID, "clientSecret": PSEC}, timeout=60).json()
-        _tok["v"] = (r.get("data") or {}).get("accessToken"); _tok["t"] = time.time()
+        _tok["v"] = (r.get("data") or {}).get("accessToken")
     return _tok["v"]
 
 
@@ -49,7 +60,7 @@ def pan(method, path, body=None):
         # 123 rate limit ("tokens number has exceeded the limit") / 429 / expired token -> backoff + retry
         if "exceeded" in msg or "tokens number" in msg or "频繁" in msg or code in (429, 401):
             if code == 401:
-                _tok["t"] = 0                     # force token refresh mid-flight
+                _tok["v"] = None                  # auth failed -> force token re-fetch
             time.sleep(delay); delay = min(delay * 2, 60); continue
         return last
     return last
@@ -68,7 +79,10 @@ def put_file(local_path, parent_id, name):
         return "reuse"
     pid = d.get("preuploadID")
     if not pid:
-        return "err:" + str(cr.get("message"))[:40]
+        msg = str(cr.get("message") or "")
+        if "重复" in msg or "已存在" in msg or "exist" in msg.lower():
+            return "dup"                                   # name already in 123 -> already backed up, idempotent skip (not an error)
+        return "err:" + msg[:40]
     url = (pan("POST", "/upload/v1/file/get_upload_url",
               {"preuploadID": pid, "sliceNo": 1}).get("data") or {}).get("presignedURL")
     with open(local_path, "rb") as f:                 # stream upload, no full read into memory
@@ -107,6 +121,10 @@ def handle(gid, keys):
     if _key not in NAMES:
         return ("skip-noname", "skip-noname")                  # no D1 title -> skip, never write book_id-named files (OCR cleanliness)
     disp = NAMES[_key]                                          # = D1 book_title; CJK from private storage
+    need_zip = (disp + ".zip") not in DONE_ZIP
+    need_pdf = (disp + ".pdf") not in DONE_PDF
+    if not need_zip and not need_pdf:
+        return ("skip-done", "skip-done")                      # already in 123 -> skip BEFORE any R2 GET / 123 call -> no waste, no dup error
     import io, zipfile
     # Fetch each page once, tolerating missing keys: D1 page_count may exceed the actual webp
     # pages in R2 for incomplete downloads, so a constructed key can 404 -> skip it, don't crash.
@@ -121,23 +139,48 @@ def handle(gid, keys):
         blobs.append((k.split("/")[-1], b))
     if not blobs:
         return ("skip-empty", "skip-empty")                    # no pages actually in R2 -> skip, never upload empty
-    zp = os.path.join(TMP, gid_tail + ".zip")
-    with zipfile.ZipFile(zp, "w", zipfile.ZIP_STORED) as z:
-        for name, b in blobs:
-            z.writestr(name, b)
-    st_a = put_file(zp, DIR_A, disp + ".zip")         # zip name = D1 book_title too (was book_id)
-    os.remove(zp)
-    pdfp = os.path.join(TMP, gid_tail + ".pdf")
-    imgs = [Image.open(io.BytesIO(b)).convert("RGB") for _, b in blobs]
-    imgs[0].save(pdfp, "PDF", save_all=True, append_images=imgs[1:])
-    st_b = put_file(pdfp, DIR_B, disp + ".pdf")
-    os.remove(pdfp)
+    st_a = "have"
+    if need_zip:
+        zp = os.path.join(TMP, gid_tail + ".zip")
+        with zipfile.ZipFile(zp, "w", zipfile.ZIP_STORED) as z:
+            for name, b in blobs:
+                z.writestr(name, b)
+        st_a = put_file(zp, DIR_A, disp + ".zip")              # zip name = D1 book_title
+        os.remove(zp)
+    st_b = "have"
+    if need_pdf:
+        pdfp = os.path.join(TMP, gid_tail + ".pdf")
+        imgs = [Image.open(io.BytesIO(b)).convert("RGB") for _, b in blobs]
+        imgs[0].save(pdfp, "PDF", save_all=True, append_images=imgs[1:])
+        st_b = put_file(pdfp, DIR_B, disp + ".pdf")
+        os.remove(pdfp)
     return st_a, st_b
 
 
 def _req_of(g):                                   # book/zi021-0001-01 -> 021-0001
     m = re.search(r"(\d{3})-?(\d{4})", g)
     return f"{m.group(1)}-{m.group(2)}" if m else None
+
+
+def prep():
+    # List the two 123 backup folders once and persist the set of names already there to R2.
+    # Run-shards read it and skip already-backed-up books up front (no R2 GET, no 123 create, no dup error).
+    def ls(parent):
+        names = set(); last = 0
+        while True:
+            data = (pan("GET", f"/api/v2/file/list?parentFileId={parent}&limit=100&lastFileId={last}") or {}).get("data") or {}
+            fl = data.get("fileList") or []
+            for it in fl:
+                if it.get("filename"):
+                    names.add(it["filename"])
+            last = data.get("lastFileId", -1)
+            if last in (-1, None) or not fl:
+                break
+        return names
+    zip_done = ls(DIR_A); pdf_done = ls(DIR_B)
+    dk = os.environ.get("PAN_DONE_KEY", "_cc/pan_done.json")
+    s3.put_object(Bucket=SRC, Key=dk, Body=json.dumps({"zip": sorted(zip_done), "pdf": sorted(pdf_done)}, ensure_ascii=False).encode("utf-8"))
+    print(f"prep: 123 already-done zip={len(zip_done)} pdf={len(pdf_done)} -> {dk}", flush=True)
 
 
 def main():
@@ -165,4 +208,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "prep":
+        prep()
+    else:
+        main()
