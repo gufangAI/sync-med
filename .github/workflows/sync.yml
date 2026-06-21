@@ -1,11 +1,16 @@
 name: sync
 
 on:
+  schedule:
+    - cron: "0 */3 * * *"          # 每3h自动跑·无人值守(幂等skip-done·补完后都是秒跳)
   workflow_dispatch:
     inputs:
       total:
         description: shard count (concurrency)
-        default: "200"
+        default: "256"
+concurrency:
+  group: sync-med
+  cancel-in-progress: false
 
 jobs:
   prep:

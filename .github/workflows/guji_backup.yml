@@ -1,11 +1,16 @@
 name: guji_backup
 
 on:
+  schedule:
+    - cron: "30 */3 * * *"         # 每3h自动跑(错峰med 30min)·无人值守·幂等skip-done
   workflow_dispatch:
     inputs:
       total:
         description: shard count (concurrency)
-        default: "30"
+        default: "150"
+concurrency:
+  group: guji-backup
+  cancel-in-progress: false
 
 jobs:
   prep:
@@ -45,7 +50,7 @@ jobs:
     timeout-minutes: 120         # 硬闸:超 2 小时 GitHub 杀(防卡死·06-20 慢上传留足时间·幂等 skip-done 下次续)
     strategy:
       fail-fast: false
-      max-parallel: 30
+      max-parallel: 150
       matrix:
         shard: ${{ fromJSON(needs.prep.outputs.shards) }}
     steps:
