@@ -15,6 +15,7 @@ DIR_A = os.environ["PAN_DIR_A"]      # folder id for image archives
 DIR_B = os.environ["PAN_DIR_B"]      # folder id for documents (separate)
 SHARD = int(os.environ.get("SHARD", "0")); TOTAL = int(os.environ.get("TOTAL", "1"))
 TMP = os.environ.get("RUNNER_TEMP", tempfile.gettempdir())
+ZIP_ONLY = os.environ.get("ZIP_ONLY") == "1"   # 只备份 zip、跳过慢的 pdf 生成(pdf 冗余·123 的已删·创始人只要 zip)
 
 s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK,
                   aws_secret_access_key=SK, region_name="auto",
@@ -69,35 +70,20 @@ def pan(method, path, body=None):
 
 
 def put_file(local_path, parent_id, name):
-    size = os.path.getsize(local_path)
-    h = hashlib.md5()
-    with open(local_path, "rb") as f:
-        for c in iter(lambda: f.read(1 << 20), b""):
-            h.update(c)
-    cr = pan("POST", "/upload/v1/file/create",
-             {"parentFileID": parent_id, "filename": name, "etag": h.hexdigest(), "size": size})
-    d = cr.get("data") or {}
-    if d.get("reuse"):
-        return "reuse"
-    pid = d.get("preuploadID")
-    if not pid:
-        msg = str(cr.get("message") or "")
-        if "重复" in msg or "已存在" in msg or "exist" in msg.lower():
-            return "dup"                                   # name already in 123 -> already backed up, idempotent skip (not an error)
-        return "err:" + msg[:40]
-    url = (pan("POST", "/upload/v1/file/get_upload_url",
-              {"preuploadID": pid, "sliceNo": 1}).get("data") or {}).get("presignedURL")
-    with open(local_path, "rb") as f:                 # stream upload, no full read into memory
-        S.put(url, data=f, timeout=(15, 300))   # (连接15s, 读300s) 防 123 上传半死连接挂死
-    cd = pan("POST", "/upload/v1/file/upload_complete", {"preuploadID": pid}).get("data") or {}
-    if cd.get("async"):
-        for _ in range(180):
-            time.sleep(1)
-            if (pan("POST", "/upload/v1/file/upload_async_result",
-                    {"preuploadID": pid}).get("data") or {}).get("completed"):
-                return "ok"
-        return "timeout"
-    return "ok"
+    # R2->123 via 123 OFFLINE DOWNLOAD (server-side pull), not a海外 upload:
+    #   1) PUT zip to an R2 staging prefix (fast on the CI runner, same datacenter region as R2)
+    #   2) presign it, then ask 123 to offline-download that URL -> 123 servers pull from R2 directly.
+    # Avoids both the slow China-local R2 download AND the海外 runner->123 upload stall (which timed out).
+    stage_key = "_pan_stage/" + name
+    s3.upload_file(local_path, SRC, stage_key)
+    url = s3.generate_presigned_url("get_object", Params={"Bucket": SRC, "Key": stage_key}, ExpiresIn=7200)
+    r = pan("POST", "/api/v1/offline/download", {"url": url, "dirID": int(parent_id), "fileName": name})
+    if r.get("code") == 0:
+        return "ok"                                        # offline task created; 123 pulls async. prep-listing confirms next run.
+    msg = str(r.get("message") or "")
+    if "重复" in msg or "已存在" in msg or "exist" in msg.lower():
+        return "dup"                                       # name already in 123 -> idempotent skip (not an error)
+    return "err:" + msg[:40]
 
 
 def list_groups():
@@ -124,7 +110,7 @@ def handle(gid, keys):
         return ("skip-noname", "skip-noname")                  # no D1 title -> skip, never write book_id-named files (OCR cleanliness)
     disp = NAMES[_key]                                          # = D1 book_title; CJK from private storage
     need_zip = (disp + ".zip") not in DONE_ZIP
-    need_pdf = (disp + ".pdf") not in DONE_PDF
+    need_pdf = (not ZIP_ONLY) and ((disp + ".pdf") not in DONE_PDF)
     if not need_zip and not need_pdf:
         return ("skip-done", "skip-done")                      # already in 123 -> skip BEFORE any R2 GET / 123 call -> no waste, no dup error
     import io, zipfile
