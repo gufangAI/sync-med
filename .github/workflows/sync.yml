@@ -69,6 +69,5 @@ jobs:
           PAN_DIR_A: ${{ secrets.PAN_DIR_A }}
           PAN_DIR_B: ${{ secrets.PAN_DIR_B }}
           NAME_KEY: ${{ secrets.NAME_KEY }}
-          ALLOW_KEY: ${{ secrets.ALLOW_KEY }}
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ github.event.inputs.total }}
