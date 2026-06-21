@@ -21,7 +21,7 @@ jobs:
       - id: g
         run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
         env:
-          T: ${{ github.event.inputs.total }}
+          T: ${{ github.event.inputs.total || '256' }}
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -70,4 +70,4 @@ jobs:
           PAN_DIR_B: ${{ secrets.PAN_DIR_B }}
           NAME_KEY: ${{ secrets.NAME_KEY }}
           SHARD: ${{ matrix.shard }}
-          TOTAL: ${{ github.event.inputs.total }}
+          TOTAL: ${{ github.event.inputs.total || '256' }}
