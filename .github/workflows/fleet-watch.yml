@@ -1,0 +1,87 @@
+name: 🛡️ Fleet Watch
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # 每小时整点
+  workflow_dispatch:        # 手动触发
+
+concurrency:
+  group: fleet-watch
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run fleet_watch.py
+        id: watch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/fleet_watch.py
+
+      - name: Create or update daily Issue
+        uses: actions/github-script@v7
+        env:
+          REPORT_BODY: ${{ steps.watch.outputs.report_body }}
+          ALERT_COUNT: ${{ steps.watch.outputs.alert_count }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const today = new Date().toISOString().slice(0, 10);  // YYYY-MM-DD
+            const alertCount = parseInt(process.env.ALERT_COUNT || '0', 10);
+
+            // 标题: 有异常时加 ⚠️异常 前缀
+            const baseTitle = `🛡️ 舰队巡查日报 ${today}`;
+            const issueTitle = alertCount > 0 ? `⚠️异常 ${baseTitle}` : baseTitle;
+
+            const reportBody = process.env.REPORT_BODY || '(报告为空,请检查 fleet_watch.py 输出)';
+
+            // 搜索今天是否已有同名 Issue (含 baseTitle 关键词)
+            const { data: searchResult } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'fleet-watch',
+              state: 'open',
+              per_page: 50,
+            });
+
+            const existing = searchResult.find(issue =>
+              issue.title.includes(`舰队巡查日报 ${today}`)
+            );
+
+            if (existing) {
+              // 追加新一轮报告到已有 Issue
+              const newBody = existing.body + '\n\n---\n\n' + reportBody;
+              // 同时更新标题(可能从正常变异常)
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                title: issueTitle,
+                body: newBody,
+              });
+              console.log(`Updated issue #${existing.number}: ${issueTitle}`);
+            } else {
+              // 新建今天的 Issue
+              const { data: newIssue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: reportBody,
+                labels: ['fleet-watch'],
+              });
+              console.log(`Created issue #${newIssue.number}: ${issueTitle}`);
+              console.log(`Issue URL: ${newIssue.html_url}`);
+            }
