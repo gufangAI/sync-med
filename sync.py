@@ -2,8 +2,8 @@
 # For each source group: stream a zip (on disk, not memory) + build a pdf, push both to pan storage in
 # separate folders. All credentials come from env (CI secrets); nothing hardcoded; no CJK in source.
 import os, re, time, json, hashlib, tempfile
-from collections import defaultdict
 import boto3, requests
+from botocore.exceptions import ClientError
 from PIL import Image
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]
@@ -85,23 +85,17 @@ def put_file(local_path, parent_id, name):
 
 
 def list_groups():
-    groups = defaultdict(list); tok = None
-    base = (PFX + "/") if PFX else ""
-    while True:
-        kw = {"Bucket": SRC, "Prefix": base, "MaxKeys": 1000}
-        if tok:
-            kw["ContinuationToken"] = tok
-        r = s3.list_objects_v2(**kw)
-        for o in r.get("Contents", []):
-            k = o["Key"]
-            if not re.search(r"/page_\d+\.webp$", k):     # only body pages; drop thumb.webp & non-page files (OCR needs clean pages)
-                continue
-            gid = "/".join(k.split("/")[:2])
-            groups[gid].append(k)
-        if r.get("IsTruncated"):
-            tok = r.get("NextContinuationToken")
-        else:
-            break
+    # Page manifest (book_id -> page_count) is built from the D1 catalog by deploy.py.
+    # Reading it (1 GET) replaces a full-bucket ListObjects scan PER SHARD: with 200 shards
+    # the old version cost ~200 x full scans of a 3.26M-object bucket = ~600K+ Class A LIST/run.
+    # Keys are deterministic (book/{id}/page_{NNNN}.webp), so no R2 listing is needed at all.
+    pk = os.environ.get("PAGES_KEY", "_cc/med_pages.json")
+    pages = json.loads(s3.get_object(Bucket=SRC, Key=pk)["Body"].read().decode("utf-8"))
+    pre = (PFX.strip("/") if PFX else "book")
+    groups = {}
+    for bid, pc in pages.items():
+        gid = pre + "/" + bid
+        groups[gid] = [f"{gid}/page_{n:04d}.webp" for n in range(1, int(pc) + 1)]
     return groups
 
 
@@ -113,25 +107,31 @@ def handle(gid, keys):
     if _key not in NAMES:
         return ("skip-noname", "skip-noname")                  # no D1 title -> skip, never write book_id-named files (OCR cleanliness)
     disp = NAMES[_key]                                          # = D1 book_title; CJK from private storage
-    import zipfile
+    import io, zipfile
+    # Fetch each page once, tolerating missing keys: D1 page_count may exceed the actual webp
+    # pages in R2 for incomplete downloads, so a constructed key can 404 -> skip it, don't crash.
+    blobs = []
+    for k in keys:
+        try:
+            b = s3.get_object(Bucket=SRC, Key=k)["Body"].read()
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") in ("NoSuchKey", "404", "NotFound"):
+                continue
+            raise
+        blobs.append((k.split("/")[-1], b))
+    if not blobs:
+        return ("skip-empty", "skip-empty")                    # no pages actually in R2 -> skip, never upload empty
     zp = os.path.join(TMP, gid_tail + ".zip")
     with zipfile.ZipFile(zp, "w", zipfile.ZIP_STORED) as z:
-        for k in keys:
-            z.writestr(k.split("/")[-1], s3.get_object(Bucket=SRC, Key=k)["Body"].read())
+        for name, b in blobs:
+            z.writestr(name, b)
     st_a = put_file(zp, DIR_A, disp + ".zip")         # zip name = D1 book_title too (was book_id)
     os.remove(zp)
     pdfp = os.path.join(TMP, gid_tail + ".pdf")
-    imgs = []
-    for k in keys:
-        b = s3.get_object(Bucket=SRC, Key=k)["Body"].read()
-        im = Image.open(__import__("io").BytesIO(b)).convert("RGB")
-        imgs.append(im)
-    if imgs:
-        imgs[0].save(pdfp, "PDF", save_all=True, append_images=imgs[1:])
-        st_b = put_file(pdfp, DIR_B, disp + ".pdf")
-        os.remove(pdfp)
-    else:
-        st_b = "empty"
+    imgs = [Image.open(io.BytesIO(b)).convert("RGB") for _, b in blobs]
+    imgs[0].save(pdfp, "PDF", save_all=True, append_images=imgs[1:])
+    st_b = put_file(pdfp, DIR_B, disp + ".pdf")
+    os.remove(pdfp)
     return st_a, st_b
 
 
