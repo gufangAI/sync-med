@@ -68,7 +68,7 @@ jobs:
           PAN_SEC: ${{ secrets.PAN_SEC }}
           PAN_DIR_A: "30464202"
           PAN_DIR_B: "30464203"
-          NAME_KEY: ${{ secrets.NAME_KEY }}
+          NAME_KEY: _cc/guji_name_map.json
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ github.event.inputs.total }}
 
