@@ -70,20 +70,37 @@ def pan(method, path, body=None):
 
 
 def put_file(local_path, parent_id, name):
-    # R2->123 via 123 OFFLINE DOWNLOAD (server-side pull), not a海外 upload:
-    #   1) PUT zip to an R2 staging prefix (fast on the CI runner, same datacenter region as R2)
-    #   2) presign it, then ask 123 to offline-download that URL -> 123 servers pull from R2 directly.
-    # Avoids both the slow China-local R2 download AND the海外 runner->123 upload stall (which timed out).
-    stage_key = "_pan_stage/" + name
-    s3.upload_file(local_path, SRC, stage_key)
-    url = s3.generate_presigned_url("get_object", Params={"Bucket": SRC, "Key": stage_key}, ExpiresIn=7200)
-    r = pan("POST", "/api/v1/offline/download", {"url": url, "dirID": int(parent_id), "fileName": name})
-    if r.get("code") == 0:
-        return "ok"                                        # offline task created; 123 pulls async. prep-listing confirms next run.
-    msg = str(r.get("message") or "")
-    if "重复" in msg or "已存在" in msg or "exist" in msg.lower():
-        return "dup"                                       # name already in 123 -> idempotent skip (not an error)
-    return "err:" + msg[:40]
+    # 06-20 验证过的直传(GitHub 云端·115 并发成功传 6501):create -> get_upload_url -> S.put -> complete。
+    # ⚠️ S.put 超时必须慷慨(1200s)——之前改成 (15,300) 把"慢但能成"的 123 上传掐死了(write timed out)。
+    size = os.path.getsize(local_path)
+    h = hashlib.md5()
+    with open(local_path, "rb") as f:
+        for c in iter(lambda: f.read(1 << 20), b""):
+            h.update(c)
+    cr = pan("POST", "/upload/v1/file/create",
+             {"parentFileID": parent_id, "filename": name, "etag": h.hexdigest(), "size": size})
+    d = cr.get("data") or {}
+    if d.get("reuse"):
+        return "reuse"
+    pid = d.get("preuploadID")
+    if not pid:
+        msg = str(cr.get("message") or "")
+        if "重复" in msg or "已存在" in msg or "exist" in msg.lower():
+            return "dup"
+        return "err:" + msg[:40]
+    url = (pan("POST", "/upload/v1/file/get_upload_url",
+              {"preuploadID": pid, "sliceNo": 1}).get("data") or {}).get("presignedURL")
+    with open(local_path, "rb") as f:                 # stream upload, no full read into memory
+        S.put(url, data=f, timeout=1200)              # 06-20 proven 慷慨超时·绝不改激进短超时
+    cd = pan("POST", "/upload/v1/file/upload_complete", {"preuploadID": pid}).get("data") or {}
+    if cd.get("async"):
+        for _ in range(180):
+            time.sleep(1)
+            if (pan("POST", "/upload/v1/file/upload_async_result",
+                    {"preuploadID": pid}).get("data") or {}).get("completed"):
+                return "ok"
+        return "timeout"
+    return "ok"
 
 
 def list_groups():
