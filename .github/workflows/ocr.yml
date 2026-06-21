@@ -6,6 +6,12 @@ on:
       total:
         description: shard count (concurrency)
         default: "256"
+  schedule:
+    - cron: '0 */6 * * *'
+
+concurrency:
+  group: ocr-run
+  cancel-in-progress: false
 
 jobs:
   prep:
@@ -16,7 +22,7 @@ jobs:
       - id: g
         run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
         env:
-          T: ${{ github.event.inputs.total }}
+          T: ${{ github.event.inputs.total || '256' }}
 
   run:
     needs: prep
@@ -40,4 +46,4 @@ jobs:
           S_BUCKET: ${{ secrets.S_BUCKET }}
           ALLOW_KEY: ${{ secrets.ALLOW_KEY }}
           SHARD: ${{ matrix.shard }}
-          TOTAL: ${{ github.event.inputs.total }}
+          TOTAL: ${{ github.event.inputs.total || '256' }}
