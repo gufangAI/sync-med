@@ -42,6 +42,7 @@ jobs:
   run:
     needs: prep
     runs-on: ubuntu-latest
+    timeout-minutes: 30          # 硬闸:任何 shard 超 30 分钟 GitHub 直接杀,根治"卡死数小时"(幂等 skip-done 下次续)
     strategy:
       fail-fast: false
       max-parallel: 30

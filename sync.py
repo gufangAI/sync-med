@@ -4,6 +4,7 @@
 import os, re, time, json, hashlib, tempfile
 import boto3, requests
 from botocore.exceptions import ClientError
+from botocore.config import Config
 from PIL import Image
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]
@@ -16,7 +17,8 @@ SHARD = int(os.environ.get("SHARD", "0")); TOTAL = int(os.environ.get("TOTAL", "
 TMP = os.environ.get("RUNNER_TEMP", tempfile.gettempdir())
 
 s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK,
-                  aws_secret_access_key=SK, region_name="auto")
+                  aws_secret_access_key=SK, region_name="auto",
+                  config=Config(connect_timeout=15, read_timeout=60, retries={"max_attempts": 3}))  # 防 R2 半死连接挂死
 # title map (req-number -> book name) loaded from private storage; source stays CJK-free
 NAMES = {}
 _nk = os.environ.get("NAME_KEY")
@@ -86,7 +88,7 @@ def put_file(local_path, parent_id, name):
     url = (pan("POST", "/upload/v1/file/get_upload_url",
               {"preuploadID": pid, "sliceNo": 1}).get("data") or {}).get("presignedURL")
     with open(local_path, "rb") as f:                 # stream upload, no full read into memory
-        S.put(url, data=f, timeout=1200)
+        S.put(url, data=f, timeout=(15, 300))   # (连接15s, 读300s) 防 123 上传半死连接挂死
     cd = pan("POST", "/upload/v1/file/upload_complete", {"preuploadID": pid}).get("data") or {}
     if cd.get("async"):
         for _ in range(180):
