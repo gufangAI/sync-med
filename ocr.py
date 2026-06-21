@@ -2,7 +2,7 @@
 # CC-down: OCR worker - GitHub Actions + RapidOCR (onnxruntime PP-OCR, free cloud concurrency).
 # R2 med-book images (book/{id}/page_NNNN.webp) -> RapidOCR -> text -> R2 _ocr/{id}/page_NNNN.txt (SueAI fuel).
 # RapidOCR(onnxruntime) avoids paddle's AVX512 SIGILL on runners + ships models in the wheel (no baidu CDN).
-import os, io, re, boto3, numpy as np
+import os, io, re, json, boto3, numpy as np
 from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
@@ -18,20 +18,14 @@ def reqof(g):
     return f"{m.group(1)}-{m.group(2)}" if m else None
 
 
-imgs = []; tok = None
-while True:
-    kw = dict(Bucket=BUCKET, Prefix="book/", MaxKeys=1000)
-    if tok:
-        kw["ContinuationToken"] = tok
-    r = s3.list_objects_v2(**kw)
-    for o in r.get("Contents", []):
-        k = o["Key"]
-        if re.search(r"/page_\d+\.webp$", k) and reqof(k) in allow:
-            imgs.append(k)
-    if r.get("IsTruncated"):
-        tok = r.get("NextContinuationToken")
-    else:
-        break
+# 零 LIST(创始人钦定·list_objects 全扫整桶 = 永久黑名单 · $9 元凶本体就是这里 256 分片各全扫 326 万对象桶):
+# 读 D1 manifest(book_id->page_count)构造 key book/{bid}/page_{NNNN}.webp,绝不 list_objects 扫桶。
+PAGES = json.loads(s3.get_object(Bucket=BUCKET, Key=os.environ.get("PAGES_KEY", "_cc/med_pages.json"))["Body"].read().decode("utf-8"))
+imgs = []
+for bid, pc in PAGES.items():
+    if reqof(bid) not in allow or int(pc) <= 0:
+        continue
+    imgs += [f"book/{bid}/page_{n:04d}.webp" for n in range(1, int(pc) + 1)]
 imgs.sort()
 mine = [k for i, k in enumerate(imgs) if i % TOTAL == SHARD]
 print(f"shard {SHARD}/{TOTAL} imgs {len(mine)}/{len(imgs)}", flush=True)
