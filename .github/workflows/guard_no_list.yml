@@ -1,0 +1,22 @@
+name: guard-no-list-objects
+
+# 创始人钦定零LIST铁律(2026-06-22)·防 $9 重演:
+# 全扫桶 list_objects = 烧 Class A 永久黑名单。任何脚本必须读 D1 manifest 构造 key,逐本处理。
+# 此守卫:任何 push 出现 list_objects/get_paginator 调用 → 直接 fail,禁止加回来。
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ban list_objects / get_paginator (零LIST铁律)
+        run: |
+          if grep -rnE '\.list_objects(_v2)?\(|get_paginator\(' --include='*.py' .; then
+            echo "::error::发现 list_objects/get_paginator 调用 — 违反零LIST铁律(全扫桶烧Class A=$9重演)。必须读 D1 manifest 构造 key book/{id}/page_{n}.webp,一本书一本书处理。"
+            exit 1
+          fi
+          echo "OK: 全仓零 list_objects · 零LIST铁律守住"
