@@ -94,3 +94,4 @@ jobs:
           S_EP: ${{ secrets.S_EP }}
           S_AK: ${{ secrets.S_AK }}
           S_SK: ${{ secrets.S_SK }}
+          TOTAL: ${{ github.event.inputs.total || '150' }}

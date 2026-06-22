@@ -13,8 +13,8 @@ for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"):
 s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK,
                   aws_secret_access_key=SK, region_name="auto")
 
-paginator = s3.get_paginator("list_objects_v2")
-pages_iter = paginator.paginate(Bucket=BKT, Prefix=LEDGER_PFX)
+# 零 LIST(创始人钦定·绝不再有 list_objects):按分片数构造 key 读台账,绝不扫 prefix
+TOTAL = int(os.environ.get("TOTAL", "150"))
 
 STATUSES = ["ok", "reuse", "dup", "skip-done", "skip-empty", "skip-noname", "have", "err", "other"]
 zip_counts = {s: 0 for s in STATUSES}
@@ -32,20 +32,17 @@ def classify(st):
     return "other"
 
 
-for page in pages_iter:
-    for obj in (page.get("Contents") or []):
-        k = obj["Key"]
-        if not k.endswith(".json") or "summary" in k:
-            continue
-        try:
-            data = json.loads(s3.get_object(Bucket=BKT, Key=k)["Body"].read())
-        except Exception:
-            continue
-        for row in data:
-            total_books += 1
-            total_pages += row.get("pages", 0)
-            zip_counts[classify(row.get("zip", "other"))] += 1
-            pdf_counts[classify(row.get("pdf", "other"))] += 1
+for i in range(TOTAL):
+    k = LEDGER_PFX + f"shard_{i}.json"
+    try:
+        data = json.loads(s3.get_object(Bucket=BKT, Key=k)["Body"].read())
+    except Exception:
+        continue   # 该分片没台账(没跑/失败)→跳过,不报错
+    for row in data:
+        total_books += 1
+        total_pages += row.get("pages", 0)
+        zip_counts[classify(row.get("zip", "other"))] += 1
+        pdf_counts[classify(row.get("pdf", "other"))] += 1
 
 summary = {
     "total_books": total_books,
