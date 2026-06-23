@@ -29,11 +29,11 @@ for bid, pc in PAGES.items():
 imgs.sort()
 mine = [k for i, k in enumerate(imgs) if i % TOTAL == SHARD]
 print(f"shard {SHARD}/{TOTAL} imgs {len(mine)}/{len(imgs)}", flush=True)
-done = 0
+done = 0; skipped = 0
 for k in mine:
     txtkey = "_ocr/" + k[len("book/"):].rsplit(".", 1)[0] + ".txt"
     try:
-        s3.head_object(Bucket=BUCKET, Key=txtkey); continue   # already OCR'd, skip (idempotent)
+        s3.head_object(Bucket=BUCKET, Key=txtkey); skipped += 1; continue   # already OCR'd, skip (idempotent)
     except Exception:
         pass
     try:
@@ -47,4 +47,6 @@ for k in mine:
             print(f"done {done}/{len(mine)}", flush=True)
     except Exception as e:
         print("ERR", k, str(e)[:50], flush=True)
-print(f"=== shard {SHARD} OCR {done} done ===", flush=True)
+s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocr_{SHARD}.json",
+              Body=json.dumps({"shard": SHARD, "total": len(mine), "ocrd": skipped + done, "new": done}).encode())
+print(f"=== shard {SHARD} OCR {done} new, {skipped + done}/{len(mine)} done ===", flush=True)
