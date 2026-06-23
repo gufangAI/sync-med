@@ -18,8 +18,8 @@ def reqof(g):
     return f"{m.group(1)}-{m.group(2)}" if m else None
 
 
-# 零 LIST(创始人钦定·list_objects 全扫整桶 = 永久黑名单 · $9 元凶本体就是这里 256 分片各全扫 326 万对象桶):
-# 读 D1 manifest(book_id->page_count)构造 key book/{bid}/page_{NNNN}.webp,绝不 list_objects 扫桶。
+# Zero-LIST: read the page-count manifest (id -> page_count) and build keys directly;
+# never list_objects over the whole bucket (full bucket scans were the cost spike).
 PAGES = json.loads(s3.get_object(Bucket=BUCKET, Key=os.environ.get("PAGES_KEY", "_cc/med_pages.json"))["Body"].read().decode("utf-8"))
 imgs = []
 for bid, pc in PAGES.items():
