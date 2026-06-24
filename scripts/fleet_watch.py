@@ -72,6 +72,48 @@ def gh_api_raw(url: str) -> bytes:
         raise RuntimeError(f"GET {url} → {e.code}: {body[:200]}") from e
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """阻止 urllib 自动跟随重定向，让调用方拿到 302 的 Location。"""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, msg, headers, fp)
+
+
+def _fetch_job_log_text(job_id: int) -> str:
+    """
+    获取单个 job 的日志文本（纯文本，非 ZIP）。
+
+    GitHub /actions/jobs/{id}/logs 返回 302 → Azure blob 预签名 URL。
+    直接跟随重定向会把 Authorization 转发给 blob，导致 Azure 返回 400/403。
+    正确做法:
+      1. 用 _NoRedirect opener 拦截 302，拿到 Location URL。
+      2. 不带 Authorization 重新 GET Location URL（已含 SAS 签名）。
+    """
+    api_url = f"https://api.github.com/repos/{REPO}/actions/jobs/{job_id}/logs"
+    req = urllib.request.Request(api_url, headers={
+        "Authorization": f"Bearer {TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    })
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        with opener.open(req, timeout=30) as resp:
+            # 极少数情况：直接返回 200（内容较小时）
+            return resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        if e.code in (301, 302, 303, 307, 308):
+            blob_url = e.headers.get("Location", "")
+            if not blob_url:
+                raise RuntimeError(f"job {job_id} log: redirect but no Location header") from e
+            # 不带 Authorization 拉 blob 预签名 URL
+            blob_req = urllib.request.Request(blob_url)
+            try:
+                with urllib.request.urlopen(blob_req, timeout=60) as blob_resp:
+                    return blob_resp.read().decode("utf-8", errors="replace")
+            except urllib.error.HTTPError as e2:
+                raise RuntimeError(f"job {job_id} blob fetch → {e2.code}: {e2.read()[:200]}") from e2
+        raise RuntimeError(f"job {job_id} log API → {e.code}: {e.read()[:200]}") from e
+
+
 def parse_dt(s: str | None) -> datetime | None:
     if not s:
         return None
@@ -88,26 +130,39 @@ def hours_ago(dt: datetime | None, now: datetime) -> float | None:
 
 def _fetch_run_log_text(run_id: int, max_jobs: int) -> str:
     """
-    只下前 max_jobs 个 job 的单独日志(jobs API),不下整个 run 的大 zip。
-    全 run zip 含 256 个 job、下载要十几分钟、会拖垮巡查(实测被 concurrency cancel);
-    单 job log 是纯文本、秒级。只读不写,不落盘。
+    只下前 max_jobs 个 shard job 的单独日志(jobs API)，不下整个 run 的大 zip。
+    全 run zip 含 256 个 job、下载要十几分钟、会拖垮巡查(实测被 concurrency cancel)；
+    单 job log 是纯文本、秒级。只读不写，不落盘。
+
+    注意: per_page=30 取前 30 个 jobs（prep + run(0)..run(28)）；
+    OCR workflow jobs 创建顺序: prep 排第 0，run(0)..run(255) 接续。
+    jobs[:max_jobs] 取前 max_jobs 个含少量 shard job，足够判断全零。
     """
     try:
         jobs_data = gh_api(f"repos/{REPO}/actions/runs/{run_id}/jobs?per_page=30")
     except RuntimeError as e:
         print(f"  [ocr_depth] jobs list failed for run {run_id}: {e}", file=sys.stderr)
         return ""
-    jobs = jobs_data.get("jobs", [])[:max_jobs]
+    all_jobs = jobs_data.get("jobs", [])
+    # 跳过 prep job（名称不含括号数字），只采样 shard jobs（名称含 "(N)"）
+    shard_jobs = [j for j in all_jobs if re.search(r"\(\d+\)", j.get("name", ""))]
+    sampled = shard_jobs[:max_jobs] if shard_jobs else all_jobs[:max_jobs]
+    print(f"  [ocr_depth] run {run_id}: total_jobs_in_page={len(all_jobs)}, "
+          f"shard_jobs_found={len(shard_jobs)}, sampling={len(sampled)}", file=sys.stderr)
     texts = []
-    for job in jobs:
+    for job in sampled:
         jid = job.get("id")
+        jname = job.get("name", "?")
         if not jid:
             continue
         try:
-            raw = gh_api_raw(f"https://api.github.com/repos/{REPO}/actions/jobs/{jid}/logs")
-            texts.append(raw.decode("utf-8", errors="replace"))
+            text = _fetch_job_log_text(jid)
+            texts.append(text)
+            # 快速验证: 看拿到的内容有没有 shard 汇总行
+            found = bool(_SHARD_SUMMARY_RE.search(text))
+            print(f"  [ocr_depth]   job {jid} ({jname}): {len(text)} chars, summary_found={found}", file=sys.stderr)
         except RuntimeError as e:
-            print(f"  [ocr_depth] job {jid} log failed: {e}", file=sys.stderr)
+            print(f"  [ocr_depth]   job {jid} ({jname}) log failed: {e}", file=sys.stderr)
     return "\n".join(texts)
 
 
