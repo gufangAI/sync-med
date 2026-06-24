@@ -88,28 +88,27 @@ def hours_ago(dt: datetime | None, now: datetime) -> float | None:
 
 def _fetch_run_log_text(run_id: int, max_jobs: int) -> str:
     """
-    从 run 日志 ZIP 中提取纯文本，只取前 max_jobs 个 job 文件。
-    GitHub 返回的是 zip，每个 job 一个 .txt 文件。
-    只读不写，不落盘。
+    只下前 max_jobs 个 job 的单独日志(jobs API),不下整个 run 的大 zip。
+    全 run zip 含 256 个 job、下载要十几分钟、会拖垮巡查(实测被 concurrency cancel);
+    单 job log 是纯文本、秒级。只读不写,不落盘。
     """
-    url = f"https://api.github.com/repos/{REPO}/actions/runs/{run_id}/logs"
     try:
-        raw = gh_api_raw(url)
+        jobs_data = gh_api(f"repos/{REPO}/actions/runs/{run_id}/jobs?per_page=30")
     except RuntimeError as e:
-        print(f"  [ocr_depth] log fetch failed for run {run_id}: {e}", file=sys.stderr)
+        print(f"  [ocr_depth] jobs list failed for run {run_id}: {e}", file=sys.stderr)
         return ""
-
-    lines_collected = []
-    try:
-        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-            names = sorted(zf.namelist())
-            for name in names[:max_jobs]:
-                if name.endswith(".txt"):
-                    with zf.open(name) as f:
-                        lines_collected.append(f.read().decode("utf-8", errors="replace"))
-    except zipfile.BadZipFile:
-        print(f"  [ocr_depth] bad zip for run {run_id}", file=sys.stderr)
-    return "\n".join(lines_collected)
+    jobs = jobs_data.get("jobs", [])[:max_jobs]
+    texts = []
+    for job in jobs:
+        jid = job.get("id")
+        if not jid:
+            continue
+        try:
+            raw = gh_api_raw(f"https://api.github.com/repos/{REPO}/actions/jobs/{jid}/logs")
+            texts.append(raw.decode("utf-8", errors="replace"))
+        except RuntimeError as e:
+            print(f"  [ocr_depth] job {jid} log failed: {e}", file=sys.stderr)
+    return "\n".join(texts)
 
 
 # 日志正则：匹配 "=== shard N OCR X new, Y/Z done ==="
