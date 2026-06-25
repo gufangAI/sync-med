@@ -889,7 +889,105 @@ def main():
         _push_issue(today, top_items, raw_counts, total_raw, total_analyzed,
                     elapsed, models_used)
 
+    # ── 9. 微信推送: Server酱 (云端+本地均可，只要 SERVERCHAN_KEY 有值) ──
+    push_wechat(today, top_items, raw_counts, total_raw, total_analyzed,
+                elapsed, models_used)
+
     return out_path
+
+
+def push_wechat(today: str, top_items: list, raw_counts: dict,
+                total_raw: int, total_analyzed: int,
+                elapsed: float, models_used: list):
+    """
+    通过 Server酱推微信通知。
+    SendKey 从环境变量 SERVERCHAN_KEY 读，绝不明文写进代码。
+    Server酱 POST: https://sctapi.ftqq.com/{key}.send
+    body: title=... & desp=...  (Content-Type: application/x-www-form-urlencoded, UTF-8)
+    desp 官方限约 32KB；太长推摘要 + "详见 GitHub Issue"。
+    """
+    send_key = os.environ.get("SERVERCHAN_KEY", "").strip()
+    if not send_key:
+        print("[微信推送] SERVERCHAN_KEY 未设置，跳过", flush=True)
+        return
+
+    top_n = len(top_items)
+    rate  = f"{top_n/total_analyzed*100:.1f}%" if total_analyzed else "N/A"
+
+    # ── title: 日期 + 核心 KPI（微信通知标题，简短）──
+    wechat_title = (
+        f"情报日报 {today} | 抓取 {total_raw} | 精华 {top_n} ({rate})"
+    )
+
+    # ── desp: TOP 10 精华 + KPI 摘要（Markdown）──
+    lines = [
+        f"## 情报雷达日报 · {today}",
+        "",
+        f"> 抓取 **{total_raw}** 条 | 精华 **{top_n}** 条 | 精华率 {rate}",
+        f"> 模型: {', '.join(models_used)} | 耗时: {elapsed:.0f}s",
+        "",
+        "### 精华 TOP 10",
+        "",
+    ]
+    for i, item in enumerate(top_items[:10], 1):
+        score = item["score"]
+        stars = "⭐" * score
+        cat   = item.get("category", "未分类")
+        title_item = item["title"][:60]
+        url   = item.get("url", "")
+        reason = item.get("reason", "")[:80]
+        if url:
+            lines.append(f"{i}. [{title_item}]({url})")
+        else:
+            lines.append(f"{i}. {title_item}")
+        lines.append(f"   {stars} [{cat}] {reason}")
+        lines.append("")
+    lines += [
+        "---",
+        "### KPI",
+        f"- 原始总量: **{total_raw}** 条",
+        f"- 实际分析: {total_analyzed} 条",
+        f"- 精华 TOP: **{top_n}** 条",
+        f"- 精华率: {rate}",
+        "",
+        "*详细报告见 GitHub Issues → gufangAI/sync-med*",
+    ]
+    desp = "\n".join(lines)
+
+    # Server酱 desp 限约 32KB，保险截断
+    MAX_DESP = 30000
+    if len(desp.encode("utf-8")) > MAX_DESP:
+        desp = desp[:MAX_DESP // 3] + "\n\n...(内容过长已截断，详见 GitHub Issue)"
+
+    url_api = f"https://sctapi.ftqq.com/{send_key}.send"
+    payload = urllib.parse.urlencode({
+        "title": wechat_title,
+        "desp":  desp,
+    }).encode("utf-8")
+
+    print(f"\n[微信推送] Server酱推送中 ...", flush=True)
+    try:
+        req = urllib.request.Request(
+            url_api, data=payload, method="POST",
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+            result = json.loads(body)
+            if result.get("errno") == 0 or result.get("code") == 0:
+                pushid = result.get("data", {}).get("pushid", result.get("pushid", "?"))
+                print(f"  [OK] 微信推送成功 | pushid={pushid}", flush=True)
+            else:
+                print(f"  [WARN] Server酱返回非0: {body[:200]}", flush=True)
+    except urllib.error.HTTPError as e:
+        body = ""
+        try:
+            body = e.read().decode("utf-8", errors="replace")[:300]
+        except Exception:
+            pass
+        print(f"  [ERROR] 微信推送 HTTP {e.code}: {body}", flush=True)
+    except Exception as e:
+        print(f"  [ERROR] 微信推送失败: {e}", flush=True)
 
 
 def _push_issue(today: str, top_items: list, raw_counts: dict,

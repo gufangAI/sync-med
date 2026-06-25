@@ -55,6 +55,8 @@ jobs:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           # gh CLI 用 GITHUB_TOKEN 自动鉴权，无需额外配置
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Server酱微信推送 key — 从 repo secrets 读
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
         run: |
           EXTRA_ARGS=""
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
