@@ -1,0 +1,63 @@
+# ============================================================
+# 情报雷达 · 每日自动运行
+# 放置路径: gufangAI/sync-med/.github/workflows/intel-radar.yml
+#
+# 触发: 每天 UTC 00:00 (北京时间 08:00) + 手动触发
+# 产出: 创建 Issue 到 gufangAI/sync-med → 手机通知
+# Runner: ubuntu-latest (标准 runner,public repo 真免费)
+# ============================================================
+
+name: Intel Radar Daily Report
+
+on:
+  schedule:
+    # UTC 00:00 = 北京时间 08:00
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: '调试模式 (输出更多日志)'
+        required: false
+        default: 'false'
+
+# 防止同一时段重叠运行
+concurrency:
+  group: intel-radar
+  cancel-in-progress: false   # 不取消进行中的,排队等待
+
+jobs:
+  daily-report:
+    name: Generate & Push Daily Intel Report
+    runs-on: ubuntu-latest   # 标准 runner,public repo 免费
+    timeout-minutes: 15
+
+    permissions:
+      issues: write   # gh issue create 需要
+      contents: read
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Intel Radar
+        env:
+          # LLM keys — 从 repo secrets 读,绝不明文
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          ZHIPU_API_KEY:  ${{ secrets.ZHIPU_API_KEY }}
+          # gh CLI 用 GITHUB_TOKEN 自动鉴权,无需额外配置
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/intel_radar/daily_report_cloud.py
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: intel-radar-report-${{ github.run_id }}
+          path: scripts/intel_radar/reports/
+          retention-days: 30
