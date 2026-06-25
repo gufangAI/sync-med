@@ -32,7 +32,7 @@ from pathlib import Path
 
 # 模型优先级: NVIDIA NIM DeepSeek → 智谱 GLM-4-Flash
 NVIDIA_BASE  = "https://integrate.api.nvidia.com/v1"
-NVIDIA_MODEL = "deepseek-ai/deepseek-r1"
+NVIDIA_MODEL = "deepseek-ai/deepseek-v4-pro"  # r1 已从 NIM 下线，改用 v4-pro
 ZHIPU_BASE   = "https://open.bigmodel.cn/api/paas/v4"
 ZHIPU_MODEL  = "glm-4-flash"
 
