@@ -831,8 +831,10 @@ def main():
         # 确定调用模型列表
         if use_gateway:
             active_models = GATEWAY_MODELS
+        elif ZHIPU_KEY:
+            active_models = [ZHIPU_MODEL]   # _call_llm_sync 里走 ZHIPU_BASE
         else:
-            active_models = ["fallback"]  # _call_llm_sync 里会走云端
+            active_models = [NVIDIA_MODEL]  # _call_llm_sync 里走 NVIDIA_BASE
 
         raw_picks = asyncio.run(
             analyze_all_parallel(analyze_items, use_gateway, active_models)
