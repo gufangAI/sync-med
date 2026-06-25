@@ -1,10 +1,10 @@
 # ============================================================
-# 情报雷达 v3 · 每日自动运行
-# 放置路径: gufangAI/sync-med/.github/workflows/intel-radar.yml
+# 情报雷达 v3  ·  每日自动运行
+# 路径: gufangAI/sync-med/.github/workflows/intel-radar.yml
 #
 # 触发: 每天 UTC 02:00 (北京时间 10:00) + 手动触发
-# 产出: 创建 Issue 到 gufangAI/sync-med → 手机通知
-# Runner: ubuntu-latest (标准 runner, public repo 真免费)
+# 推送: 报告只存 artifact (私有, 仅仓库成员可下载), 不 public Issue
+# Runner: ubuntu-latest (标准 runner, public repo 完全免费)
 # ============================================================
 
 name: Intel Radar Daily Report v3
@@ -24,20 +24,19 @@ on:
         required: false
         default: 'false'
 
-# 防止同一时段重叠运行
+# 禁止同一时间重叠运行
 concurrency:
   group: intel-radar
-  cancel-in-progress: false   # 不取消进行中的，排队等待
+  cancel-in-progress: false   # 不取消已在运行的，排队等待
 
 jobs:
   daily-report:
-    name: Generate & Push Daily Intel Report v3
-    runs-on: ubuntu-latest   # 标准 runner, public repo 真免费
+    name: Generate Daily Intel Report v3
+    runs-on: ubuntu-latest   # 标准 runner, public repo 完全免费
     timeout-minutes: 30      # 海量抓取 + 并行分析需要时间
 
     permissions:
-      issues: write   # gh issue create 需要
-      contents: read
+      contents: read   # 只读仓库内容，不需要 issues: write
 
     steps:
       - name: Checkout repo
@@ -50,13 +49,15 @@ jobs:
 
       - name: Run Intel Radar v3 (cloud mode)
         env:
-          # LLM keys — 从 repo secrets 读，绝不明文进代码
+          # LLM keys — 从 repo secrets 读，绝不明文写进代码
           ZHIPU_API_KEY:  ${{ secrets.ZHIPU_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          # gh CLI 用 GITHUB_TOKEN 自动鉴权，无需额外配置
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Server酱微信推送 key — 从 repo secrets 读
-          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+          # 私有邮件推送 (可选，不填则跳过)
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_TO:   ${{ secrets.MAIL_TO }}
         run: |
           EXTRA_ARGS=""
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
