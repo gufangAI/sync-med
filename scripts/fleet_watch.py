@@ -28,9 +28,9 @@ TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
 # 被盯的 workflow 文件名 -> 显示名 + 异常阈值(小时)
 WORKFLOWS = {
-    "ocr.yml":         {"name": "OCR",         "alert_hours": 8},
+    "ocr.yml":         {"name": "OCR",          "alert_hours": 8},
     "sync.yml":        {"name": "sync",         "alert_hours": 24},
-    "guji_backup.yml": {"name": "guji_backup",  "alert_hours": 24},
+    "guji_sync.yml":   {"name": "guji-sync(古籍迁移)", "alert_hours": 6},
 }
 
 # OCR 深度检查参数
