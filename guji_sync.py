@@ -4,7 +4,8 @@
 # Method: R2 get_object -> 123 upload API (create/get_url/PUT/complete).
 # ⚠️ S.put timeout MUST be 1200s -- proven by sync.py (115 concurrent, 6501 books ok).
 # Safety: zero R2 delete, reuse-skip idempotent, ledger per shard.
-import os, json, time, hashlib, boto3, requests
+import os, json, time, hashlib, threading, boto3, requests
+from concurrent.futures import ThreadPoolExecutor
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
@@ -28,17 +29,23 @@ s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK,
                   config=Config(connect_timeout=15, read_timeout=120,
                                 retries={"max_attempts": 3}))
 _S = requests.Session(); _S.trust_env = False
+# 大连接池支持页级并发(默认池仅10,并发会排队拖慢)
+_adapter = requests.adapters.HTTPAdapter(pool_connections=64, pool_maxsize=64)
+_S.mount("https://", _adapter); _S.mount("http://", _adapter)
 _tok = {"v": None}
+_tok_lock = threading.Lock()
+PAGE_CONC = int(os.environ.get("PAGE_CONCURRENCY", "8"))  # shard内每本书页级并发数
 
 
 # ---------- 123pan API helpers ----------
 def token():
-    if _tok["v"] is None:
-        r = _S.post(PAN + "/api/v1/access_token",
-                    headers={"Platform": "open_platform"},
-                    json={"clientID": PCID, "clientSecret": PSEC}, timeout=60).json()
-        _tok["v"] = (r.get("data") or {}).get("accessToken")
-    return _tok["v"]
+    with _tok_lock:  # 线程安全:并发页只取一次token
+        if _tok["v"] is None:
+            r = _S.post(PAN + "/api/v1/access_token",
+                        headers={"Platform": "open_platform"},
+                        json={"clientID": PCID, "clientSecret": PSEC}, timeout=60).json()
+            _tok["v"] = (r.get("data") or {}).get("accessToken")
+        return _tok["v"]
 
 
 def pan(method, path, body=None, params=None):
@@ -144,33 +151,38 @@ def put_bytes(data, dir_id, name):
     return "ok"
 
 
-# ---------- per-book handler ----------
+# ---------- per-book handler (页级并发: 治"180 shard串行只做6%"根因) ----------
 def handle_book(book_id, page_count):
-    """Download each page from R2 and upload directly to 123pan."""
+    """Download each page from R2 and upload to 123pan, PAGE_CONC pages in parallel."""
     dir_id = get_book_dir(book_id)
     if not dir_id:
         return {"book_id": book_id, "pages": page_count, "ok": 0, "reuse": 0,
                 "err": 1, "r2_miss": 0, "note": "no_dir"}
-    ok = reuse = err = r2_miss = 0
 
-    for pn in range(1, page_count + 1):
+    def put_page(pn):
         r2_key = f"{PFX}/{book_id}/page_{pn:04d}.webp"
         try:
             data = s3.get_object(Bucket=BKT, Key=r2_key)["Body"].read()
         except ClientError as ex:
             code = ex.response.get("Error", {}).get("Code", "")
             if code in ("404", "NoSuchKey", "NotFound"):
+                return "miss"
+            return "err:r2"
+        except Exception:
+            return "err:r2x"
+        return put_bytes(data, dir_id, f"page_{pn:04d}.webp")
+
+    ok = reuse = err = r2_miss = 0
+    with ThreadPoolExecutor(max_workers=PAGE_CONC) as pool:
+        for result in pool.map(put_page, range(1, page_count + 1)):
+            if result == "ok":
+                ok += 1
+            elif result == "reuse":
+                reuse += 1
+            elif result == "miss":
                 r2_miss += 1
-                continue
-            raise
-        result = put_bytes(data, dir_id, f"page_{pn:04d}.webp")
-        if result == "ok":
-            ok += 1
-        elif result == "reuse":
-            reuse += 1
-        else:
-            err += 1
-            print(f"  WARN {book_id} p{pn}: {result}", flush=True)
+            else:
+                err += 1
 
     return {"book_id": book_id, "pages": page_count,
             "ok": ok, "reuse": reuse, "err": err, "r2_miss": r2_miss}
@@ -181,8 +193,8 @@ def main():
     pages = json.loads(s3.get_object(Bucket=BKT, Key=PAGES_KEY)["Body"].read())
     items = sorted(pages.items())
     mine = [(b, pc) for i, (b, pc) in enumerate(items) if i % TOTAL == SHARD]
-    print(f"shard {SHARD}/{TOTAL}: {len(mine)} books / {sum(pc for _,pc in mine)} pages",
-          flush=True)
+    print(f"shard {SHARD}/{TOTAL}: {len(mine)} books / {sum(pc for _,pc in mine)} pages "
+          f"| PAGE_CONC={PAGE_CONC}", flush=True)
 
     preload_book_dirs()
 
