@@ -90,42 +90,10 @@ jobs:
           SHARD:     ${{ matrix.shard }}
           TOTAL:     ${{ github.event.inputs.total || '50' }}
           MAX_PENDING: ${{ github.event.inputs.max_pending || '20' }}
-          HALVES: "2"
+          HALVES: "1"
           HALF: "0"
 
-  # ── 主账号:传另一半(HALF=1)到主账号目录 R2古籍webp备份,和项目账号完全分开 ──
-  run_main:
-    needs: prep
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      max-parallel: 256
-      matrix:
-        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
-    timeout-minutes: 350
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install --quiet boto3 requests
-      - name: migrate shard (main account)
-        run: python guji_sync.py main
-        env:
-          S_EP:      ${{ secrets.S_EP }}
-          S_AK:      ${{ secrets.S_AK }}
-          S_SK:      ${{ secrets.S_SK }}
-          S_BUCKET:  ${{ github.event.inputs.bucket || 'guji-sea' }}
-          S_PREFIX:  ${{ github.event.inputs.prefix || 'naj' }}
-          PAN_BASE:  ${{ secrets.PAN_BASE }}
-          PAN_CID:   ${{ secrets.PAN_CID2 }}
-          PAN_SEC:   ${{ secrets.PAN_SEC2 }}
-          PAN_GUJI_DIR: ${{ secrets.PAN_GUJI_DIR2 }}
-          SHARD:     ${{ matrix.shard }}
-          TOTAL:     ${{ github.event.inputs.total || '50' }}
-          MAX_PENDING: ${{ github.event.inputs.max_pending || '20' }}
-          HALVES: "2"
-          HALF: "1"
+  # 主账号 100% 让给客户端(11MB/s),open-api 只用项目账号,绝不和客户端抢 token
 
   # ── AUDIT: compare R2 vs 123, print K=? ──
   audit:
