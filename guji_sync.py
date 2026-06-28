@@ -133,13 +133,22 @@ def put_bytes(data, dir_id, name):
         if "重复" in msg or "已存在" in msg or "exist" in msg.lower():
             return "reuse"
         return "err:create:" + msg[:50]
-    url_r = pan("POST", "/upload/v1/file/get_upload_url", {"preuploadID": pid, "sliceNo": 1})
-    url = (url_r.get("data") or {}).get("presignedURL")
-    if not url:
-        return "err:no_purl"
-    pr = _S.put(url, data=data, timeout=1200)  # 1200s: proven慷慨超时·绝不改短
-    if pr.status_code not in (200, 204):
-        return f"err:put_{pr.status_code}"
+    # PUT分片·健壮重试(治连接重置10054·跨境偶发断连·migrate_local已验证)
+    ok_put = False
+    for _att in range(5):
+        url_r = pan("POST", "/upload/v1/file/get_upload_url", {"preuploadID": pid, "sliceNo": 1})
+        url = (url_r.get("data") or {}).get("presignedURL")
+        if not url:
+            time.sleep(2); continue
+        try:
+            pr = _S.put(url, data=data, timeout=1200)  # 1200s慷慨超时·绝不改短
+            if pr.status_code in (200, 204):
+                ok_put = True; break
+            time.sleep(1.5 * (_att + 1))
+        except Exception:
+            time.sleep(1.5 * (_att + 1))
+    if not ok_put:
+        return "err:put"
     cd = (pan("POST", "/upload/v1/file/upload_complete", {"preuploadID": pid}).get("data") or {})
     if cd.get("async"):
         for _ in range(180):
