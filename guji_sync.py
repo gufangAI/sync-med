@@ -34,7 +34,7 @@ _adapter = requests.adapters.HTTPAdapter(pool_connections=64, pool_maxsize=64)
 _S.mount("https://", _adapter); _S.mount("http://", _adapter)
 _tok = {"v": None}
 _tok_lock = threading.Lock()
-PAGE_CONC = int(os.environ.get("PAGE_CONCURRENCY", "8"))  # shard内每本书页级并发数
+PAGE_CONC = int(os.environ.get("PAGE_CONCURRENCY", "3"))  # shard内每本书页级并发数(降到3治429空壳)
 
 
 # ---------- 123pan API helpers ----------
@@ -160,13 +160,33 @@ def put_bytes(data, dir_id, name):
     return "ok"
 
 
-# ---------- per-book handler (页级并发: 治"180 shard串行只做6%"根因) ----------
+# ---------- per-book handler (幂等:跳过已传页·只补缺·验证完整·绝不留空壳) ----------
+def list_existing(dir_id):
+    """列出该书目录下已传的页文件名集合(幂等用,跳过已传)。"""
+    names = set(); last = 0
+    while True:
+        d = pan("GET", "/api/v2/file/list",
+                params={"parentFileId": dir_id, "limit": 100, "lastFileId": last})
+        fl = (d.get("data") or {}).get("fileList") or []
+        for it in fl:
+            if it.get("type") == 0:
+                names.add(it.get("filename"))
+        last = (d.get("data") or {}).get("lastFileId", -1)
+        if last in (-1, None) or not fl:
+            break
+    return names
+
+
 def handle_book(book_id, page_count):
-    """Download each page from R2 and upload to 123pan, PAGE_CONC pages in parallel."""
+    """幂等补缺:只传没传过的页;put_bytes 内含重试(治429);核页数,够了才算完整。"""
     dir_id = get_book_dir(book_id)
     if not dir_id:
         return {"book_id": book_id, "pages": page_count, "ok": 0, "reuse": 0,
-                "err": 1, "r2_miss": 0, "note": "no_dir"}
+                "err": 1, "r2_miss": 0, "note": "no_dir", "complete": False}
+
+    existing = list_existing(dir_id)            # 已传的页(幂等跳过)
+    todo = [pn for pn in range(1, page_count + 1)
+            if f"page_{pn:04d}.webp" not in existing]
 
     def put_page(pn):
         r2_key = f"{PFX}/{book_id}/page_{pn:04d}.webp"
@@ -181,20 +201,21 @@ def handle_book(book_id, page_count):
             return "err:r2x"
         return put_bytes(data, dir_id, f"page_{pn:04d}.webp")
 
-    ok = reuse = err = r2_miss = 0
+    ok = len(existing); reuse = err = r2_miss = 0
     with ThreadPoolExecutor(max_workers=PAGE_CONC) as pool:
-        for result in pool.map(put_page, range(1, page_count + 1)):
+        for result in pool.map(put_page, todo):
             if result == "ok":
                 ok += 1
             elif result == "reuse":
-                reuse += 1
+                ok += 1; reuse += 1
             elif result == "miss":
                 r2_miss += 1
             else:
                 err += 1
 
-    return {"book_id": book_id, "pages": page_count,
-            "ok": ok, "reuse": reuse, "err": err, "r2_miss": r2_miss}
+    complete = ok >= (page_count - r2_miss)     # 扣掉R2本身没有的页,够了才算完整
+    return {"book_id": book_id, "pages": page_count, "ok": ok, "reuse": reuse,
+            "err": err, "r2_miss": r2_miss, "complete": complete}
 
 
 # ---------- main ----------
