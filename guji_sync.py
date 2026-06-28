@@ -34,7 +34,7 @@ _adapter = requests.adapters.HTTPAdapter(pool_connections=64, pool_maxsize=64)
 _S.mount("https://", _adapter); _S.mount("http://", _adapter)
 _tok = {"v": None}
 _tok_lock = threading.Lock()
-PAGE_CONC = int(os.environ.get("PAGE_CONCURRENCY", "3"))  # shard内每本书页级并发数(降到3治429空壳)
+PAGE_CONC = int(os.environ.get("PAGE_CONCURRENCY", "8"))  # 页级并发(共用进程内1个token,跑满9页/秒)
 
 
 # ---------- 123pan API helpers ----------
