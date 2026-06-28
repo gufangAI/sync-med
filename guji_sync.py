@@ -201,6 +201,11 @@ def handle_book(book_id, page_count):
 def main():
     pages = json.loads(s3.get_object(Bucket=BKT, Key=PAGES_KEY)["Body"].read())
     items = sorted(pages.items())
+    # 双号split:HALVES=2时按账号分两半,各账号只传自己那半;HALVES=1=单号全量(默认)
+    HALVES = int(os.environ.get("HALVES", "1"))
+    HALF = int(os.environ.get("HALF", "0"))
+    if HALVES > 1:
+        items = [it for j, it in enumerate(items) if j % HALVES == HALF]
     mine = [(b, pc) for i, (b, pc) in enumerate(items) if i % TOTAL == SHARD]
     print(f"shard {SHARD}/{TOTAL}: {len(mine)} books / {sum(pc for _,pc in mine)} pages "
           f"| PAGE_CONC={PAGE_CONC}", flush=True)
