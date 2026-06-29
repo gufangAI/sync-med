@@ -257,13 +257,19 @@ def main():
 def audit():
     pages = json.loads(s3.get_object(Bucket=BKT, Key=PAGES_KEY)["Body"].read())
     total_expected = sum(int(v) for v in pages.values())
-    resp = s3.list_objects_v2(Bucket=BKT, Prefix=LEDGER_PFX)
     total_ok = total_reuse = total_err = 0
-    for obj in (resp.get("Contents") or []):
-        if not obj["Key"].endswith(".json"):
-            continue
-        data = json.loads(s3.get_object(Bucket=BKT, Key=obj["Key"])["Body"].read())
+    # zero-LIST (guard): construct shard ledger keys from TOTAL, no list_objects
+    for shard in range(TOTAL):
+        key = LEDGER_PFX + f"shard_{shard}.json"
+        try:
+            data = json.loads(s3.get_object(Bucket=BKT, Key=key)["Body"].read())
+        except Exception:
+            continue  # shard ledger not written yet
+        if not isinstance(data, list):
+            continue  # skip malformed ledger
         for rec in data:
+            if not isinstance(rec, dict):
+                continue  # robust: skip non-dict record
             total_ok    += rec.get("ok", 0)
             total_reuse += rec.get("reuse", 0)
             total_err   += rec.get("err", 0)

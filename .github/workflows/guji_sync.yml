@@ -118,3 +118,4 @@ jobs:
           PAN_CID:  ${{ secrets.PAN_CID }}
           PAN_SEC:  ${{ secrets.PAN_SEC }}
           PAN_GUJI_DIR: ${{ secrets.PAN_GUJI_DIR }}
+          TOTAL:    ${{ github.event.inputs.total || '50' }}
