@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       total:
-        description: "shard count (concurrency). Start with 50 for test, up to 200 for full run."
-        default: "50"
+        description: "shard count. 123 token limit: keep <=3 (>3 = token overflow empty-shells). default 3 = safe+fast."
+        default: "3"
       bucket:
         description: "R2 source bucket"
         default: "guji-sea"
@@ -45,7 +45,7 @@ jobs:
           print('shards=' + json.dumps(list(range(T))))
           " >> "$GITHUB_OUTPUT"
         env:
-          T: ${{ github.event.inputs.total || '50' }}
+          T: ${{ github.event.inputs.total || '3' }}
       - name: prep (scan 123 done-set)
         run: python guji_sync.py prep
         env:
@@ -88,7 +88,7 @@ jobs:
           PAN_SEC:   ${{ secrets.PAN_SEC }}
           PAN_GUJI_DIR: ${{ secrets.PAN_GUJI_DIR }}
           SHARD:     ${{ matrix.shard }}
-          TOTAL:     ${{ github.event.inputs.total || '50' }}
+          TOTAL:     ${{ github.event.inputs.total || '3' }}
           MAX_PENDING: ${{ github.event.inputs.max_pending || '20' }}
           HALVES: "1"
           HALF: "0"
@@ -118,4 +118,4 @@ jobs:
           PAN_CID:  ${{ secrets.PAN_CID }}
           PAN_SEC:  ${{ secrets.PAN_SEC }}
           PAN_GUJI_DIR: ${{ secrets.PAN_GUJI_DIR }}
-          TOTAL:    ${{ github.event.inputs.total || '50' }}
+          TOTAL:    ${{ github.event.inputs.total || '3' }}
