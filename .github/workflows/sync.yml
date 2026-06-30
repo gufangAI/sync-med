@@ -7,7 +7,7 @@ on:
     inputs:
       total:
         description: shard count (concurrency)
-        default: "256"
+        default: "3"
 concurrency:
   group: sync-med
   cancel-in-progress: false
@@ -47,7 +47,7 @@ jobs:
     timeout-minutes: 120         # 硬闸:超 2 小时 GitHub 杀(防卡死·06-20 慢上传留足时间·幂等 skip-done 下次续)
     strategy:
       fail-fast: false
-      max-parallel: 256
+      max-parallel: 3
       matrix:
         shard: ${{ fromJSON(needs.prep.outputs.shards) }}
     steps:
