@@ -457,6 +457,191 @@ ANALYZE_PROMPT_TPL = """你是 SueAI 情报雷达分析大脑。
 无相关条目时输出 []。"""
 
 
+# ── 多学科综合研判 (v3.3 增量 · 总情报官五维度) ──────────────────────────────
+# 现状: 上面 ANALYZE_PROMPT_TPL 只做"单条目相关性打分+分类"(论文/仓库摘要级)。
+# 这里加一层: 把当天已筛出的精华信号(top_items)再喂给 LLM 一次，
+# 做"总情报官"式跨维度研判，而不是停在"AI 论文摘要"。
+# 5 维度: 技术 / 中医知识 / 竞品 / 变现 / 风险。
+# 铁律: 某维度今天的信号里确实没有相关内容 → 必须如实标 no_signal，不许硬编凑数。
+# 不动抓取源、不动 ANALYZE_PROMPT_TPL 本身，只新增这一道综合研判。
+SYNTHESIS_DIMENSIONS = ["技术", "中医知识", "竞品", "变现", "风险"]
+
+SYNTHESIS_PROMPT = """你是 SueAI 平台的总情报官，要把今天扫到的信号做"多学科综合研判"，
+不是写论文摘要，是给平台 CTO 一份能直接拍板的决策简报。
+
+{context}
+
+今天的精华信号 (已按相关性筛过，含 标题/来源/分类/打分理由):
+{items}
+
+请把这些信号(以及你能从中合理推断的关联)归到以下 5 个维度，判断对我们"有没有用、要不要动":
+1. 技术 — 对我们判断引擎/网络架构有用的 (RAG/OCR/Agent 编排/模型/基础设施)
+2. 中医知识 — 古籍数字化/医案/中医 AI 相关
+3. 竞品 — 中医 AI 赛道动态 (若信号里没有，如实说没有)
+4. 变现 — 社媒/AI 内容变现相关 (若信号里没有，如实说没有)
+5. 风险 — 合规/监管动态 (若信号里没有，如实说没有)
+
+铁律: 严禁为了凑数硬编。某维度今天信号里确实没有相关内容，就在该维度输出
+no_signal=true + note="今日无新信号"，绝不编造无中生有的"发现"。
+
+每条发现必须含: finding(发现是什么) / meaning(对我们意味着什么) / action(要不要行动，
+给具体建议，或明说"先观察不动")。每个维度最多 3 条，没有就标 no_signal。
+
+只输出 JSON，无多余文字，严格按此结构:
+{{
+  "技术":    {{"no_signal": false, "items": [{{"finding":"...","meaning":"...","action":"..."}}]}},
+  "中医知识": {{"no_signal": false, "items": [...]}},
+  "竞品":    {{"no_signal": true,  "note": "今日无新信号", "items": []}},
+  "变现":    {{"no_signal": true,  "note": "今日无新信号", "items": []}},
+  "风险":    {{"no_signal": true,  "note": "今日无新信号", "items": []}}
+}}"""
+
+
+def build_synthesis_input(top_items: list, opensource_results: Optional[list] = None,
+                          skill_results_data: Optional[dict] = None, max_items: int = 40) -> str:
+    """把当天精华信号拼成多学科研判 prompt 的输入文本 (opensource/skill 暂为预留参数，本版未接)"""
+    lines = []
+    idx = 1
+    for item in top_items[:max_items]:
+        lines.append(
+            f"[{idx}] [{item.get('category','')}] {item.get('title','')}\n"
+            f"    来源:{item.get('source','')} | 打分:{item.get('score','')}/5 | "
+            f"{item.get('reason','')[:120]}"
+        )
+        idx += 1
+    for r in (opensource_results or [])[:15]:
+        lines.append(
+            f"[{idx}] [开源精华] {r.get('title','')}\n"
+            f"    创新:{r.get('innovation','')[:100]} | 吸收:{r.get('absorb','')[:100]}"
+        )
+        idx += 1
+    if skill_results_data:
+        for entry in skill_results_data.values():
+            dname = entry.get("domain", {}).get("name", "")
+            for kh in entry.get("knowhows", [])[:2]:
+                lines.append(
+                    f"[{idx}] [技能情报/{dname}] {kh.get('knowhow','')[:120]}\n"
+                    f"    用于:{kh.get('apply_to','')[:80]}"
+                )
+                idx += 1
+    return "\n\n".join(lines) if lines else "(今日无精华信号)"
+
+
+def generate_synthesis(top_items: list, use_gateway: bool, models_used: list) -> Optional[dict]:
+    """
+    多学科综合研判: 一次 LLM 调用，把今天的精华信号按 5 维度
+    (技术/中医知识/竞品/变现/风险) 输出"发现+对我们意味着什么+要不要行动"。
+    某维度无信号必须如实标注，不硬编。
+    返回: {dimension: {"no_signal": bool, "note": str, "items": [...]}, ...} 或 None(失败)
+    """
+    items_text = build_synthesis_input(top_items)
+    prompt = SYNTHESIS_PROMPT.format(context=SUEAI_CONTEXT, items=items_text)
+    messages = [{"role": "user", "content": prompt}]
+    model_to_use = models_used[0] if models_used else "glm-4-flash"
+
+    print(f"\n[多学科研判] 调 {model_to_use} 做五维度综合 ...", flush=True)
+    try:
+        response = _call_llm_sync(model_to_use, messages, max_tokens=2000, use_gateway=use_gateway)
+    except Exception as e:
+        print(f"  [多学科研判] LLM 调用失败: {e}")
+        return None
+
+    text = response.strip()
+    if text.startswith("```"):
+        inner = []
+        for line in text.split("\n")[1:]:
+            if line.strip() == "```":
+                break
+            inner.append(line)
+        text = "\n".join(inner)
+
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        m = re.search(r"\{.*\}", text, re.DOTALL)
+        if m:
+            try:
+                data = json.loads(m.group())
+            except json.JSONDecodeError:
+                print(f"  [多学科研判] JSON 解析失败: {text[:200]}")
+                return None
+        else:
+            print(f"  [多学科研判] 无法解析: {text[:200]}")
+            return None
+
+    if not isinstance(data, dict):
+        print(f"  [多学科研判] 返回非 dict 结构，丢弃: {str(data)[:200]}")
+        return None
+
+    # 校验结构完整性 (5 维度都在，缺的补 no_signal，绝不替模型编造内容)
+    for dim in SYNTHESIS_DIMENSIONS:
+        if dim not in data or not isinstance(data.get(dim), dict):
+            data[dim] = {"no_signal": True, "note": "今日无新信号", "items": []}
+
+    summary_bits = []
+    for dim in SYNTHESIS_DIMENSIONS:
+        if data[dim].get("no_signal"):
+            summary_bits.append(f"{dim}(无信号)")
+        else:
+            summary_bits.append(f"{dim}({len(data[dim].get('items', []))}条)")
+    print("  [多学科研判] 完成: " + ", ".join(summary_bits))
+    return data
+
+
+def generate_synthesis_section(synthesis: Optional[dict]) -> str:
+    """生成'今日多学科研判'板块 Markdown (日报头部，五维度: 技术/中医知识/竞品/变现/风险)"""
+    if not synthesis:
+        return (
+            "## 🧭 今日多学科研判\n\n"
+            "> 本次综合研判未生成(LLM 调用失败或跳过)，五维度判断暂缺，"
+            "详见下方逐条精华情报。\n\n"
+            "---\n"
+        )
+
+    DIM_EMOJI = {"技术": "🔧", "中医知识": "📖", "竞品": "🎯", "变现": "💰", "风险": "🛡️"}
+    lines = [
+        "## 🧭 今日多学科研判",
+        "",
+        "> 总情报官五维度综合 (技术/中医知识/竞品/变现/风险) | 无信号维度如实标注，不硬编",
+        "",
+    ]
+    for dim in SYNTHESIS_DIMENSIONS:
+        entry = synthesis.get(dim) or {"no_signal": True, "note": "今日无新信号", "items": []}
+        emoji = DIM_EMOJI.get(dim, "📌")
+        lines.append(f"### {emoji} {dim}")
+        lines.append("")
+        items = entry.get("items") or []
+        if entry.get("no_signal") or not items:
+            note = entry.get("note") or "今日无新信号"
+            lines.append(f"_{note}_")
+            lines.append("")
+            continue
+        for it in items:
+            lines.append(f"- **发现**: {it.get('finding','')}")
+            lines.append(f"  - 对我们意味着什么: {it.get('meaning','')}")
+            lines.append(f"  - 要不要行动: {it.get('action','')}")
+        lines.append("")
+    lines.append("---")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def build_d1_title_summary(today: str, synthesis: Optional[dict], total_top: int) -> tuple:
+    """给 D1 intel_reports 的 title/summary 字段构造短摘要 (人话，不是完整报告)"""
+    title = f"情报雷达日报 · {today}"
+    if not synthesis:
+        return title, f"今日精华 {total_top} 条 (多学科研判本次未生成，详见正文逐条情报)。"
+    bits = []
+    for dim in SYNTHESIS_DIMENSIONS:
+        entry = synthesis.get(dim) or {}
+        items = entry.get("items") or []
+        if entry.get("no_signal") or not items:
+            bits.append(f"{dim}:今日无新信号")
+        else:
+            bits.append(f"{dim}:{items[0].get('finding','')[:40]}")
+    return title, " | ".join(bits)
+
+
 def build_items_text(batch: list, offset: int = 0) -> str:
     lines = []
     for i, p in enumerate(batch):
@@ -650,8 +835,9 @@ def generate_report_v3(
     gateway_alive: bool,
     total_raw: int,
     total_analyzed: int,
+    synthesis_md: Optional[str] = None,
 ) -> str:
-    """生成 Markdown 报告"""
+    """生成 Markdown 报告 (头部多学科研判 + 精华情报)"""
     total_top = len(top_items)
     rate_str  = f"{total_top/total_analyzed*100:.1f}%" if total_analyzed else "N/A"
 
@@ -670,6 +856,13 @@ def generate_report_v3(
         "",
         "---",
         "",
+    ]
+
+    # 多学科研判板块 (v3.3 增量，放报告最前)
+    if synthesis_md:
+        lines.append(synthesis_md)
+
+    lines += [
         "## 精华情报 (按分值排序)",
         "",
     ]
@@ -851,16 +1044,34 @@ def main():
     top_items = merge_picks(analyze_items, raw_picks, top_n=args.top)
     print(f"[精华] 筛出 TOP {len(top_items)} 条 (score>=1)")
 
+    # ── 4b. 多学科综合研判 (v3.3 增量·总情报官五维度，独立调用，不影响上面任何步骤) ──
+    synthesis_data: Optional[dict] = None
+    if use_gateway or ZHIPU_KEY or NVIDIA_KEY:
+        active_models_syn = (GATEWAY_MODELS if use_gateway
+                             else ([ZHIPU_MODEL] if ZHIPU_KEY else [NVIDIA_MODEL]))
+        synthesis_data = generate_synthesis(top_items, use_gateway, active_models_syn)
+    else:
+        print("\n[多学科研判] 无 LLM 可用，跳过")
+
     # ── 5. 出报告 ──
     elapsed   = time.time() - t0
+    synthesis_md = generate_synthesis_section(synthesis_data)
     report_md = generate_report_v3(
         today, raw_counts, top_items, elapsed, models_used,
         gateway_alive, total_raw, total_analyzed,
+        synthesis_md=synthesis_md,
     )
 
     out_path = REPORTS_DIR / f"{today}_v3.md"
     out_path.write_text(report_md, encoding="utf-8")
     print(f"\n[完成] 报告写入: {out_path}")
+
+    # ── 5b. 自动喂进后台「情报鹰眼」(D1 intel_reports，幂等 upsert，失败绝不中断主流程) ──
+    try:
+        d1_title, d1_summary = build_d1_title_summary(today, synthesis_data, len(top_items))
+        push_d1_intel_report(today, d1_title, d1_summary, report_md)
+    except Exception as e:
+        print(f"  [D1写入] 未预期异常 (已捕获，不影响主流程): {e}", flush=True)
 
     # ── 6. 打印精华预览 ──
     print(f"\n{'='*64}")
@@ -894,6 +1105,64 @@ def main():
                 elapsed, models_used)
 
     return out_path
+
+
+# ── D1 写入: 自动喂进古方AI星图后台「情报鹰眼」(intel_reports 表) ───────────
+# 表结构已存在 (guyaofang-web/migrations/034_intel_reports.sql):
+#   id, report_date(UNIQUE), title, summary, content_md, created_at
+# 幂等: report_date 冲突 → UPDATE，不重复插入、重跑同一天不产生重复行。
+# 凭据: CF_ACCOUNT_ID / D1_API_TOKEN / D1_DATABASE_ID 从环境变量读 (GitHub Actions
+#       secrets 注入，沿用 guyaofang-web/tools/d1_apply.py 同一套命名)，
+#       不硬编码、不回显。任一缺失 → 跳过 (本地未配置时的正常现象，不报错)。
+# 失败可见但不致命: 失败会 print 到 stdout (Actions 日志里能看见)，
+#       但绝不让 D1 写入失败拖垮抓取分析主流程 (调用方必须 try/except 包住)。
+
+def push_d1_intel_report(report_date: str, title: str, summary: str, content_md: str) -> bool:
+    """把今日报告 upsert 进 guyaofang-db 的 intel_reports 表 (Cloudflare D1 REST API)"""
+    account_id  = os.environ.get("CF_ACCOUNT_ID", "").strip()
+    api_token   = os.environ.get("D1_API_TOKEN", "").strip()
+    database_id = os.environ.get("D1_DATABASE_ID", "").strip()
+
+    if not (account_id and api_token and database_id):
+        print("  [D1写入] CF_ACCOUNT_ID / D1_API_TOKEN / D1_DATABASE_ID 任一缺失，跳过"
+              " (本地/未配置环境的正常现象)", flush=True)
+        return False
+
+    url = (f"https://api.cloudflare.com/client/v4/accounts/{account_id}"
+           f"/d1/database/{database_id}/query")
+    sql = (
+        "INSERT INTO intel_reports (report_date, title, summary, content_md) "
+        "VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(report_date) DO UPDATE SET "
+        "title = excluded.title, summary = excluded.summary, content_md = excluded.content_md;"
+    )
+    payload = json.dumps({
+        "sql": sql,
+        "params": [report_date, title, summary, content_md],
+    }).encode("utf-8")
+
+    print(f"\n[D1写入] upsert intel_reports.report_date={report_date} ...", flush=True)
+    try:
+        raw = fetch_url(
+            url, timeout=30, data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_token}",
+            },
+        )
+        result = json.loads(raw)
+    except Exception as e:
+        print(f"  [D1写入] 请求失败 (不中断主流程): {e}", flush=True)
+        return False
+
+    if not result.get("success"):
+        errs = result.get("errors") or result.get("error") or result
+        print(f"  [D1写入] 失败 success=false (不中断主流程): "
+              f"{json.dumps(errs, ensure_ascii=False)[:300]}", flush=True)
+        return False
+
+    print(f"  [D1写入] OK -> intel_reports.report_date={report_date} (幂等 upsert)", flush=True)
+    return True
 
 
 def push_wechat(today: str, top_items: list, raw_counts: dict,
