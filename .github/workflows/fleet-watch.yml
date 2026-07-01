@@ -15,6 +15,7 @@ jobs:
     permissions:
       contents: read
       issues: write
+      actions: write   # 2026-07-01:自愈能力——检测到被监控workflow被禁用时自动重新启用
 
     steps:
       - name: Checkout

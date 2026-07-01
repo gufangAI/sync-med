@@ -363,7 +363,44 @@ def fmt_ocr_depth(depth: dict) -> list[str]:
 
 # ─── 原有 workflow 状态检查（v1 逻辑不变）────────────────────────────────────
 
+def gh_api_put(path: str) -> None:
+    """空 body 的 PUT（用于 enable workflow）。"""
+    url = f"https://api.github.com/{path.lstrip('/')}"
+    req = urllib.request.Request(url, method="PUT", headers={
+        "Authorization": f"Bearer {TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    })
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        resp.read()
+
+
+def self_heal_disabled(file_name: str, cfg: dict) -> str | None:
+    """
+    2026-07-01 新增(治根):发现被监控的 workflow 处于 disabled 状态(手动或自动禁用)
+    → 立即自动重新启用，不等人来看 Issue、不依赖任何外部通知/唤醒服务。
+    这是纯 GitHub Actions 内自愈，每小时巡查一次自动触发，最坏情况 1 小时内自愈。
+    返回:自愈动作说明(str)或 None(无需自愈)。
+    """
+    try:
+        wf = gh_api(f"repos/{REPO}/actions/workflows/{file_name}")
+    except RuntimeError as e:
+        return None  # 查不到就不处理，交给原有 alert 逻辑报告
+
+    state = wf.get("state", "")
+    if state == "active":
+        return None
+
+    try:
+        gh_api_put(f"repos/{REPO}/actions/workflows/{file_name}/enable")
+        return f"🔧 自愈: {cfg['name']} 原状态={state}，已自动重新启用"
+    except Exception as e:
+        return f"⚠️ 自愈失败: {cfg['name']} 原状态={state}，重新启用出错: {str(e)[:100]}"
+
+
 def check_workflow(file_name: str, cfg: dict, now: datetime) -> dict:
+    heal_note = self_heal_disabled(file_name, cfg)
+
     path = f"repos/{REPO}/actions/workflows/{file_name}/runs?per_page=10&exclude_pull_requests=true"
     try:
         data = gh_api(path)
@@ -374,7 +411,7 @@ def check_workflow(file_name: str, cfg: dict, now: datetime) -> dict:
             "last_conclusion": "API_ERROR",
             "is_running": False,
             "alert": True,
-            "note": str(e)[:120],
+            "note": (heal_note + "; " if heal_note else "") + str(e)[:120],
         }
 
     runs = data.get("workflow_runs", [])
@@ -421,7 +458,7 @@ def check_workflow(file_name: str, cfg: dict, now: datetime) -> dict:
         "last_conclusion": last_conclusion or "running",
         "is_running": is_running,
         "alert": alert,
-        "note": "",
+        "note": heal_note or "",
     }
 
 
