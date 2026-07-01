@@ -1,0 +1,85 @@
+name: vectorize-ingest
+
+# RAG 灌库云端化(2026-07-01):把 SueAI 讯飞向量(核心集10062本·31.5GB)灌进 CF Vectorize tcm-rag-768。
+# 治本机瓶颈:wrangler CLI 子进程 13.2s/本 起步开销,10057本要连续跑36.9小时(违反批量算力活走云端铁律)。
+# 改路:R2 存源文件(本机 upload_emb_to_r2.py 一次性上传,后台跑,已验证)→ 本 workflow 矩阵从 R2 拉取
+#   → CF Vectorize REST API(Global API Key 鉴权,非 wrangler CLI)直连,实测 3.08s/本(比 CLI 快 4.3倍)。
+# 幂等:R2 _done/<bh>.done 标记 + Vectorize upsert(同id覆盖)双重幂等,重跑不产生重复向量,只补没灌的。
+# 只增不删不覆盖:绝不 delete 已有 R2 对象/D1 记录。
+# 认证核实(2026-07-01实测):REST scoped token(CLOUDFLARE_API_TOKEN)对 Vectorize 401/403(无此权限范围);
+#   Global API Key(email+key,X-Auth-Email/X-Auth-Key)实测通过、已真实写入验证(3960→4191向量)。
+
+on:
+  workflow_dispatch:
+    inputs:
+      total:
+        description: "shard count (matrix parallelism)"
+        default: "20"
+  # 每6小时自动续跑一轮,补没灌完的(幂等只补缺,零删除)
+  schedule:
+    - cron: "20 */6 * * *"
+
+# 防两轮重叠:重叠=双倍打 Vectorize API=可能触发限流。新轮排队等旧轮完成,绝不杀正在跑的
+concurrency:
+  group: vectorize-ingest
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.gen.outputs.shards }}
+    steps:
+      - id: gen
+        run: |
+          python -c "
+          import json, os
+          T = int(os.environ['T'])
+          print('shards=' + json.dumps(list(range(T))))
+          " >> "$GITHUB_OUTPUT"
+        env:
+          T: ${{ github.event.inputs.total || '20' }}
+
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet boto3 requests
+      - name: ingest shard
+        run: python vectorize_ingest.py
+        env:
+          CF_ACCOUNT_ID:     ${{ secrets.CF_ACCOUNT_ID }}
+          CF_GLOBAL_EMAIL:   ${{ secrets.CF_GLOBAL_EMAIL }}
+          CF_GLOBAL_API_KEY: ${{ secrets.CF_GLOBAL_API_KEY }}
+          R2_ENDPOINT:       ${{ secrets.VEC_R2_ENDPOINT }}
+          R2_ACCESS_KEY:     ${{ secrets.VEC_R2_ACCESS_KEY }}
+          R2_SECRET_KEY:     ${{ secrets.VEC_R2_SECRET_KEY }}
+          VEC_INDEX: "tcm-rag-768"
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.total || '20' }}
+
+  # ── AUDIT: query Vectorize REST info endpoint, print vector count before/after ──
+  audit:
+    needs: run
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: query index vector count
+        run: |
+          curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/vectorize/v2/indexes/tcm-rag-768/info" \
+            -H "X-Auth-Email: ${CF_GLOBAL_EMAIL}" -H "X-Auth-Key: ${CF_GLOBAL_API_KEY}" \
+            -H "Content-Type: application/json" | tee "$GITHUB_STEP_SUMMARY"
+        env:
+          CF_ACCOUNT_ID:     ${{ secrets.CF_ACCOUNT_ID }}
+          CF_GLOBAL_EMAIL:   ${{ secrets.CF_GLOBAL_EMAIL }}
+          CF_GLOBAL_API_KEY: ${{ secrets.CF_GLOBAL_API_KEY }}
