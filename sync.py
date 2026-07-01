@@ -36,6 +36,13 @@ except Exception:
     pass
 S = requests.Session()
 _tok = {"v": None}
+# circuit breaker: consecutive fully-exhausted pan() calls (persistent 123 rate-limit/token exhaustion).
+# Without this, a shard that hits a *persistent* (not transient) 123 quota outage burns its whole
+# runner window retrying book after book (~15-20min/book worst case) with only every-20-books logging,
+# which looks like a silent hang for hours. Real incident: 2026-06-27 run, shard 76 logged "groups 83/21073"
+# then nothing for 2h until GitHub killed it. Bail out fast instead of grinding to the timeout.
+_rl = {"streak": 0}
+RL_BREAKER = int(os.environ.get("RL_BREAKER", "5"))
 
 
 def token():
@@ -65,7 +72,9 @@ def pan(method, path, body=None):
             if code == 401:
                 _tok["v"] = None                  # auth failed -> force token re-fetch
             time.sleep(delay); delay = min(delay * 2, 60); continue
+        _rl["streak"] = 0                 # got a real (non-rate-limit) response -> breaker resets
         return last
+    _rl["streak"] += 1                    # exhausted all 7 retries -> counts toward the circuit breaker
     return last
 
 
@@ -202,6 +211,13 @@ def main():
     ledger = []
     ok = 0
     for g, keys in mine:
+        if _rl["streak"] >= RL_BREAKER:
+            print(f"circuit-breaker: {_rl['streak']} consecutive 123-API calls exhausted all retries "
+                  f"(persistent rate-limit/token exhaustion) -> 123 account is out of quota right now. "
+                  f"Stopping shard early at {ok}/{len(mine)} instead of burning the full runner window; "
+                  f"remaining books stay unsynced and will be picked up next scheduled run (idempotent).",
+                  flush=True)
+            break
         try:
             a, b = handle(g, keys)
         except Exception as e:
