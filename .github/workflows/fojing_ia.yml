@@ -1,0 +1,86 @@
+name: fojing-ia
+
+# Internet Archive tripitaka image ingest -> R2 fojing-lib. workflow_dispatch only:
+# each run targets one IA identifier (one tripitaka item), matrix-sharded by volume.
+# IA politeness: max-parallel capped at 3 (per the internal 2026-07-02 IA recon report's
+# recommendation of concurrency 1-3 for metadata calls); the script itself also sleeps
+# >=1s between every direct archive.org HTTP call (see IA_SLEEP in fojing_ia.py).
+on:
+  workflow_dispatch:
+    inputs:
+      identifier:
+        description: "IA identifier (one tripitaka item, e.g. koreana-tripitaka-goryeo-daejanggyeong)"
+        required: true
+      vol_range:
+        description: "volume filter: empty=all volumes, '76'=single volume, '1-20'=inclusive range"
+        default: ""
+      pilot:
+        description: "'1' = only process the single smallest volume in the item (pilot gate run)"
+        default: "0"
+      total:
+        description: "shard count (concurrency, capped at max-parallel below regardless of this number)"
+        default: "3"
+      bucket:
+        description: "R2 target bucket (must stay fojing-lib, never the med/guji buckets)"
+        default: "fojing-lib"
+
+concurrency:
+  group: fojing-ia-${{ github.event.inputs.identifier }}
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.g.outputs.shards }}
+    steps:
+      - id: g
+        run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
+        env:
+          T: ${{ github.event.inputs.total || '3' }}
+
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 180       # per-volume work (download PDF + render N pages); idempotent skip means a re-run just fills gaps
+    strategy:
+      fail-fast: false
+      max-parallel: 3          # IA politeness ceiling, do not raise without re-checking recon report guidance
+      matrix:
+        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet boto3 requests pillow pymupdf
+      - run: python fojing_ia.py
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ github.event.inputs.bucket || 'fojing-lib' }}
+          IDENTIFIER: ${{ github.event.inputs.identifier }}
+          VOL_RANGE: ${{ github.event.inputs.vol_range }}
+          PILOT: ${{ github.event.inputs.pilot || '0' }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.total || '3' }}
+
+  finalize:
+    needs: run
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet boto3
+      - run: python fojing_ia.py finalize
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ github.event.inputs.bucket || 'fojing-lib' }}
+          IDENTIFIER: ${{ github.event.inputs.identifier }}
+          TOTAL: ${{ github.event.inputs.total || '3' }}
