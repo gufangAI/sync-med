@@ -1,0 +1,52 @@
+name: ocr_xf
+
+on:
+  workflow_dispatch:
+    inputs:
+      total:
+        description: shard count (bind one account per shard, pool ~14)
+        default: "14"
+      pilot:
+        description: pilot page cap per shard (empty = full run)
+        default: ""
+
+concurrency:
+  group: ocr-xf-run
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.g.outputs.shards }}
+    steps:
+      - id: g
+        run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
+        env:
+          T: ${{ github.event.inputs.total || '14' }}
+
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 14
+      matrix:
+        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet boto3 requests
+      - run: python ocr_xf.py
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          ALLOW_KEY: ${{ secrets.ALLOW_KEY }}
+          XF_KEYS: ${{ secrets.XF_KEYS }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.total || '14' }}
+          PILOT: ${{ github.event.inputs.pilot }}
