@@ -1,0 +1,70 @@
+name: fojing-cbeta
+
+# Static public-domain corpus ingest (CBETA TEI P5 XML -> R2 fojing-lib).
+# workflow_dispatch only: source repo does not change often, no cron needed.
+on:
+  workflow_dispatch:
+    inputs:
+      total:
+        description: shard count (concurrency)
+        default: "50"
+      bucket:
+        description: "R2 target bucket (must stay fojing-lib, never the med/guji buckets)"
+        default: "fojing-lib"
+
+concurrency:
+  group: fojing-cbeta
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.g.outputs.shards }}
+    steps:
+      - id: g
+        run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
+        env:
+          T: ${{ github.event.inputs.total || '50' }}
+
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 120       # hard stop; idempotent head_object-skip means a re-run just continues
+    strategy:
+      fail-fast: false
+      max-parallel: 50
+      matrix:
+        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet boto3
+      - run: python fojing_cbeta.py
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ github.event.inputs.bucket || 'fojing-lib' }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.total || '50' }}
+
+  finalize:
+    needs: run
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet boto3
+      - run: python fojing_cbeta.py finalize
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ github.event.inputs.bucket || 'fojing-lib' }}
+          TOTAL: ${{ github.event.inputs.total || '50' }}
