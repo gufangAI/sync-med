@@ -272,6 +272,131 @@ def fetch_github_trending() -> list:
     return repos
 
 
+def _strip_html(s: str) -> str:
+    """去 HTML 标签 + 折叠空白,给 RSS 摘要用。"""
+    s = re.sub(r"<[^>]+>", " ", s or "")
+    s = re.sub(r"&[a-z]+;", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def fetch_rss(url: str, source: str, max_items: int = 40) -> list:
+    """通用 RSS/Atom 抓取器 —— 中文 AI 资讯站多数提供 RSS,免登录免 key。
+    返回统一 dict 列表。抓取失败静默返回空,不阻断整轮。
+    """
+    try:
+        raw = fetch_url(url, timeout=25)
+    except RuntimeError as e:
+        print(f"    [RSS] {source} 失败: {e}")
+        return []
+    items = []
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        return []
+    # RSS 2.0 (<item>) 或 Atom (<entry>) 双兼容
+    nodes = root.iter("item")
+    entries = list(nodes)
+    is_atom = False
+    if not entries:
+        entries = [e for e in root.iter() if e.tag.endswith("}entry")]
+        is_atom = True
+    for e in entries[:max_items]:
+        if is_atom:
+            title = (e.findtext("{http://www.w3.org/2005/Atom}title") or "").strip()
+            summ  = (e.findtext("{http://www.w3.org/2005/Atom}summary")
+                     or e.findtext("{http://www.w3.org/2005/Atom}content") or "")
+            link_el = e.find("{http://www.w3.org/2005/Atom}link")
+            link = link_el.get("href") if link_el is not None else ""
+        else:
+            title = (e.findtext("title") or "").strip()
+            summ  = e.findtext("description") or e.findtext("summary") or ""
+            link  = (e.findtext("link") or "").strip()
+        title = _strip_html(title)
+        summ = _strip_html(summ)[:500]
+        if not title:
+            continue
+        items.append({
+            "id": link or title,
+            "title": title,
+            "abstract": summ,
+            "url": link,
+            "source": source,
+        })
+    print(f"    [RSS] {source} +{len(items)} 条")
+    return items
+
+
+# 中文 AI 实战情报源 (免 key RSS) —— 补英文学术源的盲区:免费资源/工具实战/竞品动态
+# 英文 arXiv/HF/GitHub 覆盖学术前沿,但中文生态里的"免费算力/多模型网关/agent工具"
+#   这类可直接复用的实战情报,需要中文源才抓得到。
+# 只保留实测能返回真 XML 的源;掉线/返回 HTML 的换成 rsshub 镜像或已验证的直连源。
+# fetch_rss 对抓不到的源静默跳过,所以多列几个候选、活的自然进池。
+CN_RSS_SOURCES = [
+    ("量子位",     "https://www.qbitai.com/feed"),          # 实测有时200有时403,活着就抓
+    ("IT之家",     "https://www.ithome.com/rss/"),           # 实测返回真 XML
+    ("机器之心",   "https://rsshub.rssforever.com/jiqizhixin"),  # 镜像兜底
+    ("量子位镜像", "https://rsshub.rssforever.com/qbitai/category/资讯"),
+    ("36氪快讯",   "https://rsshub.rssforever.com/36kr/newsflashes"),
+    ("AIbase",     "https://rsshub.rssforever.com/aibase/news"),
+]
+
+
+def fetch_cn_intel() -> list:
+    """抓中文 AI 资讯站 RSS。任一源挂了不影响其它。"""
+    print("[抓取] 中文 AI 实战情报源 (RSS) ...", flush=True)
+    out = []
+    for name, url in CN_RSS_SOURCES:
+        out.extend(fetch_rss(url, f"CN:{name}", max_items=40))
+        time.sleep(1.0)
+    print(f"  中文源合计: {len(out)} 条")
+    return out
+
+
+def fetch_github_freebies() -> list:
+    """专扒 GitHub 上『免费算力/网关/agent』这类可直接复用的工具,按 stars 近 30 天热度筛。
+    对应『把可用的 GitHub / AI 免费算力接入自有调度池』这一方向。
+    """
+    print("[抓取] GitHub 免费算力/gateway/agent 军火 ...", flush=True)
+    cutoff = (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
+    queries = [
+        f"ai gateway free openai-compatible pushed:>{cutoff}",
+        f"llm proxy multi-provider free pushed:>{cutoff}",
+        f"free api aggregator llm stars:>50 pushed:>{cutoff}",
+        f"claude-code agent orchestration stars:>100 pushed:>{cutoff}",
+    ]
+    seen, repos = set(), []
+    for q in queries:
+        encoded = urllib.parse.quote(q)
+        url = (f"https://api.github.com/search/repositories"
+               f"?q={encoded}&sort=stars&order=desc&per_page=30")
+        try:
+            data = json.loads(fetch_url(url, timeout=30, headers={
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            }))
+        except (RuntimeError, json.JSONDecodeError) as e:
+            print(f"    [Freebies] 查询失败: {e}")
+            time.sleep(2)
+            continue
+        for item in data.get("items", []):
+            rid = item.get("id")
+            if rid in seen:
+                continue
+            seen.add(rid)
+            desc = (item.get("description") or "").replace("\n", " ").strip()
+            repos.append({
+                "id": str(rid),
+                "title": item.get("full_name", ""),
+                "abstract": f"{desc} | ⭐{item.get('stargazers_count', 0)} | 免费算力/工具候选",
+                "url": item.get("html_url", ""),
+                "source": "GitHub 免费军火",
+                "stars": item.get("stargazers_count", 0),
+            })
+        time.sleep(1.5)
+    print(f"  免费军火合计: {len(repos)} 个")
+    return repos
+
+
 def fetch_hf_papers() -> list:
     """抓取 HuggingFace Daily Papers"""
     print("[抓取] HuggingFace Daily Papers ...", end=" ", flush=True)
@@ -988,11 +1113,18 @@ def main():
     raw_counts["PubMed"] = len(pubmed_papers)
 
     github_repos  = []
+    freebies      = []
     if not args.no_github:
         github_repos = fetch_github_trending()
         raw_counts["GitHub Trending"] = len(github_repos)
+        freebies = fetch_github_freebies()
+        raw_counts["GitHub 免费军火"] = len(freebies)
 
-    all_items = arxiv_papers + hf_papers + hf_models + pubmed_papers + github_repos
+    # 中文实战情报源 (2026-07-02 新增,补英文学术盲区)
+    cn_items = fetch_cn_intel()
+    raw_counts["中文情报"] = len(cn_items)
+
+    all_items = arxiv_papers + hf_papers + hf_models + pubmed_papers + github_repos + freebies + cn_items
     total_raw = len(all_items)
 
     print(f"\n[抓取汇总] 总计: {total_raw} 条")
@@ -1016,7 +1148,9 @@ def main():
 
     # HF Trending Models 数量大但含噪多,用前 50 参与分析节省额度
     hf_models_sample = hf_models[:50] if hf_models else []
-    analyze_items = arxiv_papers + hf_papers + pubmed_papers + github_repos + hf_models_sample
+    # 免费军火 + 中文情报全量进分析池(这正是创始人要的核动力燃料,不抽样丢)
+    analyze_items = (arxiv_papers + hf_papers + pubmed_papers + github_repos
+                     + hf_models_sample + freebies + cn_items)
     total_analyzed = len(analyze_items)
     print(f"  实际分析: {total_analyzed} 条 (HF Models 截取前 50)")
 
