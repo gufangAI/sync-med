@@ -84,6 +84,17 @@ ZHIPU_KEY      = os.environ.get("ZHIPU_API_KEY", "")
 ARXIV_DAYS       = 3      # arXiv 时间窗 (天)
 ARXIV_MAX        = 300    # 每个 cat 最多抓
 ARXIV_CATS       = ["cs.AI", "cs.CL", "cs.IR"]
+# 2026-07-03 靶向查询: 我们中医/古籍/RAG niche(泛类目扫描漏的小众好论文靠这些捞)
+ARXIV_QUERIES    = [
+    "traditional Chinese medicine language model", "classical Chinese NLP",
+    "ancient Chinese text understanding", "syndrome differentiation TCM",
+    "traditional medicine knowledge graph", "medical LLM citation grounding",
+    "retrieval augmented generation attribution", "classical Chinese translation",
+    "GraphRAG knowledge graph retrieval", "LLM as a judge evaluation",
+    "mixture of agents ensemble",
+]
+ARXIV_QUERY_DAYS = 90     # 靶向查询用宽窗(小众论文稀疏)
+ARXIV_QUERY_MAX  = 25
 GITHUB_MAX       = 300    # GitHub 仓库最多
 PUBMED_DAYS      = 30     # PubMed 时间窗
 PUBMED_MAX       = 50
@@ -191,6 +202,41 @@ def fetch_arxiv_cat(cat: str, max_results: int = ARXIV_MAX) -> list:
     return papers
 
 
+def fetch_arxiv_query(q: str) -> list:
+    """靶向关键词查询 arXiv(all 字段),宽时间窗捞我们 niche 小众论文"""
+    import urllib.parse as _up
+    url = (
+        f"http://export.arxiv.org/api/query"
+        f"?search_query=all:{_up.quote(q)}"
+        f"&sortBy=submittedDate&sortOrder=descending"
+        f"&max_results={ARXIV_QUERY_MAX}&start=0"
+    )
+    try:
+        raw = fetch_url(url, timeout=60)
+        root = ET.fromstring(raw)
+    except Exception as e:
+        print(f"    [query:{q[:20]}] 失败: {e}")
+        return []
+    ns = {"atom": "http://www.w3.org/2005/Atom"}
+    cutoff = datetime.date.today() - datetime.timedelta(days=ARXIV_QUERY_DAYS)
+    papers = []
+    for entry in root.findall("atom:entry", ns):
+        title    = (entry.findtext("atom:title", "", ns) or "").replace("\n", " ").strip()
+        abstract = (entry.findtext("atom:summary", "", ns) or "").replace("\n", " ").strip()
+        arxiv_id = (entry.findtext("atom:id", "", ns) or "").strip()
+        published = (entry.findtext("atom:published", "", ns) or "").strip()
+        if published:
+            try:
+                if datetime.date.fromisoformat(published[:10]) < cutoff:
+                    continue
+            except ValueError:
+                pass
+        if title:
+            papers.append({"id": arxiv_id, "title": title, "abstract": abstract[:600],
+                           "url": arxiv_id, "source": "arXiv niche", "published": published[:10]})
+    return papers
+
+
 def fetch_arxiv_all() -> list:
     """并行抓取 cs.AI + cs.CL + cs.IR"""
     print(f"[抓取] arXiv ({', '.join(ARXIV_CATS)}) 最近 {ARXIV_DAYS} 天 ...", flush=True)
@@ -206,6 +252,14 @@ def fetch_arxiv_all() -> list:
                 new += 1
         print(f"    [{cat}] +{new} 条 (去重后)")
         time.sleep(1)  # arXiv 礼貌延迟
+    # 2026-07-03 靶向 niche 查询(中医/古籍/RAG),捞泛类目漏掉的小众专业论文
+    nq = 0
+    for q in ARXIV_QUERIES:
+        for p in fetch_arxiv_query(q):
+            if p["id"] not in seen_ids:
+                seen_ids.add(p["id"]); all_papers.append(p); nq += 1
+        time.sleep(1)
+    print(f"    [靶向niche] +{nq} 条")
     print(f"  arXiv 合计: {len(all_papers)} 条")
     return all_papers
 
