@@ -31,6 +31,7 @@ WORKFLOWS = {
     "ocr.yml":         {"name": "OCR",          "alert_hours": 8},
     "sync.yml":        {"name": "sync",         "alert_hours": 24},
     "guji_sync.yml":   {"name": "guji-sync(古籍迁移)", "alert_hours": 6},
+    "clean-embed.yml": {"name": "clean-embed(clean索引灌库)", "alert_hours": 10},
 }
 
 # OCR 深度检查参数
