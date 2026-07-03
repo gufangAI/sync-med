@@ -5,10 +5,13 @@ on:
     inputs:
       total:
         description: shard count
-        default: "8"
+        default: "20"
       limit:
-        description: new books per shard per run
+        description: books per shard per run (high = full)
         default: "400"
+      workers:
+        description: per-shard concurrency
+        default: "8"
   schedule:
     - cron: "0 */6 * * *"   # resume gently every 6h
 
@@ -25,14 +28,14 @@ jobs:
       - id: g
         run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
         env:
-          T: ${{ github.event.inputs.total || '8' }}
+          T: ${{ github.event.inputs.total || '20' }}
 
   run:
     needs: prep
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      max-parallel: 8
+      max-parallel: 20
       matrix:
         shard: ${{ fromJSON(needs.prep.outputs.shards) }}
     steps:
@@ -48,5 +51,6 @@ jobs:
           S_SK: ${{ secrets.S_SK }}
           S_BUCKET: ${{ secrets.S_BUCKET }}
           SHARD: ${{ matrix.shard }}
-          TOTAL: ${{ github.event.inputs.total || '8' }}
+          TOTAL: ${{ github.event.inputs.total || '20' }}
           LIMIT: ${{ github.event.inputs.limit || '400' }}
+          WORKERS: ${{ github.event.inputs.workers || '8' }}

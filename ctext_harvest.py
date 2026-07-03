@@ -3,7 +3,8 @@
 # Source: public JSON title index -> per-book reading pages via CF edge relay (multi-IP, gentle).
 # Extracts main-text cells -> uploads plain text to R2 (_ctext/<slug>.txt). Idempotent, per-run cap, cron-resumable.
 # Gentle: low concurrency + pause; only public-domain text as AI corpus.
-import os, re, html, time, json, urllib.request, urllib.parse, ssl, boto3
+import os, re, html, time, json, threading, urllib.request, urllib.parse, ssl, boto3
+from concurrent.futures import ThreadPoolExecutor
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKET = os.environ["S_BUCKET"]
 SHARD = int(os.environ.get("SHARD", "0")); TOTAL = int(os.environ.get("TOTAL", "1"))
@@ -77,28 +78,38 @@ def exists(key):
         return False
 
 
+WORKERS = int(os.environ.get("WORKERS", "8"))   # per-shard concurrency
 books = json.loads(eg_get(LIST, 90)[1])["books"]
-mine = [b for i, b in enumerate(books) if i % TOTAL == SHARD]
-todo = [b for b in mine if not exists(slug_key(b["urn"]))][:LIMIT]
-print("shard %d/%d  mine %d  todo(new) %d" % (SHARD, TOTAL, len(mine), len(todo)), flush=True)
+mine = [b for i, b in enumerate(books) if i % TOTAL == SHARD][:LIMIT]
+print("shard %d/%d  mine %d  workers %d" % (SHARD, TOTAL, len(mine), WORKERS), flush=True)
 
-ok = err = 0
-for i, b in enumerate(todo):
+lock = threading.Lock(); cnt = {"ok": 0, "err": 0, "skip": 0}
+
+
+def work(b):
+    key = slug_key(b["urn"])
     try:
+        if exists(key):
+            with lock: cnt["skip"] += 1
+            return
         body = harvest(b["urn"])
         if body and len(body) > 60:
-            s3.put_object(Bucket=BUCKET, Key=slug_key(b["urn"]), Body=body.encode("utf-8"))
-            ok += 1
+            s3.put_object(Bucket=BUCKET, Key=key, Body=body.encode("utf-8"))
+            with lock:
+                cnt["ok"] += 1
+                if cnt["ok"] % 50 == 0:
+                    print("  ok=%d skip=%d err=%d" % (cnt["ok"], cnt["skip"], cnt["err"]), flush=True)
         else:
-            err += 1
-    except Exception as e:
-        err += 1
-        print("ERR", b["urn"], str(e)[:40], flush=True)
-    if (i + 1) % 25 == 0:
-        print("  %d/%d ok=%d err=%d" % (i + 1, len(todo), ok, err), flush=True)
+            with lock: cnt["err"] += 1
+    except Exception:
+        with lock: cnt["err"] += 1
     time.sleep(PAUSE)
 
+
+with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+    list(ex.map(work, mine))
+
 s3.put_object(Bucket=BUCKET, Key="_ledger/ctext_%d.json" % SHARD,
-              Body=json.dumps({"shard": SHARD, "todo": len(todo), "ok": ok, "err": err,
+              Body=json.dumps({"shard": SHARD, "n": len(mine), **cnt,
                                "at": time.strftime("%Y-%m-%d %H:%M:%S")}).encode())
-print("=== shard %d ctext ok %d, err %d ===" % (SHARD, ok, err), flush=True)
+print("=== shard %d ctext ok %d, skip %d, err %d ===" % (SHARD, cnt["ok"], cnt["skip"], cnt["err"]), flush=True)
