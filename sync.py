@@ -24,7 +24,14 @@ s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK,
 NAMES = {}
 _nk = os.environ.get("NAME_KEY")
 if _nk:
-    NAMES = json.loads(s3.get_object(Bucket=SRC, Key=_nk)["Body"].read().decode("utf-8"))
+    try:
+        NAMES = json.loads(s3.get_object(Bucket=SRC, Key=_nk)["Body"].read().decode("utf-8"))
+    except Exception as e:
+        # 2026-07-05: NAME_KEY 对象一度缺失,导致这行无兜底 -> 28 个 shard 全部在启动时崩溃、零产出。
+        # 照 3 行后 DONE_ZIP/DONE_PDF 的既有写法补容错;NAMES 为空时每本书会走 handle() 的 skip-noname
+        # 分支(已有正常路径),不会误传;但必须响亮报警,不能悄悄变成"跑完是绿的但 0 本真正同步"的假绿。
+        print(f"WARNING: NAME_KEY manifest unreadable (key={_nk}): {e} "
+              f"-> NAMES empty, every book will skip-noname this run", flush=True)
 # already-backed-up sets (built once by prep step listing the 123 backup folders): skip BEFORE any
 # R2 GET or 123 create call -> no wasted ops, no "filename duplicate" errors.
 DONE_ZIP = set(); DONE_PDF = set()
