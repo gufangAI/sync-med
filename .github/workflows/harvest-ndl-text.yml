@@ -1,0 +1,39 @@
+# 四号编队第1/4段(hosonzuo8848):全局 shard 0-19 / 80。
+# 另外三仓(hosonzuo / w8848 / gufangAI)各跑 20-39 / 40-59 / 60-79,total 统一 80,互不重叠。
+# CTO 2026-07-05:worker 直写 R2 语料桶 guyaofang-assets/text/ndl/,不再 upload-artifact(临时缓存=白干)。
+name: harvest-ndl-text
+on:
+  workflow_dispatch:
+    inputs:
+      total:
+        description: global shard count across all 4 fleet repos (keep in sync!)
+        default: "80"
+      limit:
+        description: per-shard item limit (0 = no limit, for smoke tests)
+        default: "0"
+concurrency:
+  group: ndl-text
+  cancel-in-progress: false   # 上一轮没跑完不取消,排队等,绝不重叠停摆
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    env:
+      VEC_R2_ENDPOINT: ${{ secrets.VEC_R2_ENDPOINT }}
+      VEC_R2_ACCESS_KEY: ${{ secrets.VEC_R2_ACCESS_KEY }}
+      VEC_R2_SECRET_KEY: ${{ secrets.VEC_R2_SECRET_KEY }}
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: deps
+        run: pip install -q requests boto3
+      - name: harvest shard -> 直写 R2
+        timeout-minutes: 330
+        run: python harvest_ndl_text.py --worklist worklist_ndl_text.csv --shard ${{ matrix.shard }} --total ${{ github.event.inputs.total || '80' }} --limit ${{ github.event.inputs.limit || '0' }}
