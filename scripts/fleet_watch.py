@@ -40,6 +40,10 @@ OCR_DEPTH_RUNS = 3          # 回查最近 N 次 run（取已完成的 success r
 OCR_ZERO_ALERT_THRESHOLD = 3  # 连续几次零产出触发 alert（目前已有 5 次全零）
 OCR_LOG_SAMPLE_JOBS = 8      # 每次 run 最多采样几个 job 的日志（节省 API 调用）
 
+# D1 vs 123 对账参数(2026-07-06 加)
+D1_VS_PAN_MISSING_ALERT_THRESHOLD = 50   # 缺失(D1有123无)超过 N 本 → alert
+D1_VS_PAN_WILD_ALERT_THRESHOLD = 20      # 野生(123有D1无)超过 N 个 → alert(有歧义、只报警不动)
+
 
 # ─── GitHub API 基础 ──────────────────────────────────────────────────────────
 
@@ -549,6 +553,111 @@ def build_report(results: list[dict], ocr_depth: dict, now: datetime) -> str:
     return "\n".join(lines)
 
 
+# ─── D1 vs 123 对账(2026-07-06 加·纯只读·分级) ───────────────────────────
+
+def d1_vs_pan_reconcile():
+    """对账 D1 catalog vs 123 已备份清单,分级输出差异。
+
+    ★ 只读 D1 + 只读 R2 上的 PAN_DONE_KEY(sync prep 步骤维护的"123已有列表"缓存),
+      绝不调用 123 API、绝不改 D1、绝不写 R2。
+    ★ 分级:
+      - 缺失(D1 有 123 无):低风险,报告数量,可以让 sync 下次自然补上。
+      - 野生(123 有 D1 无):有歧义,只报警不动手(可能是命名不一致、测试数据、误操作)。
+
+    环境变量(全部可选,任一缺失就跳过整个模块,不影响其它巡查):
+      CF_ACCOUNT_ID / D1_DATABASE_ID / D1_API_TOKEN(D1 查询)
+      S_EP / S_AK / S_SK / S_BUCKET / PAN_DONE_KEY(R2 读缓存,复用 sync.py 已有)
+
+    返回:{"ok":bool, "d1_total":int, "pan_zip_have":int, "missing":int, "wild":int, "alert":bool, "alert_msg":str}
+    """
+    result = {"ok": False, "d1_total": 0, "pan_zip_have": 0, "missing": 0, "wild": 0,
+              "alert": False, "alert_msg": "", "skip_reason": ""}
+
+    # 检查依赖凭据 —— 缺一个就跳过整个模块,不炸(其它巡查照常跑)
+    d1_env = ["CF_ACCOUNT_ID", "D1_DATABASE_ID", "D1_API_TOKEN"]
+    r2_env = ["S_EP", "S_AK", "S_SK", "S_BUCKET"]
+    missing_env = [e for e in (d1_env + r2_env) if not os.environ.get(e)]
+    if missing_env:
+        result["skip_reason"] = f"缺环境变量: {','.join(missing_env)}"
+        return result
+
+    try:
+        # 1) 查 D1:所有 frontend_visible=1 且 upload_status=done 的书 → D1 应有集合
+        acc = os.environ["CF_ACCOUNT_ID"]; db = os.environ["D1_DATABASE_ID"]; tok = os.environ["D1_API_TOKEN"]
+        d1_url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/d1/database/{db}/query"
+        sql = ("SELECT book_id, book_title FROM books_assets_v2 "
+               "WHERE frontend_visible=1 AND upload_status='done' AND page_count > 0")
+        req = urllib.request.Request(d1_url, method="POST",
+            headers={"Authorization": "Bearer " + tok, "Content-Type": "application/json"},
+            data=json.dumps({"sql": sql}).encode("utf-8"))
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            j = json.loads(resp.read())
+        if not j.get("success"):
+            result["skip_reason"] = f"D1 查询失败: {str(j.get('errors',''))[:100]}"
+            return result
+        rows = (j.get("result") or [{}])[0].get("results") or []
+        # 名单映射:标题 → book_id(标题是 123 上目录名的来源)
+        d1_titles = {row.get("book_title"): row.get("book_id") for row in rows if row.get("book_title")}
+        result["d1_total"] = len(d1_titles)
+
+        # 2) 读 R2 上 PAN_DONE_KEY 缓存 → 123 已有集合(sync.py 的 prep 会维护它)
+        pan_done_key = os.environ.get("PAN_DONE_KEY", "_cc/pan_done.json")
+        try:
+            import boto3
+        except ImportError:
+            result["skip_reason"] = "boto3 未安装(pip install boto3)"
+            return result
+        s3 = boto3.client("s3", endpoint_url=os.environ["S_EP"],
+            aws_access_key_id=os.environ["S_AK"], aws_secret_access_key=os.environ["S_SK"],
+            region_name="auto")
+        try:
+            pan_done_raw = s3.get_object(Bucket=os.environ["S_BUCKET"], Key=pan_done_key)["Body"].read()
+            pan_done = json.loads(pan_done_raw.decode("utf-8"))
+        except Exception as e:
+            result["skip_reason"] = f"R2 读 {pan_done_key} 失败({str(e)[:80]}) → 说明 sync.prep 还没跑过·跳过对账"
+            return result
+        # PAN_DONE_KEY 结构:{"zip":[filename1,...], "pdf":[...]}
+        pan_zip_have = set(pan_done.get("zip", []))
+        result["pan_zip_have"] = len(pan_zip_have)
+
+        # 3) 分级差异
+        expected = {title + ".zip" for title in d1_titles.keys()}
+        missing = expected - pan_zip_have    # D1 有 123 没(sync 下次会自然补)
+        wild = pan_zip_have - expected        # 123 有 D1 没(有歧义,报警)
+        result["missing"] = len(missing)
+        result["wild"] = len(wild)
+
+        # 4) 告警(分级阈值)
+        alert_parts = []
+        if result["missing"] >= D1_VS_PAN_MISSING_ALERT_THRESHOLD:
+            alert_parts.append(f"缺失{result['missing']}本(超阈值{D1_VS_PAN_MISSING_ALERT_THRESHOLD})→sync可能未跑通")
+        if result["wild"] >= D1_VS_PAN_WILD_ALERT_THRESHOLD:
+            alert_parts.append(f"野生{result['wild']}个(超阈值{D1_VS_PAN_WILD_ALERT_THRESHOLD})→请人工核对(有歧义·勿删)")
+        if alert_parts:
+            result["alert"] = True
+            result["alert_msg"] = " / ".join(alert_parts)
+
+        result["ok"] = True
+        return result
+    except Exception as e:
+        result["skip_reason"] = f"对账异常({str(e)[:100]}) → 本次跳过"
+        return result
+
+
+def fmt_d1_vs_pan(r):
+    """对账结果格式化成报告 markdown 段。"""
+    lines = ["", "### 转存 D1↔123 对账"]
+    if not r.get("ok"):
+        lines.append(f"- 跳过: {r.get('skip_reason','未知')}")
+        return lines
+    lines.append(f"- D1 应有: {r['d1_total']} 本 · 123 已有(zip): {r['pan_zip_have']} 个")
+    lines.append(f"- **缺失**(D1 有 123 无): {r['missing']} 本 → sync 下次会自然补")
+    lines.append(f"- **野生**(123 有 D1 无): {r['wild']} 个 → 有歧义、只报告、绝不自动删")
+    if r.get("alert"):
+        lines.append(f"- ⚠️ 告警: {r['alert_msg']}")
+    return lines
+
+
 # ─── 主入口 ──────────────────────────────────────────────────────────────────
 
 def main():
@@ -573,18 +682,31 @@ def main():
     if ocr_depth["alert_msg"]:
         print(f"  msg: {ocr_depth['alert_msg']}", file=sys.stderr)
 
+    # 2.5 D1↔123 对账(2026-07-06 加·纯只读·分级告警)
+    print("Running D1 vs 123 reconcile...", file=sys.stderr)
+    d1pan = d1_vs_pan_reconcile()
+    if d1pan.get("ok"):
+        print(f"  d1_total={d1pan['d1_total']} pan_zip={d1pan['pan_zip_have']} missing={d1pan['missing']} wild={d1pan['wild']} alert={d1pan['alert']}", file=sys.stderr)
+    else:
+        print(f"  skipped: {d1pan.get('skip_reason','')}", file=sys.stderr)
+
     # 3. 组装报告
     report = build_report(results, ocr_depth, now)
+    # 追加对账段(不改 build_report 原有逻辑,防止碰其它模块)
+    report += "\n" + "\n".join(fmt_d1_vs_pan(d1pan))
     print(report)
 
     # 4. 写出 alert 标志供 workflow 读取
     wf_alert_count = sum(1 for r in results if r["alert"])
     ocr_depth_alert = 1 if ocr_depth.get("alert") else 0
-    alert_count = wf_alert_count + ocr_depth_alert
+    d1pan_alert = 1 if d1pan.get("alert") else 0
+    alert_count = wf_alert_count + ocr_depth_alert + d1pan_alert
 
     with open(os.environ.get("GITHUB_OUTPUT", "/dev/null"), "a", encoding="utf-8") as f:
         f.write(f"alert_count={alert_count}\n")
         f.write(f"ocr_zero_streak={ocr_depth['zero_streak']}\n")
+        f.write(f"d1pan_missing={d1pan.get('missing',0)}\n")
+        f.write(f"d1pan_wild={d1pan.get('wild',0)}\n")
         f.write(f"report_body<<FLEET_REPORT_EOF\n{report}\nFLEET_REPORT_EOF\n")
 
 

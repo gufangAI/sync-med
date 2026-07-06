@@ -26,10 +26,21 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install deps for D1↔123 reconcile (2026-07-06 加)
+        run: pip install --quiet boto3
+
       - name: Run fleet_watch.py
         id: watch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # D1↔123 对账模块用(缺任一凭据整个对账模块自动跳过、不影响其它巡查):
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
         run: python scripts/fleet_watch.py
 
       - name: Create or update daily Issue
