@@ -119,13 +119,46 @@ def put_file(local_path, parent_id, name):
     return "ok"
 
 
+def _rebuild_pages_from_d1():
+    """PAGES_KEY 清单从 R2 读不到时,直接查 D1 现场生成并写回 R2 缓存(自愈)。
+    治 2026-07-05 事故: R2 缓存文件缺失导致所有 shard 启动即 NoSuchKey 全崩、零产出。
+    没有兜底时是"定时炸弹":哪天缓存文件被误删/未生成,整条 sync 就停摆等人工介入。
+    有兜底后系统自愈:D1 是权威源、几毫秒 API 查询,不烧 R2 LIST。"""
+    acc = os.environ.get("CF_ACCOUNT_ID"); db = os.environ.get("D1_DATABASE_ID"); tok = os.environ.get("D1_API_TOKEN")
+    if not (acc and db and tok):
+        raise RuntimeError("PAGES_KEY 读不到 + 缺 CF_ACCOUNT_ID/D1_DATABASE_ID/D1_API_TOKEN,无法从 D1 兜底")
+    url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/d1/database/{db}/query"
+    # 只查医书线在跑的:frontend_visible=1、upload_status=done、有 page_count 的
+    sql = ("SELECT book_id, page_count FROM books_assets_v2 "
+           "WHERE frontend_visible=1 AND upload_status='done' AND page_count > 0")
+    r = requests.post(url, headers={"Authorization": "Bearer "+tok}, json={"sql": sql}, timeout=120)
+    r.raise_for_status()
+    j = r.json()
+    if not j.get("success"): raise RuntimeError(f"D1 查询失败: {str(j.get('errors',''))[:200]}")
+    rows = (j.get("result") or [{}])[0].get("results") or []
+    pages = {row["book_id"]: int(row["page_count"]) for row in rows if row.get("book_id") and row.get("page_count")}
+    return pages
+
+
 def list_groups():
     # Page manifest (book_id -> page_count) is built from the D1 catalog by deploy.py.
     # Reading it (1 GET) replaces a full-bucket ListObjects scan PER SHARD: with 200 shards
     # the old version cost ~200 x full scans of a 3.26M-object bucket = ~600K+ Class A LIST/run.
     # Keys are deterministic (book/{id}/page_{NNNN}.webp), so no R2 listing is needed at all.
     pk = os.environ.get("PAGES_KEY", "_cc/med_pages.json")
-    pages = json.loads(s3.get_object(Bucket=SRC, Key=pk)["Body"].read().decode("utf-8"))
+    try:
+        pages = json.loads(s3.get_object(Bucket=SRC, Key=pk)["Body"].read().decode("utf-8"))
+    except Exception as e:
+        # 2026-07-06: R2 缓存缺失自愈——现场从 D1 生成清单,并同时写回 R2 让下次快;
+        # 不再让 NoSuchKey 一次性拖垮所有 shard。
+        print(f"WARNING: PAGES_KEY {pk} unreadable ({e}) -> rebuilding from D1...", flush=True)
+        pages = _rebuild_pages_from_d1()
+        print(f"D1 rebuild ok: {len(pages)} books", flush=True)
+        try:
+            s3.put_object(Bucket=SRC, Key=pk, Body=json.dumps(pages, ensure_ascii=False).encode("utf-8"))
+            print(f"cached back to R2: {pk}", flush=True)
+        except Exception as e2:
+            print(f"WARNING: cache-back failed ({e2}) -> next run will rebuild again, not fatal", flush=True)
     pre = (PFX.strip("/") if PFX else "book")
     groups = {}
     for bid, pc in pages.items():
