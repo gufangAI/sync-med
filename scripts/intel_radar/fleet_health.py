@@ -34,6 +34,13 @@ def probe_health():
                 rows.append((name, "DOWN", p.get("cost_ms", 0), err))
     return rows
 
+def probe_usage():
+    try:
+        j = fetch(f"{SITE}/api/gateway/usage", timeout=40)
+        return j.get("providers", []), j.get("cooling", [])
+    except Exception:
+        return [], []
+
 def probe_e2e():
     t0 = time.time()
     try:
@@ -85,6 +92,7 @@ def main():
     except Exception as e:
         rows = [("gateway/health", "DOWN", 0, str(e)[:60])]
     e2e_status, e2e_s, e2e_info = probe_e2e()
+    usage, cooling = probe_usage()
 
     down = [r for r in rows if r[1] == "DOWN"]
     core_down = [r for r in down if r[0] in ("modelscope", "sensenova", "cerebras")]
@@ -97,6 +105,13 @@ def main():
     lines.append("")
     lines.append(f"**e2e pengzhuang**: {'✅' if e2e_status=='ok' else '❌'} {e2e_status} {e2e_s}s {e2e_info}")
     lines.append("")
+    if usage:
+        lines.append("**today's load (rotation)** | provider | calls | ok | tokens |")
+        lines.append("|---|---|---|---|")
+        for u in usage[:12]:
+            lines.append(f"| {u.get('provider')} | {u.get('calls')} | {u.get('ok')} | {u.get('tokens')} |")
+        lines.append("")
+    lines.append(f"- cooling now: {', '.join(c.get('provider') for c in cooling) if cooling else 'none (all active)'}")
     lines.append(f"- providers down: {len(down)} (core down: {len(core_down)})")
     lines.append(f"- rule: ALERT if any core (modelscope/sensenova/cerebras) down, >=3 down, or e2e fail")
     lines.append(f"- ts: {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}")
