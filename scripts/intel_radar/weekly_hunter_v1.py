@@ -61,8 +61,10 @@ def lane_arxiv():
 # ── 赛道② 其他垂直行业AI: HN Algolia(移植主矿脉·权重最高) ─────────────────
 def lane_hn():
     out, seen = [], set()
-    queries = ["legal AI", "medical AI startup", "education AI tutor", "fintech AI",
-               "vertical AI agent", "AI expert system", "AI citation grounding", "AI subscription pricing"]
+    queries = ["AI citation sources trust", "AI provenance grounding", "usage based pricing SaaS",
+               "outcome based pricing AI", "AI user retention playbook", "vertical AI expert product",
+               "domain expert AI moat", "knowledge product subscription", "legal AI how it works",
+               "AI transparency verifiable answers"]
     week_ago = int(time.time()) - 7 * 86400
     for q in queries:
         try:
@@ -107,7 +109,7 @@ def lane_policy():
 SCORE_SYS = """你是「古方AI星图」的情报打分器。背景:我们做中医古籍AI(学派思维分身/判断引擎/古籍出处溯源/育人/订阅变现)。
 对每条情报打两个分(0-5):
 - leading 领先度: 这事是否"别人还没看见/还没大规模做"(越早期越冷门越高;刷屏热点=低)
-- transplant 可移植度: 它的打法能否搬进古方中医AI(别行业解决"专家判断复现/可信溯源/留存/定价"的方法=高;纯硬件/无关=0)
+- transplant 可移植度: ★最高分给"别的垂直行业/别的行业的【产品打法·商业模式·信任机制】"——法律AI怎么做出处溯源、增长团队怎么做用户留存、资本怎么给按结果付费定价、别的专家型AI怎么复现判断,这些中医玩家结构上不看、却能直接搬进古方。'又一篇AI能力论文/新模型/新算法'除非直接解锁一个新产品能力,否则 transplant 压到≤2(那是人人都在看的红海)。纯硬件/无关=0。
 只输出JSON数组:[{"i":序号,"leading":n,"transplant":n,"move":"一句移植点(没有则空)"}]"""
 
 def score_items(items):
@@ -150,18 +152,29 @@ def main():
         print(f"[warn] 源太少({len(items)}),如实继续", flush=True)
     scored = score_items(items)
     scored.sort(key=lambda x: (x.get("leading", 0) * x.get("transplant", 0), x.get("transplant", 0)), reverse=True)
-    cands = [x for x in scored if x.get("transplant", 0) >= 3][:8]
-    print(f"[cand] 高移植候选 {len(cands)} 条", flush=True)
+    # 赛道配额(把重构说明§4铁律"赛道5垂直行业AI权重最高"从口号变硬约束):
+    # 优先垂直行业AI+政策(中医玩家结构上不看的地方),arXiv封顶1条,防周报退化成"又一堆AI论文"。
+    by_lane = {}
+    for x in scored:
+        if x.get("transplant", 0) >= 2:
+            by_lane.setdefault(x["lane"], []).append(x)
+    cands = (by_lane.get("垂直行业AI", [])[:5] + by_lane.get("政策/中文", [])[:3]
+             + by_lane.get("AI技术", [])[:3])
+    print(f"[cand] 垂直行业AI={len(by_lane.get('垂直行业AI',[]))} 政策={len(by_lane.get('政策/中文',[]))} "
+          f"AI技术={len(by_lane.get('AI技术',[]))}", flush=True)
 
-    signals = []
+    signals, ai_used = [], 0
     for it in cands:
         if len(signals) >= 3: break
+        if it["lane"] == "AI技术" and ai_used >= 1:   # arXiv封顶1条,位置留给跨行业矿脉
+            continue
         try:
             d = deep_analyze(it)
             if d and d.get("信号") and not d.get("可忽略"):
                 d["_src"] = it
                 signals.append(d)
-                print(f"[signal] ✓ {d['信号'][:50]}", flush=True)
+                if it["lane"] == "AI技术": ai_used += 1
+                print(f"[signal] ✓ [{it['lane']}] {d['信号'][:46]}", flush=True)
         except Exception as ex:
             print(f"[deep] 失败: {str(ex)[:80]}", flush=True)
 
