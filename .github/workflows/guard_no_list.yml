@@ -1,8 +1,5 @@
 name: guard-no-list-objects
 
-# 创始人钦定零LIST铁律(2026-06-22)·防 $9 重演:
-# 全扫桶 list_objects = 烧 Class A 永久黑名单。任何脚本必须读 D1 manifest 构造 key,逐本处理。
-# 此守卫:任何 push 出现 list_objects/get_paginator 调用 → 直接 fail,禁止加回来。
 
 on:
   push:

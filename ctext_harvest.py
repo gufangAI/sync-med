@@ -27,7 +27,7 @@ def cells(h):
     out, prev = [], None
     for c in re.findall(r'<td[^>]*class="[^"]*ctext[^"]*"[^>]*>(.*?)</td>', h, re.S):
         t = html.unescape(re.sub(r"<[^>]+>", "", c)).strip()
-        if t and any("一" <= ch <= "鿿" for ch in t) and t != prev:
+        if t and any('\u4e00' <= ch <= '\u9fff' for ch in t) and t != prev:
             out.append(t); prev = t
     return out
 

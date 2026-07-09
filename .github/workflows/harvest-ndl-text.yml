@@ -1,6 +1,3 @@
-# 四号编队第1/4段(hosonzuo8848):全局 shard 0-19 / 80。
-# 另外三仓(hosonzuo / w8848 / gufangAI)各跑 20-39 / 40-59 / 60-79,total 统一 80,互不重叠。
-# CTO 2026-07-05:worker 直写 R2 语料桶 guyaofang-assets/text/ndl/,不再 upload-artifact(临时缓存=白干)。
 name: harvest-ndl-text
 on:
   workflow_dispatch:

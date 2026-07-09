@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# NDL 古籍全文采集(Actions runner 直连)-> 直写 R2 语料桶。
-# CTO 2026-07-05:一步到位直写 R2 持久存储,不经 upload-artifact(临时缓存=白干)。
-# 全文接口:fulltext-json/{id} 返回坐标块数组,按 page 分组、组内按 (rectY,rectX) 排序、拼 contents 成整页文本。
+
+
+
 import argparse
 import csv
 import json
@@ -18,8 +18,8 @@ UA = {"User-Agent": "Mozilla/5.0 (compatible; GujiArchive/1.0)"}
 EP = os.environ.get("R2_ENDPOINT") or os.environ["VEC_R2_ENDPOINT"]
 AK = os.environ.get("R2_KEY") or os.environ["VEC_R2_ACCESS_KEY"]
 SK = os.environ.get("R2_SECRET") or os.environ["VEC_R2_SECRET_KEY"]
-BUCKET = os.environ.get("TEXT_BUCKET", "guyaofang-assets")   # 语料桶(现有语料医书就在这)
-PREFIX = os.environ.get("TEXT_PREFIX", "text/ndl/")          # NDL 古籍全文语料前缀
+BUCKET = os.environ.get("TEXT_BUCKET", "guyaofang-assets")   
+PREFIX = os.environ.get("TEXT_PREFIX", "text/ndl/")          
 s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK,
                   aws_secret_access_key=SK, region_name="auto")
 
@@ -54,8 +54,8 @@ def pull_fulltext(session, bid):
 def one(session, bid):
     key = f"{PREFIX}{bid}.txt"
     try:
-        s3.head_object(Bucket=BUCKET, Key=key)   # 幂等:已在 R2 就跳过
-        print(f"{bid}: skip(已在R2)", flush=True)
+        s3.head_object(Bucket=BUCKET, Key=key)   
+        print(f"{bid}: skip(\u5df2\u5728R2)", flush=True)
         return "skip"
     except Exception:
         pass
@@ -65,14 +65,14 @@ def one(session, bid):
         print(f"{bid}: FAIL {str(e)[:70]}", flush=True)
         return False
     if not text.strip():
-        print(f"{bid}: 零文本(全文接口无内容)", flush=True)
+        print(f"{bid}: \u96f6\u6587\u672c(\u5168\u6587\u63a5\u53e3\u65e0\u5185\u5bb9)", flush=True)
         return False
     s3.put_object(Bucket=BUCKET, Key=key,
                   Body=text.encode("utf-8"), ContentType="text/plain; charset=utf-8")
     s3.put_object(Bucket=BUCKET, Key=f"{PREFIX}{bid}._meta.json",
                   Body=json.dumps({"id": bid, "pages": npages, "chars": len(text),
                                    "source": "ndl_fulltext"}, ensure_ascii=False).encode("utf-8"))
-    print(f"{bid}: {npages}页 {len(text)}字 -> R2 {BUCKET}/{key}", flush=True)
+    print(f"{bid}: {npages}\u9875 {len(text)}\u5b57 -> R2 {BUCKET}/{key}", flush=True)
     return True
 
 
@@ -89,10 +89,10 @@ def main():
             if r.get("id", "").strip() and i % a.total == a.shard]
     if a.limit:
         jobs = jobs[: a.limit]
-    print(f"shard {a.shard}/{a.total}: 分到 {len(jobs)} 本 -> 直写 R2 {BUCKET}/{PREFIX}", flush=True)
+    print(f"shard {a.shard}/{a.total}: \u5206\u5230 {len(jobs)} \u672c -> \u76f4\u5199 R2 {BUCKET}/{PREFIX}", flush=True)
 
     s = requests.Session()
-    s.trust_env = False   # 直连 NDL(CloudFront CDN,实测无限流无封IP)
+    s.trust_env = False   
 
     ok = fail = skip = 0
     t0 = time.time()
@@ -105,10 +105,10 @@ def main():
         else:
             fail += 1
         if i % 20 == 0:
-            print(f"  进度 {i}/{len(jobs)} · ok={ok} skip={skip} fail={fail}", flush=True)
-        time.sleep(0.2)   # 温和
+            print(f"  \u8fdb\u5ea6 {i}/{len(jobs)} · ok={ok} skip={skip} fail={fail}", flush=True)
+        time.sleep(0.2)   
 
-    print(f"\n=== shard {a.shard} 完 ok={ok} skip={skip} fail={fail} · {(time.time()-t0)/60:.1f}min ===", flush=True)
+    print(f"\n=== shard {a.shard} \u5b8c ok={ok} skip={skip} fail={fail} · {(time.time()-t0)/60:.1f}min ===", flush=True)
 
 
 if __name__ == "__main__":

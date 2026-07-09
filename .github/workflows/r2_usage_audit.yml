@@ -1,30 +1,13 @@
 name: r2-usage-audit
 
-# 一次性查询任务(2026-07-01):创始人在 CF 账单面板看到 R2 用量 June 19 - July 19
-# A类(写入/List)3.02M次、B类(读取/Get+Head)49.12M次,B类占比远超A类,追问"为什么这么多"。
-# 之前只能推理猜测(OCR流水线+R2转123迁移规模),不是真实数字。
-# 本 workflow = 用 GraphQL Analytics API 拿真实数字:按 bucket + actionType(Class A/B)拆分。
 #
-# 官方文档核实(2026-07-01):
 #   dataset = r2OperationsAdaptiveGroups(developers.cloudflare.com/r2/platform/metrics-analytics/)
-#   filter 支持 accountTag / datetime_geq / datetime_leq / bucketName
-#   dimensions 支持 actionType + bucketName
-#   数据保留期 = 过去31天(官方文档明文:"retained for the past 31 days")
-#     → 创始人要的 2026-06-19~07-19 超出范围,本workflow查GraphQL能给的最大范围并如实报告实际起止。
-#   actionType → class 映射(官方 pricing 文档):
-#     Class A(写入/List类) = ListBuckets/PutBucket/ListObjects/PutObject/CopyObject/
 #       CompleteMultipartUpload/CreateMultipartUpload/LifecycleStorageTierTransition/
 #       ListMultipartUploads/UploadPart/UploadPartCopy/ListParts/PutBucketEncryption/
 #       PutBucketCors/PutBucketLifecycleConfiguration
-#     Class B(读取类) = HeadBucket/HeadObject/GetObject/UsageSummary/GetBucketEncryption/
 #       GetBucketLocation/GetBucketCors/GetBucketLifecycleConfiguration
 #     Free = DeleteObject/DeleteBucket/AbortMultipartUpload
-#   认证:复用 vectorize.yml 已验证生效的 Global API Key 方式(X-Auth-Email/X-Auth-Key),
-#     因为 scoped token 对部分数据集(如 Vectorize)无权限,Global Key 实测通过。
 #
-# 红线:凭据只以 secrets.CF_GLOBAL_API_KEY / secrets.CF_GLOBAL_EMAIL 存在于 env,
-#   curl 用 -H "X-Auth-Email: ${CF_GLOBAL_EMAIL}" 直接引用 env var,绝不 echo/print 这两个变量的值。
-#   GitHub Actions 对声明为 secrets 的值有自动打码,输出里只会显示实际的用量数字(JSON响应)。
 
 on:
   workflow_dispatch: {}
@@ -37,8 +20,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # GraphQL Analytics 数据保留期=过去31天。今天是workflow实际运行日,
-          # 用 date 命令算出 31 天前的起点,覆盖 GraphQL 能给的最大范围。
           END_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           START_DATE=$(date -u -d '31 days ago' +%Y-%m-%dT%H:%M:%SZ)
 
@@ -46,7 +27,6 @@ jobs:
           echo "start=${START_DATE}  end=${END_DATE}"
           echo ""
 
-          # 用 jq 安全构造 JSON body,避免 shell 转义问题;绝不在此过程打印任何 secrets 变量
           QUERY='query R2VolumeByBucketAndAction($accountTag: String!, $startDate: Time!, $endDate: Time!) {
             viewer {
               accounts(filter: { accountTag: $accountTag }) {
@@ -82,7 +62,6 @@ jobs:
           echo ""
           echo ""
 
-          # 检查是否有 GraphQL errors 字段
           if jq -e '.errors' response.json >/dev/null 2>&1 && [ "$(jq '.errors | length' response.json)" != "0" ] && [ "$(jq '.errors' response.json)" != "null" ]; then
             echo "=== GraphQL errors detected ==="
             jq '.errors' response.json

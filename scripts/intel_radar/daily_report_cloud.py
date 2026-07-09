@@ -1,20 +1,4 @@
-"""
-情报雷达 · 每日报告生成器 v2 (云端版)
-======================================
-专为 GitHub Actions (海外 runner) 设计:
-  - 分析模型: 优先 DeepSeek (NVIDIA NIM) / 备用 智谱 GLM-4-Flash
-  - 情报源: arXiv cs.AI + HuggingFace Daily Papers + PubMed TCM+AI
-  - 报告通过 `gh issue create` 推送到 gufangAI/sync-med Issues (→ 手机通知)
-
-环境变量 (GitHub Secrets):
-    NVIDIA_API_KEY   — NVIDIA NIM API Key (deepseek-ai/deepseek-r1)
-    ZHIPU_API_KEY    — 智谱 GLM-4-Flash Key (备用,NVIDIA 不可用时启动)
-
-无 key 时脚本仍可运行,但分析步骤会跳过(只出原始列表报告)。
-
-用法:
-    python daily_report_cloud.py
-"""
+'\n\u60c5\u62a5\u96f7\u8fbe \xb7 \u6bcf\u65e5\u62a5\u544a\u751f\u6210\u5668 v2 (\u4e91\u7aef\u7248)\n======================================\n\u4e13\u4e3a GitHub Actions (\u6d77\u5916 runner) \u8bbe\u8ba1:\n  - \u5206\u6790\u6a21\u578b: \u4f18\u5148 DeepSeek (NVIDIA NIM) / \u5907\u7528 \u667a\u8c31 GLM-4-Flash\n  - \u60c5\u62a5\u6e90: arXiv cs.AI + HuggingFace Daily Papers + PubMed TCM+AI\n  - \u62a5\u544a\u901a\u8fc7 `gh issue create` \u63a8\u9001\u5230 gufangAI/sync-med Issues (\u2192 \u624b\u673a\u901a\u77e5)\n\n\u73af\u5883\u53d8\u91cf (GitHub Secrets):\n    NVIDIA_API_KEY   \u2014 NVIDIA NIM API Key (deepseek-ai/deepseek-r1)\n    ZHIPU_API_KEY    \u2014 \u667a\u8c31 GLM-4-Flash Key (\u5907\u7528,NVIDIA \u4e0d\u53ef\u7528\u65f6\u542f\u52a8)\n\n\u65e0 key \u65f6\u811a\u672c\u4ecd\u53ef\u8fd0\u884c,\u4f46\u5206\u6790\u6b65\u9aa4\u4f1a\u8df3\u8fc7(\u53ea\u51fa\u539f\u59cb\u5217\u8868\u62a5\u544a)\u3002\n\n\u7528\u6cd5:\n    python daily_report_cloud.py\n'
 
 import sys
 import os
@@ -28,19 +12,19 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-# ── 配置 ──────────────────────────────────────────────────────────────────────
 
-# 模型优先级: NVIDIA NIM DeepSeek → 智谱 GLM-4-Flash
+
+
 NVIDIA_BASE  = "https://integrate.api.nvidia.com/v1"
-NVIDIA_MODEL = "deepseek-ai/deepseek-v4-pro"  # r1 已从 NIM 下线，改用 v4-pro
+NVIDIA_MODEL = "deepseek-ai/deepseek-v4-pro"  
 ZHIPU_BASE   = "https://open.bigmodel.cn/api/paas/v4"
 ZHIPU_MODEL  = "glm-4-flash"
 
-# key 从环境变量读,绝不明文
+
 NVIDIA_KEY = os.environ.get("NVIDIA_API_KEY", "")
 ZHIPU_KEY  = os.environ.get("ZHIPU_API_KEY", "")
 
-# 情报源
+
 ARXIV_URL = (
     "http://export.arxiv.org/api/query"
     "?search_query=cat:cs.AI"
@@ -49,41 +33,31 @@ ARXIV_URL = (
 )
 HF_DAILY_URL = "https://huggingface.co/api/daily_papers"
 
-# PubMed E-utilities (免费,无需 key)
+
 PUBMED_SEARCH_URL = (
     "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
     "?db=pubmed&retmode=json&retmax=10"
     "&term=traditional+Chinese+medicine+AND+artificial+intelligence"
-    "&sort=pub+date&datetype=pdat&reldate=7"   # 最近 7 天
+    "&sort=pub+date&datetype=pdat&reldate=7"   
 )
 PUBMED_FETCH_URL  = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 
-# 报告输出目录 (Actions 环境用当前目录下的 reports/)
+
 REPORTS_DIR = Path(__file__).parent / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-# 目标 Issue 仓库
+
 ISSUE_REPO = "gufangAI/sync-med"
 
-# SueAI 定位上下文
-SUEAI_CONTEXT = """
-我们的产品 SueAI 是中医古籍智能分析系统,核心模块包括:
-1. 情报雷达 — 自动抓 AI 前沿论文,筛出对中医 AI 有价值的
-2. RAG 检索引擎 — 基于 2100+ 古典医案 + 7700+ 古籍的向量检索
-3. AI 寻脉 — 给症状生成"古籍辨证参阅报告"(文献主语,非诊疗)
-4. 判断溯源 — 给 AI 输出标注文献出处+可信度分级
-5. SueAI 专家分身 — 中医名家学派视角问答
 
-关键技术方向:中医 NLP、古籍 OCR、RAG/GraphRAG、文本分类、embedding、知识图谱、
-中医术语标准化、传统医学文献挖掘
-"""
+SUEAI_CONTEXT = '\n\u6211\u4eec\u7684\u4ea7\u54c1 SueAI \u662f\u4e2d\u533b\u53e4\u7c4d\u667a\u80fd\u5206\u6790\u7cfb\u7edf,\u6838\u5fc3\u6a21\u5757\u5305\u62ec:\n1. \u60c5\u62a5\u96f7\u8fbe \u2014 \u81ea\u52a8\u6293 AI \u524d\u6cbf\u8bba\u6587,\u7b5b\u51fa\u5bf9\u4e2d\u533b AI \u6709\u4ef7\u503c\u7684\n2. RAG \u68c0\u7d22\u5f15\u64ce \u2014 \u57fa\u4e8e 2100+ \u53e4\u5178\u533b\u6848 + 7700+ \u53e4\u7c4d\u7684\u5411\u91cf\u68c0\u7d22\n3. AI \u5bfb\u8109 \u2014 \u7ed9\u75c7\u72b6\u751f\u6210"\u53e4\u7c4d\u8fa8\u8bc1\u53c2\u9605\u62a5\u544a"(\u6587\u732e\u4e3b\u8bed,\u975e\u8bca\u7597)\n4. \u5224\u65ad\u6eaf\u6e90 \u2014 \u7ed9 AI \u8f93\u51fa\u6807\u6ce8\u6587\u732e\u51fa\u5904+\u53ef\u4fe1\u5ea6\u5206\u7ea7\n5. SueAI \u4e13\u5bb6\u5206\u8eab \u2014 \u4e2d\u533b\u540d\u5bb6\u5b66\u6d3e\u89c6\u89d2\u95ee\u7b54\n\n\u5173\u952e\u6280\u672f\u65b9\u5411:\u4e2d\u533b NLP\u3001\u53e4\u7c4d OCR\u3001RAG/GraphRAG\u3001\u6587\u672c\u5206\u7c7b\u3001embedding\u3001\u77e5\u8bc6\u56fe\u8c31\u3001\n\u4e2d\u533b\u672f\u8bed\u6807\u51c6\u5316\u3001\u4f20\u7edf\u533b\u5b66\u6587\u732e\u6316\u6398\n'
 
 
-# ── 工具函数 ──────────────────────────────────────────────────────────────────
+
 
 def fetch_url(url: str, timeout: int = 30, data: bytes = None,
               headers: dict = None) -> str:
-    """通用 HTTP 请求,支持 GET/POST,返回响应文本"""
+    '\u901a\u7528 HTTP \u8bf7\u6c42,\u652f\u6301 GET/POST,\u8fd4\u56de\u54cd\u5e94\u6587\u672c'
     req_headers = {"User-Agent": "IntelRadar/2.0"}
     if headers:
         req_headers.update(headers)
@@ -100,20 +74,17 @@ def fetch_url(url: str, timeout: int = 30, data: bytes = None,
             pass
         raise RuntimeError(f"HTTP {e.code} {url}: {body}")
     except urllib.error.URLError as e:
-        raise RuntimeError(f"网络请求失败 {url}: {e}")
+        raise RuntimeError(f"\u7f51\u7edc\u8bf7\u6c42\u5931\u8d25 {url}: {e}")
 
 
 def llm_chat(messages: list, max_tokens: int = 2000) -> str:
-    """
-    调用 LLM (NVIDIA NIM DeepSeek 优先 / 智谱 GLM-4-Flash 备用)。
-    无可用 key 时抛出 RuntimeError。
-    """
+    '\n    \u8c03\u7528 LLM (NVIDIA NIM DeepSeek \u4f18\u5148 / \u667a\u8c31 GLM-4-Flash \u5907\u7528)\u3002\n    \u65e0\u53ef\u7528 key \u65f6\u629b\u51fa RuntimeError\u3002\n    '
     if NVIDIA_KEY:
         base, model, key = NVIDIA_BASE, NVIDIA_MODEL, NVIDIA_KEY
     elif ZHIPU_KEY:
         base, model, key = ZHIPU_BASE, ZHIPU_MODEL, ZHIPU_KEY
     else:
-        raise RuntimeError("无可用 LLM key (NVIDIA_API_KEY / ZHIPU_API_KEY 均未设置)")
+        raise RuntimeError('\u65e0\u53ef\u7528 LLM key (NVIDIA_API_KEY / ZHIPU_API_KEY \u5747\u672a\u8bbe\u7f6e)')
 
     payload = json.dumps({
         "model": model,
@@ -137,25 +108,25 @@ def llm_chat(messages: list, max_tokens: int = 2000) -> str:
     except RuntimeError:
         raise
     except Exception as e:
-        raise RuntimeError(f"LLM 调用失败: {e}")
+        raise RuntimeError(f"LLM \u8c03\u7528\u5931\u8d25: {e}")
 
 
-# ── 情报源抓取 ────────────────────────────────────────────────────────────────
+
 
 def fetch_arxiv() -> list:
-    """抓取 arXiv cs.AI 最新 15 篇"""
-    print("[抓取] arXiv cs.AI ...", end=" ", flush=True)
+    '\u6293\u53d6 arXiv cs.AI \u6700\u65b0 15 \u7bc7'
+    print('[\u6293\u53d6] arXiv cs.AI ...', end=" ", flush=True)
     try:
         raw = fetch_url(ARXIV_URL)
     except RuntimeError as e:
-        print(f"失败: {e}")
+        print(f"\u5931\u8d25: {e}")
         return []
 
     ns = {"atom": "http://www.w3.org/2005/Atom"}
     try:
         root = ET.fromstring(raw)
     except ET.ParseError as e:
-        print(f"XML 解析失败: {e}")
+        print(f"XML \u89e3\u6790\u5931\u8d25: {e}")
         return []
 
     papers = []
@@ -169,23 +140,23 @@ def fetch_arxiv() -> list:
                 "abstract": abstract[:500], "url": arxiv_id,
                 "source": "arXiv",
             })
-    print(f"OK,获得 {len(papers)} 条")
+    print(f"OK,\u83b7\u5f97 {len(papers)} \u6761")
     return papers
 
 
 def fetch_hf_daily() -> list:
-    """抓取 HuggingFace Daily Papers"""
-    print("[抓取] HuggingFace Daily Papers ...", end=" ", flush=True)
+    '\u6293\u53d6 HuggingFace Daily Papers'
+    print('[\u6293\u53d6] HuggingFace Daily Papers ...', end=" ", flush=True)
     try:
         raw = fetch_url(HF_DAILY_URL)
     except RuntimeError as e:
-        print(f"失败: {e}")
+        print(f"\u5931\u8d25: {e}")
         return []
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        print(f"JSON 解析失败: {e}")
+        print(f"JSON \u89e3\u6790\u5931\u8d25: {e}")
         return []
 
     papers = []
@@ -201,29 +172,26 @@ def fetch_hf_daily() -> list:
                 "abstract": abstract[:500], "url": url,
                 "source": "HF Daily",
             })
-    print(f"OK,获得 {len(papers)} 条")
+    print(f"OK,\u83b7\u5f97 {len(papers)} \u6761")
     return papers
 
 
 def fetch_pubmed() -> list:
-    """
-    抓取 PubMed 最近 7 天 "traditional Chinese medicine AND artificial intelligence"
-    E-utilities 完全免费,无需 API key。
-    """
-    print("[抓取] PubMed TCM+AI ...", end=" ", flush=True)
+    '\n    \u6293\u53d6 PubMed \u6700\u8fd1 7 \u5929 "traditional Chinese medicine AND artificial intelligence"\n    E-utilities \u5b8c\u5168\u514d\u8d39,\u65e0\u9700 API key\u3002\n    '
+    print('[\u6293\u53d6] PubMed TCM+AI ...', end=" ", flush=True)
     try:
         raw = fetch_url(PUBMED_SEARCH_URL)
         search = json.loads(raw)
     except (RuntimeError, json.JSONDecodeError) as e:
-        print(f"搜索失败: {e}")
+        print(f"\u641c\u7d22\u5931\u8d25: {e}")
         return []
 
     pmids = search.get("esearchresult", {}).get("idlist", [])
     if not pmids:
-        print("OK,0 条 (近 7 天无新文章)")
+        print('OK,0 \u6761 (\u8fd1 7 \u5929\u65e0\u65b0\u6587\u7ae0)')
         return []
 
-    # 批量获取摘要 (efetch XML)
+    
     fetch_url_pm = (
         f"{PUBMED_FETCH_URL}?db=pubmed&retmode=xml&rettype=abstract"
         f"&id={','.join(pmids)}"
@@ -231,22 +199,22 @@ def fetch_pubmed() -> list:
     try:
         xml_raw = fetch_url(fetch_url_pm, timeout=40)
     except RuntimeError as e:
-        print(f"efetch 失败: {e}")
+        print(f"efetch \u5931\u8d25: {e}")
         return []
 
     try:
         root = ET.fromstring(xml_raw)
     except ET.ParseError as e:
-        print(f"XML 解析失败: {e}")
+        print(f"XML \u89e3\u6790\u5931\u8d25: {e}")
         return []
 
     papers = []
     for article in root.findall(".//PubmedArticle"):
-        # 标题
+        
         title_el = article.find(".//ArticleTitle")
         title = "".join(title_el.itertext()).strip() if title_el is not None else ""
 
-        # 摘要 (可能分段)
+        
         abstract_texts = article.findall(".//AbstractText")
         abstract = " ".join("".join(el.itertext()) for el in abstract_texts).strip()
 
@@ -262,58 +230,55 @@ def fetch_pubmed() -> list:
                 "source": "PubMed",
             })
 
-    print(f"OK,获得 {len(papers)} 条")
+    print(f"OK,\u83b7\u5f97 {len(papers)} \u6761")
     return papers
 
 
-# ── 核动力池分析 ──────────────────────────────────────────────────────────────
+
 
 def analyze_relevance(papers: list) -> list:
-    """
-    把所有论文喂给 LLM,筛出对 SueAI 有价值的条目。
-    返回 [{title, url, source, reason}, ...]
-    """
+    '\n    \u628a\u6240\u6709\u8bba\u6587\u5582\u7ed9 LLM,\u7b5b\u51fa\u5bf9 SueAI \u6709\u4ef7\u503c\u7684\u6761\u76ee\u3002\n    \u8fd4\u56de [{title, url, source, reason}, ...]\n    '
     if not papers:
         return []
 
     items_text = "\n\n".join(
-        f"[{i+1}] 来源:{p['source']} | 标题: {p['title']}\n    摘要: {p['abstract']}"
+        f"[{i+1}] \u6765\u6e90:{p['source']} | \u6807\u9898: {p['title']}\n    \u6458\u8981: {p['abstract']}"
         for i, p in enumerate(papers)
     )
 
-    prompt = f"""你是 SueAI 情报雷达的分析大脑。以下是今日 AI 前沿论文列表。
+    prompt = f"""\u4f60\u662f SueAI \u60c5\u62a5\u96f7\u8fbe\u7684\u5206\u6790\u5927\u8111。\u4ee5\u4e0b\u662f\u4eca\u65e5 AI \u524d\u6cbf\u8bba\u6587\u5217\u8868。
 
 {SUEAI_CONTEXT}
 
-请从下面的论文中筛选出对 SueAI 有价值或有借鉴意义的条目。
-判断标准:RAG/检索增强、知识图谱、文本分类、古籍/医学NLP、embedding、OCR、
-多文档推理、溯源/可解释AI、中医相关任何方向、传统医学+AI 结合研究。
-英文论文也要分析,不要因为是英文就跳过。
-来自 PubMed 的中医AI论文优先重点关注。
+\u8bf7\u4ece\u4e0b\u9762\u7684\u8bba\u6587\u4e2d\u7b5b\u9009\u51fa\u5bf9 SueAI \u6709\u4ef7\u503c\u6216\u6709\u501f\u9274\u610f\u4e49\u7684\u6761\u76ee。
+\u5224\u65ad\u6807\u51c6:RAG/\u68c0\u7d22\u589e\u5f3a、\u77e5\u8bc6\u56fe\u8c31、\u6587\u672c\u5206\u7c7b、\u53e4\u7c4d/\u533b\u5b66NLP、embedding、OCR、
+\u591a\u6587\u6863\u63a8\u7406、\u6eaf\u6e90/\u53ef\u89e3\u91caAI、\u4e2d\u533b\u76f8\u5173\u4efb\u4f55\u65b9\u5411、\u4f20\u7edf\u533b\u5b66+AI \u7ed3\u5408\u7814\u7a76。
+\u82f1\u6587\u8bba\u6587\u4e5f\u8981\u5206\u6790,\u4e0d\u8981\u56e0\u4e3a\u662f\u82f1\u6587\u5c31\u8df3\u8fc7。
+\u6765\u81ea PubMed \u7684\u4e2d\u533bAI\u8bba\u6587\u4f18\u5148\u91cd\u70b9\u5173\u6ce8。
 
-论文列表:
+\u8bba\u6587\u5217\u8868:
 {items_text}
 
-请以如下 JSON 格式输出(只输出 JSON,不要多余文字):
+\u8bf7\u4ee5\u5982\u4e0b JSON \u683c\u5f0f\u8f93\u51fa(\u53ea\u8f93\u51fa JSON,\u4e0d\u8981\u591a\u4f59\u6587\u5b57):
 [
   {{
-    "index": <原列表编号>,
-    "reason": "<一句话说明对 SueAI 哪个模块有价值,为什么>"
+    "index": <\u539f\u5217\u8868\u7f16\u53f7>,
+    "reason": "<\u4e00\u53e5\u8bdd\u8bf4\u660e\u5bf9 SueAI \u54ea\u4e2a\u6a21\u5757\u6709\u4ef7\u503c,\u4e3a\u4ec0\u4e48>"
   }},
   ...
 ]
-如果没有任何相关论文,输出空数组 []。"""
+\u5982\u679c\u6ca1\u6709\u4efb\u4f55\u76f8\u5173\u8bba\u6587,\u8f93\u51fa\u7a7a\u6570\u7ec4 []。"""
 
-    model_name = NVIDIA_MODEL if NVIDIA_KEY else (ZHIPU_MODEL if ZHIPU_KEY else "无key")
-    print(f"[分析] 共 {len(papers)} 篇 → LLM({model_name}) ...", end=" ", flush=True)
+    model_name = NVIDIA_MODEL if NVIDIA_KEY else (ZHIPU_MODEL if ZHIPU_KEY else '\u65e0key')
+    print(f"[\u5206\u6790] \u5171 {len(papers)} \u7bc7 → LLM({model_name}) ...", end=" ", flush=True)
 
     try:
         response = llm_chat([{"role": "user", "content": prompt}], max_tokens=2000)
     except RuntimeError as e:
-        print(f"失败: {e}")
+        print(f"\u5931\u8d25: {e}")
         return []
 
-    # 清理 markdown 代码块
+    
     text = response.strip()
     if text.startswith("```"):
         lines = text.split("\n")
@@ -327,10 +292,10 @@ def analyze_relevance(papers: list) -> list:
             try:
                 picks = json.loads(m.group())
             except json.JSONDecodeError:
-                print(f"JSON 解析失败,原始回复:\n{text[:300]}")
+                print(f"JSON \u89e3\u6790\u5931\u8d25,\u539f\u59cb\u56de\u590d:\n{text[:300]}")
                 return []
         else:
-            print(f"无法提取 JSON,原始回复:\n{text[:300]}")
+            print(f"\u65e0\u6cd5\u63d0\u53d6 JSON,\u539f\u59cb\u56de\u590d:\n{text[:300]}")
             return []
 
     results = []
@@ -345,11 +310,11 @@ def analyze_relevance(papers: list) -> list:
                 "reason": pick.get("reason", ""),
             })
 
-    print(f"OK,筛出 {len(results)} 条相关")
+    print(f"OK,\u7b5b\u51fa {len(results)} \u6761\u76f8\u5173")
     return results
 
 
-# ── 报告生成 ──────────────────────────────────────────────────────────────────
+
 
 def generate_report(
     date_str: str,
@@ -359,19 +324,19 @@ def generate_report(
     elapsed: float,
     model_used: str,
 ) -> str:
-    """生成 Markdown 报告字符串"""
+    '\u751f\u6210 Markdown \u62a5\u544a\u5b57\u7b26\u4e32'
     total_raw      = sum(raw_counts.values())
     total_relevant = len(relevant)
     rate_str       = f"{total_relevant/total_raw*100:.1f}%" if total_raw else "N/A"
 
     lines = [
-        f"# 情报雷达日报 · {date_str}",
+        f"# \u60c5\u62a5\u96f7\u8fbe\u65e5\u62a5 · {date_str}",
         "",
-        f"> 自动生成 | 扫描源: {', '.join(sources)} | 分析模型: {model_used}",
+        f"> \u81ea\u52a8\u751f\u6210 | \u626b\u63cf\u6e90: {', '.join(sources)} | \u5206\u6790\u6a21\u578b: {model_used}",
         "",
         "---",
         "",
-        "## 相关论文精选",
+        '## \u76f8\u5173\u8bba\u6587\u7cbe\u9009',
         "",
     ]
 
@@ -379,11 +344,11 @@ def generate_report(
         for i, item in enumerate(relevant, 1):
             lines.append(f"### {i}. [{item['title']}]({item['url']})" if item["url"]
                          else f"### {i}. {item['title']}")
-            lines.append(f"- **来源**: {item['source']}")
-            lines.append(f"- **价值**: {item['reason']}")
+            lines.append(f"- **\u6765\u6e90**: {item['source']}")
+            lines.append(f"- **\u4ef7\u503c**: {item['reason']}")
             lines.append("")
     else:
-        lines.append("今日未发现与 SueAI 高度相关的论文。")
+        lines.append('\u4eca\u65e5\u672a\u53d1\u73b0\u4e0e SueAI \u9ad8\u5ea6\u76f8\u5173\u7684\u8bba\u6587\u3002')
         lines.append("")
 
     lines += [
@@ -391,18 +356,18 @@ def generate_report(
         "",
         "## KPI",
         "",
-        "| 指标 | 值 |",
+        '| \u6307\u6807 | \u503c |',
         "|------|-----|",
-        f"| 扫描源数 | {len(sources)} |",
+        f"| \u626b\u63cf\u6e90\u6570 | {len(sources)} |",
     ]
     for src, cnt in raw_counts.items():
-        lines.append(f"| 抓取原始条目 ({src}) | {cnt} 条 |")
+        lines.append(f"| \u6293\u53d6\u539f\u59cb\u6761\u76ee ({src}) | {cnt} \u6761 |")
     lines += [
-        f"| 原始总条目 | {total_raw} 条 |",
-        f"| 筛出相关条目 | {total_relevant} 条 |",
-        f"| 相关率 | {rate_str} |",
-        f"| 分析模型 | {model_used} |",
-        f"| 生成耗时 | {elapsed:.1f} 秒 |",
+        f"| \u539f\u59cb\u603b\u6761\u76ee | {total_raw} \u6761 |",
+        f"| \u7b5b\u51fa\u76f8\u5173\u6761\u76ee | {total_relevant} \u6761 |",
+        f"| \u76f8\u5173\u7387 | {rate_str} |",
+        f"| \u5206\u6790\u6a21\u578b | {model_used} |",
+        f"| \u751f\u6210\u8017\u65f6 | {elapsed:.1f} \u79d2 |",
         "",
     ]
 
@@ -410,27 +375,23 @@ def generate_report(
 
 
 def build_issue_title(date_str: str, relevant: list, raw_counts: dict) -> str:
-    """构建 Issue 标题,含 KPI 摘要"""
+    '\u6784\u5efa Issue \u6807\u9898,\u542b KPI \u6458\u8981'
     total_raw      = sum(raw_counts.values())
     total_relevant = len(relevant)
     return (
-        f"[情报雷达] {date_str} | "
-        f"扫描 {total_raw} 篇 · 筛出 {total_relevant} 条相关"
+        f"[\u60c5\u62a5\u96f7\u8fbe] {date_str} | "
+        f"\u626b\u63cf {total_raw} \u7bc7 · \u7b5b\u51fa {total_relevant} \u6761\u76f8\u5173"
     )
 
 
-# ── 推送 Issue ────────────────────────────────────────────────────────────────
+
 
 def push_issue(title: str, body: str) -> bool:
-    """
-    用 gh CLI 把报告推送到 gufangAI/sync-med Issues。
-    gh CLI 在 GitHub Actions ubuntu 上默认可用,GITHUB_TOKEN 自动注入。
-    返回 True = 成功。
-    """
+    '\n    \u7528 gh CLI \u628a\u62a5\u544a\u63a8\u9001\u5230 gufangAI/sync-med Issues\u3002\n    gh CLI \u5728 GitHub Actions ubuntu \u4e0a\u9ed8\u8ba4\u53ef\u7528,GITHUB_TOKEN \u81ea\u52a8\u6ce8\u5165\u3002\n    \u8fd4\u56de True = \u6210\u529f\u3002\n    '
     import subprocess
     import tempfile
 
-    # 把 body 写临时文件,避免 shell 转义问题
+    
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md",
                                     encoding="utf-8", delete=False) as f:
         f.write(body)
@@ -449,12 +410,12 @@ def push_issue(title: str, body: str) -> bool:
         )
         if result.returncode == 0:
             url = result.stdout.strip()
-            print(f"[Issue] 推送成功: {url}")
+            print(f"[Issue] \u63a8\u9001\u6210\u529f: {url}")
             return True
         else:
-            # label 不存在时去掉 --label 重试
+            
             if "label" in result.stderr.lower() or "could not resolve" in result.stderr.lower():
-                print("[Issue] label 不存在,去掉 --label 重试 ...")
+                print('[Issue] label \u4e0d\u5b58\u5728,\u53bb\u6389 --label \u91cd\u8bd5 ...')
                 result2 = subprocess.run(
                     [
                         "gh", "issue", "create",
@@ -465,18 +426,18 @@ def push_issue(title: str, body: str) -> bool:
                     capture_output=True, text=True, timeout=60,
                 )
                 if result2.returncode == 0:
-                    print(f"[Issue] 推送成功: {result2.stdout.strip()}")
+                    print(f"[Issue] \u63a8\u9001\u6210\u529f: {result2.stdout.strip()}")
                     return True
                 else:
-                    print(f"[Issue] 推送失败: {result2.stderr[:300]}")
+                    print(f"[Issue] \u63a8\u9001\u5931\u8d25: {result2.stderr[:300]}")
                     return False
-            print(f"[Issue] 推送失败 (rc={result.returncode}): {result.stderr[:300]}")
+            print(f"[Issue] \u63a8\u9001\u5931\u8d25 (rc={result.returncode}): {result.stderr[:300]}")
             return False
     except subprocess.TimeoutExpired:
-        print("[Issue] gh 调用超时")
+        print('[Issue] gh \u8c03\u7528\u8d85\u65f6')
         return False
     except FileNotFoundError:
-        print("[Issue] gh CLI 未安装 (本地运行时正常,Actions 环境内置)")
+        print('[Issue] gh CLI \u672a\u5b89\u88c5 (\u672c\u5730\u8fd0\u884c\u65f6\u6b63\u5e38,Actions \u73af\u5883\u5185\u7f6e)')
         return False
     finally:
         try:
@@ -485,26 +446,26 @@ def push_issue(title: str, body: str) -> bool:
             pass
 
 
-# ── 主入口 ────────────────────────────────────────────────────────────────────
+
 
 def main():
     t0    = time.time()
     today = datetime.date.today().strftime("%Y-%m-%d")
 
     print(f"\n{'='*60}")
-    print(f"情报雷达日报 v2 (云端版) · {today}")
+    print(f"\u60c5\u62a5\u96f7\u8fbe\u65e5\u62a5 v2 (\u4e91\u7aef\u7248) · {today}")
     print(f"{'='*60}\n")
 
-    # 显示使用的模型
+    
     if NVIDIA_KEY:
         model_used = f"DeepSeek R1 (NVIDIA NIM)"
     elif ZHIPU_KEY:
-        model_used = f"GLM-4-Flash (智谱)"
+        model_used = f"GLM-4-Flash (\u667a\u8c31)"
     else:
-        model_used = "无 (跳过 AI 分析)"
-    print(f"[配置] 分析模型: {model_used}")
+        model_used = '\u65e0 (\u8df3\u8fc7 AI \u5206\u6790)'
+    print(f"[\u914d\u7f6e] \u5206\u6790\u6a21\u578b: {model_used}")
 
-    # 1. 抓取情报源
+    
     arxiv_papers  = fetch_arxiv()
     hf_papers     = fetch_hf_daily()
     pubmed_papers = fetch_pubmed()
@@ -518,45 +479,45 @@ def main():
     sources = [k for k, v in raw_counts.items() if v > 0]
 
     if not all_papers:
-        print("[警告] 所有情报源均抓取失败,退出")
+        print('[\u8b66\u544a] \u6240\u6709\u60c5\u62a5\u6e90\u5747\u6293\u53d6\u5931\u8d25,\u9000\u51fa')
         sys.exit(1)
 
-    # 2. 核动力池分析 (无 key 时跳过)
+    
     if NVIDIA_KEY or ZHIPU_KEY:
         relevant = analyze_relevance(all_papers)
     else:
-        print("[分析] 无 LLM key,跳过 AI 筛选 (将列出所有条目)")
+        print('[\u5206\u6790] \u65e0 LLM key,\u8df3\u8fc7 AI \u7b5b\u9009 (\u5c06\u5217\u51fa\u6240\u6709\u6761\u76ee)')
         relevant = [
             {"title": p["title"], "url": p["url"],
-             "source": p["source"], "reason": "未分析"}
+             "source": p["source"], "reason": '\u672a\u5206\u6790'}
             for p in all_papers
         ]
 
-    # 3. 生成报告
+    
     elapsed   = time.time() - t0
     report_md = generate_report(today, sources, raw_counts, relevant, elapsed, model_used)
 
-    # 4. 写入本地文件
+    
     out_path = REPORTS_DIR / f"{today}.md"
     out_path.write_text(report_md, encoding="utf-8")
-    print(f"\n[完成] 报告已写入: {out_path}")
+    print(f"\n[\u5b8c\u6210] \u62a5\u544a\u5df2\u5199\u5165: {out_path}")
 
-    # 5. 推送 Issue (→ 手机通知)
+    
     issue_title = build_issue_title(today, relevant, raw_counts)
     push_issue(issue_title, report_md)
 
-    # 6. 打印 KPI
+    
     total_raw      = sum(raw_counts.values())
     total_relevant = len(relevant)
     print(f"\n── KPI ──")
-    print(f"  扫描源:  {len(sources)} 个 ({', '.join(sources)})")
+    print(f"  \u626b\u63cf\u6e90:  {len(sources)} \u4e2a ({', '.join(sources)})")
     for src, cnt in raw_counts.items():
-        print(f"  {src}: {cnt} 条")
-    print(f"  原始总计:  {total_raw} 条")
-    print(f"  筛出相关:  {total_relevant} 条")
-    print(f"  相关率:    {total_relevant/total_raw*100:.1f}%" if total_raw else "  相关率: N/A")
-    print(f"  分析模型:  {model_used}")
-    print(f"  耗时:     {elapsed:.1f} 秒")
+        print(f"  {src}: {cnt} \u6761")
+    print(f"  \u539f\u59cb\u603b\u8ba1:  {total_raw} \u6761")
+    print(f"  \u7b5b\u51fa\u76f8\u5173:  {total_relevant} \u6761")
+    print(f"  \u76f8\u5173\u7387:    {total_relevant/total_raw*100:.1f}%" if total_raw else '  \u76f8\u5173\u7387: N/A')
+    print(f"  \u5206\u6790\u6a21\u578b:  {model_used}")
+    print(f"  \u8017\u65f6:     {elapsed:.1f} \u79d2")
     print()
 
     return out_path

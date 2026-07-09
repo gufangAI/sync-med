@@ -15,11 +15,11 @@ DIR_A = os.environ["PAN_DIR_A"]      # folder id for image archives
 DIR_B = os.environ["PAN_DIR_B"]      # folder id for documents (separate)
 SHARD = int(os.environ.get("SHARD", "0")); TOTAL = int(os.environ.get("TOTAL", "1"))
 TMP = os.environ.get("RUNNER_TEMP", tempfile.gettempdir())
-ZIP_ONLY = os.environ.get("ZIP_ONLY") == "1"   # 只备份 zip、跳过慢的 pdf 生成(pdf 冗余·123 的已删·创始人只要 zip)
+ZIP_ONLY = os.environ.get("ZIP_ONLY") == "1"   
 
 s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK,
                   aws_secret_access_key=SK, region_name="auto",
-                  config=Config(connect_timeout=15, read_timeout=60, retries={"max_attempts": 3}))  # 防 R2 半死连接挂死
+                  config=Config(connect_timeout=15, read_timeout=60, retries={"max_attempts": 3}))  
 # title map (req-number -> book name) loaded from private storage; source stays CJK-free
 NAMES = {}
 _nk = os.environ.get("NAME_KEY")
@@ -27,9 +27,9 @@ if _nk:
     try:
         NAMES = json.loads(s3.get_object(Bucket=SRC, Key=_nk)["Body"].read().decode("utf-8"))
     except Exception as e:
-        # 2026-07-05: NAME_KEY 对象一度缺失,导致这行无兜底 -> 28 个 shard 全部在启动时崩溃、零产出。
-        # 照 3 行后 DONE_ZIP/DONE_PDF 的既有写法补容错;NAMES 为空时每本书会走 handle() 的 skip-noname
-        # 分支(已有正常路径),不会误传;但必须响亮报警,不能悄悄变成"跑完是绿的但 0 本真正同步"的假绿。
+        
+        
+        
         print(f"WARNING: NAME_KEY manifest unreadable (key={_nk}): {e} "
               f"-> NAMES empty, every book will skip-noname this run", flush=True)
 # already-backed-up sets (built once by prep step listing the 123 backup folders): skip BEFORE any
@@ -75,7 +75,7 @@ def pan(method, path, body=None):
             time.sleep(delay); delay = min(delay * 2, 30); continue
         msg = str(last.get("message", "")); code = last.get("code")
         # 123 rate limit ("tokens number has exceeded the limit") / 429 / expired token -> backoff + retry
-        if "exceeded" in msg or "tokens number" in msg or "频繁" in msg or code in (429, 401):
+        if "exceeded" in msg or "tokens number" in msg or '\u9891\u7e41' in msg or code in (429, 401):
             if code == 401:
                 _tok["v"] = None                  # auth failed -> force token re-fetch
             time.sleep(delay); delay = min(delay * 2, 60); continue
@@ -86,8 +86,8 @@ def pan(method, path, body=None):
 
 
 def put_file(local_path, parent_id, name):
-    # 06-20 验证过的直传(GitHub 云端·115 并发成功传 6501):create -> get_upload_url -> S.put -> complete。
-    # ⚠️ S.put 超时必须慷慨(1200s)——之前改成 (15,300) 把"慢但能成"的 123 上传掐死了(write timed out)。
+    
+    
     size = os.path.getsize(local_path)
     h = hashlib.md5()
     with open(local_path, "rb") as f:
@@ -101,13 +101,13 @@ def put_file(local_path, parent_id, name):
     pid = d.get("preuploadID")
     if not pid:
         msg = str(cr.get("message") or "")
-        if "重复" in msg or "已存在" in msg or "exist" in msg.lower():
+        if '\u91cd\u590d' in msg or '\u5df2\u5b58\u5728' in msg or "exist" in msg.lower():
             return "dup"
         return "err:" + msg[:40]
     url = (pan("POST", "/upload/v1/file/get_upload_url",
               {"preuploadID": pid, "sliceNo": 1}).get("data") or {}).get("presignedURL")
     with open(local_path, "rb") as f:                 # stream upload, no full read into memory
-        S.put(url, data=f, timeout=1200)              # 06-20 proven 慷慨超时·绝不改激进短超时
+        S.put(url, data=f, timeout=1200)              
     cd = pan("POST", "/upload/v1/file/upload_complete", {"preuploadID": pid}).get("data") or {}
     if cd.get("async"):
         for _ in range(180):
@@ -120,21 +120,18 @@ def put_file(local_path, parent_id, name):
 
 
 def _rebuild_pages_from_d1():
-    """PAGES_KEY 清单从 R2 读不到时,直接查 D1 现场生成并写回 R2 缓存(自愈)。
-    治 2026-07-05 事故: R2 缓存文件缺失导致所有 shard 启动即 NoSuchKey 全崩、零产出。
-    没有兜底时是"定时炸弹":哪天缓存文件被误删/未生成,整条 sync 就停摆等人工介入。
-    有兜底后系统自愈:D1 是权威源、几毫秒 API 查询,不烧 R2 LIST。"""
+    'PAGES_KEY \u6e05\u5355\u4ece R2 \u8bfb\u4e0d\u5230\u65f6,\u76f4\u63a5\u67e5 D1 \u73b0\u573a\u751f\u6210\u5e76\u5199\u56de R2 \u7f13\u5b58(\u81ea\u6108)\u3002\n    \u6cbb 2026-07-05 \u4e8b\u6545: R2 \u7f13\u5b58\u6587\u4ef6\u7f3a\u5931\u5bfc\u81f4\u6240\u6709 shard \u542f\u52a8\u5373 NoSuchKey \u5168\u5d29\u3001\u96f6\u4ea7\u51fa\u3002\n    \u6ca1\u6709\u515c\u5e95\u65f6\u662f"\u5b9a\u65f6\u70b8\u5f39":\u54ea\u5929\u7f13\u5b58\u6587\u4ef6\u88ab\u8bef\u5220/\u672a\u751f\u6210,\u6574\u6761 sync \u5c31\u505c\u6446\u7b49\u4eba\u5de5\u4ecb\u5165\u3002\n    \u6709\u515c\u5e95\u540e\u7cfb\u7edf\u81ea\u6108:D1 \u662f\u6743\u5a01\u6e90\u3001\u51e0\u6beb\u79d2 API \u67e5\u8be2,\u4e0d\u70e7 R2 LIST\u3002'
     acc = os.environ.get("CF_ACCOUNT_ID"); db = os.environ.get("D1_DATABASE_ID"); tok = os.environ.get("D1_API_TOKEN")
     if not (acc and db and tok):
-        raise RuntimeError("PAGES_KEY 读不到 + 缺 CF_ACCOUNT_ID/D1_DATABASE_ID/D1_API_TOKEN,无法从 D1 兜底")
+        raise RuntimeError('PAGES_KEY \u8bfb\u4e0d\u5230 + \u7f3a CF_ACCOUNT_ID/D1_DATABASE_ID/D1_API_TOKEN,\u65e0\u6cd5\u4ece D1 \u515c\u5e95')
     url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/d1/database/{db}/query"
-    # 只查医书线在跑的:frontend_visible=1、upload_status=done、有 page_count 的
+    
     sql = ("SELECT book_id, page_count FROM books_assets_v2 "
            "WHERE frontend_visible=1 AND upload_status='done' AND page_count > 0")
     r = requests.post(url, headers={"Authorization": "Bearer "+tok}, json={"sql": sql}, timeout=120)
     r.raise_for_status()
     j = r.json()
-    if not j.get("success"): raise RuntimeError(f"D1 查询失败: {str(j.get('errors',''))[:200]}")
+    if not j.get("success"): raise RuntimeError(f"D1 \u67e5\u8be2\u5931\u8d25: {str(j.get('errors',''))[:200]}")
     rows = (j.get("result") or [{}])[0].get("results") or []
     pages = {row["book_id"]: int(row["page_count"]) for row in rows if row.get("book_id") and row.get("page_count")}
     return pages
@@ -149,8 +146,8 @@ def list_groups():
     try:
         pages = json.loads(s3.get_object(Bucket=SRC, Key=pk)["Body"].read().decode("utf-8"))
     except Exception as e:
-        # 2026-07-06: R2 缓存缺失自愈——现场从 D1 生成清单,并同时写回 R2 让下次快;
-        # 不再让 NoSuchKey 一次性拖垮所有 shard。
+        
+        
         print(f"WARNING: PAGES_KEY {pk} unreadable ({e}) -> rebuilding from D1...", flush=True)
         pages = _rebuild_pages_from_d1()
         print(f"D1 rebuild ok: {len(pages)} books", flush=True)
@@ -261,7 +258,7 @@ def main():
         try:
             a, b = handle(g, keys)
         except Exception as e:
-            a = b = "err:" + str(e)[:50]      # 一本超时/出错绝不拖垮整 shard,记错继续下一本(幂等下次续)
+            a = b = "err:" + str(e)[:50]      
         ledger.append({"gid": g.split("/")[-1], "pages": len(keys), "zip": a, "pdf": b})
         ok += 1
         if ok % 20 == 0:

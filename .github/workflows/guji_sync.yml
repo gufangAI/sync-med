@@ -15,11 +15,9 @@ on:
       max_pending:
         description: "max offline tasks per shard (tune for 429 avoidance)"
         default: "20"
-  # 每6小时自动续跑:一轮最多5.8h,62h全量需多轮;幂等只补缺(reuse跳过),零删除
   schedule:
     - cron: "0 */6 * * *"
 
-# 防两轮重叠:重叠=双倍打123 API=429暴+浪费。新轮排队等旧轮完成,绝不杀正在跑的
 concurrency:
   group: guji-sync
   cancel-in-progress: false
@@ -93,7 +91,6 @@ jobs:
           HALVES: "1"
           HALF: "0"
 
-  # 主账号 100% 让给客户端(11MB/s),open-api 只用项目账号,绝不和客户端抢 token
 
   # ── AUDIT: compare R2 vs 123, print K=? ──
   audit:

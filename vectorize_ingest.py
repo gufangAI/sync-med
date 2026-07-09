@@ -1,26 +1,26 @@
 # coding: utf-8
-# 【RAG 灌库 · 云端化步骤2】GitHub Actions 矩阵内运行:R2 emb.jsonl → CF Vectorize REST API。
-#   跑在 gufangAI/sync-med 仓库的 workflow 里(ubuntu-latest hosted runner,非本机、非自托管)。
+
+
 #
-#   认证(2026-07-01 实测,逐项核实,不沿用旧记忆):
-#     - REST scoped token(CLOUDFLARE_API_TOKEN/D1_API_TOKEN)→ 401/403(没有 Vectorize 权限范围)。
-#     - Global API Key(CLOUDFLARE_EMAIL + CLOUDFLARE_API_KEY,X-Auth-Email/X-Auth-Key 头)
-#       → 实测 200,账号级全权限,天然带 Vectorize 权限,不受 scoped token 限制。已用它验证:
-#       list indexes / info / upsert 全通,真实写入 tcm-rag-768 索引数从 3960 → 3961 → 4191。
-#     - 走 REST 直连,不走 wrangler CLI 子进程 —— 消除本机"13.2秒/本子进程启动开销"瓶颈;
-#       实测 REST 直连 3.08秒/本(约46块/本),比 CLI 快 4.3倍。
+
+
+
+
+
+
+
 #
-#   数据源:R2 guyaofang-lib/sueai-blackbox/embeddings/(先由本机 upload_emb_to_r2.py 一次性搬运)。
-#   分片:读 R2 _manifest.json(小文件,非全桶 LIST)→ book_index % TOTAL == SHARD 分片。
-#   幂等:每本书灌完在 R2 写一个 0 字节标记 sueai-blackbox/embeddings/_done/<book_md5_8>.done;
-#         灌前先 HEAD 该标记,存在则跳过(不重复插入;即使重插入,Vectorize upsert 同 id 覆盖=天然幂等)。
-#   只增不删不覆盖已有 R2 对象/D1 记录(铁律)。
+
+
+
+
+
 #
-#   环境变量(GitHub Actions secrets 注入):
-#     CF_ACCOUNT_ID, CF_GLOBAL_EMAIL, CF_GLOBAL_API_KEY   — Vectorize REST 鉴权
-#     R2_ENDPOINT, R2_ACCESS_KEY, R2_SECRET_KEY            — R2 S3 兼容读取(读 embeddings 源 + 写 done 标记)
-#     SHARD, TOTAL                                          — 矩阵分片
-#     VEC_INDEX (默认 tcm-rag-768)
+
+
+
+
+
 import os, sys, re, json, time, hashlib, io
 import boto3
 import requests
@@ -44,9 +44,9 @@ SHARD = int(os.environ.get("SHARD", "0"))
 TOTAL = int(os.environ.get("TOTAL", "1"))
 
 META_TEXT_MAX = 1800
-MAX_ROWS_PER_REQ = 1000     # REST 单文件上限 5000,保守用 1000(与本机批大小口径一致,留余量防超时)
+MAX_ROWS_PER_REQ = 1000     
 
-PAGE_RE = re.compile(r"第\s*(\d{1,5})\s*页")
+PAGE_RE = re.compile('\u7b2c\\s*(\\d{1,5})\\s*\u9875')
 
 
 def s3_client():
@@ -132,7 +132,7 @@ def main():
         bh = book_hash(book)
         done_key = DONE_PREFIX + bh + ".done"
 
-        # 幂等:标记已存在则跳过(不重复插入)
+        
         try:
             s3.head_object(Bucket=BUCKET, Key=done_key)
             skip_books += 1
@@ -150,7 +150,7 @@ def main():
 
         rows = book_to_rows(body, book)
         if not rows:
-            # 空书(无有效向量)也标记 done,避免每轮重试白读
+            
             s3.put_object(Bucket=BUCKET, Key=done_key, Body=b"")
             skip_books += 1
             continue
@@ -180,7 +180,7 @@ def main():
     print(f"=== shard {SHARD} done: ok={ok_books} skip={skip_books} fail={fail_books} "
           f"vecs={total_vecs} · {elapsed/60:.1f}min ===", flush=True)
 
-    # GitHub Actions job summary (self-reporting, per 纲领 "自带报告")
+    
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
         with open(summary_path, "a", encoding="utf-8") as f:

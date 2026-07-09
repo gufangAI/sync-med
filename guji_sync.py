@@ -29,17 +29,17 @@ s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK,
                   config=Config(connect_timeout=15, read_timeout=120,
                                 retries={"max_attempts": 3}))
 _S = requests.Session(); _S.trust_env = False
-# 大连接池支持页级并发(默认池仅10,并发会排队拖慢)
+
 _adapter = requests.adapters.HTTPAdapter(pool_connections=64, pool_maxsize=64)
 _S.mount("https://", _adapter); _S.mount("http://", _adapter)
 _tok = {"v": None}
 _tok_lock = threading.Lock()
-PAGE_CONC = int(os.environ.get("PAGE_CONCURRENCY", "8"))  # 页级并发(共用进程内1个token,跑满9页/秒)
+PAGE_CONC = int(os.environ.get("PAGE_CONCURRENCY", "8"))  
 
 
 # ---------- 123pan API helpers ----------
 def token():
-    with _tok_lock:  # 线程安全:并发页只取一次token
+    with _tok_lock:  
         if _tok["v"] is None:
             r = _S.post(PAN + "/api/v1/access_token",
                         headers={"Platform": "open_platform"},
@@ -62,7 +62,7 @@ def pan(method, path, body=None, params=None):
         except Exception:
             time.sleep(delay); delay = min(delay * 2, 30); continue
         msg = str(last.get("message", "")); code = last.get("code")
-        if "exceeded" in msg or "tokens number" in msg or "频繁" in msg or code in (429, 401):
+        if "exceeded" in msg or "tokens number" in msg or '\u9891\u7e41' in msg or code in (429, 401):
             if code == 401:
                 _tok["v"] = None
             time.sleep(delay); delay = min(delay * 2, 60); continue
@@ -130,10 +130,10 @@ def put_bytes(data, dir_id, name):
     pid = d.get("preuploadID")
     if not pid:
         msg = str(cr.get("message") or "")
-        if "重复" in msg or "已存在" in msg or "exist" in msg.lower():
+        if '\u91cd\u590d' in msg or '\u5df2\u5b58\u5728' in msg or "exist" in msg.lower():
             return "reuse"
         return "err:create:" + msg[:50]
-    # PUT分片·健壮重试(治连接重置10054·跨境偶发断连·migrate_local已验证)
+    
     ok_put = False
     for _att in range(5):
         url_r = pan("POST", "/upload/v1/file/get_upload_url", {"preuploadID": pid, "sliceNo": 1})
@@ -141,7 +141,7 @@ def put_bytes(data, dir_id, name):
         if not url:
             time.sleep(2); continue
         try:
-            pr = _S.put(url, data=data, timeout=1200)  # 1200s慷慨超时·绝不改短
+            pr = _S.put(url, data=data, timeout=1200)  
             if pr.status_code in (200, 204):
                 ok_put = True; break
             time.sleep(1.5 * (_att + 1))
@@ -160,9 +160,9 @@ def put_bytes(data, dir_id, name):
     return "ok"
 
 
-# ---------- per-book handler (幂等:跳过已传页·只补缺·验证完整·绝不留空壳) ----------
+
 def list_existing(dir_id):
-    """列出该书目录下已传的页文件名集合(幂等用,跳过已传)。"""
+    '\u5217\u51fa\u8be5\u4e66\u76ee\u5f55\u4e0b\u5df2\u4f20\u7684\u9875\u6587\u4ef6\u540d\u96c6\u5408(\u5e42\u7b49\u7528,\u8df3\u8fc7\u5df2\u4f20)\u3002'
     names = set(); last = 0
     while True:
         d = pan("GET", "/api/v2/file/list",
@@ -178,13 +178,13 @@ def list_existing(dir_id):
 
 
 def handle_book(book_id, page_count):
-    """幂等补缺:只传没传过的页;put_bytes 内含重试(治429);核页数,够了才算完整。"""
+    '\u5e42\u7b49\u8865\u7f3a:\u53ea\u4f20\u6ca1\u4f20\u8fc7\u7684\u9875;put_bytes \u5185\u542b\u91cd\u8bd5(\u6cbb429);\u6838\u9875\u6570,\u591f\u4e86\u624d\u7b97\u5b8c\u6574\u3002'
     dir_id = get_book_dir(book_id)
     if not dir_id:
         return {"book_id": book_id, "pages": page_count, "ok": 0, "reuse": 0,
                 "err": 1, "r2_miss": 0, "note": "no_dir", "complete": False}
 
-    existing = list_existing(dir_id)            # 已传的页(幂等跳过)
+    existing = list_existing(dir_id)            
     todo = [pn for pn in range(1, page_count + 1)
             if f"page_{pn:04d}.webp" not in existing]
 
@@ -213,7 +213,7 @@ def handle_book(book_id, page_count):
             else:
                 err += 1
 
-    complete = ok >= (page_count - r2_miss)     # 扣掉R2本身没有的页,够了才算完整
+    complete = ok >= (page_count - r2_miss)     
     return {"book_id": book_id, "pages": page_count, "ok": ok, "reuse": reuse,
             "err": err, "r2_miss": r2_miss, "complete": complete}
 
@@ -222,7 +222,7 @@ def handle_book(book_id, page_count):
 def main():
     pages = json.loads(s3.get_object(Bucket=BKT, Key=PAGES_KEY)["Body"].read())
     items = sorted(pages.items())
-    # 双号split:HALVES=2时按账号分两半,各账号只传自己那半;HALVES=1=单号全量(默认)
+    
     HALVES = int(os.environ.get("HALVES", "1"))
     HALF = int(os.environ.get("HALF", "0"))
     if HALVES > 1:
@@ -277,9 +277,9 @@ def audit():
     print(f"AUDIT: expected={total_expected} done={done} ok={total_ok} "
           f"reuse={total_reuse} err={total_err} missing={total_expected-done}")
     if total_expected - done == 0 and total_err == 0:
-        print("  [PASS] K=0 全部完成")
+        print('  [PASS] K=0 \u5168\u90e8\u5b8c\u6210')
     else:
-        print("  [INCOMPLETE] 继续补跑")
+        print('  [INCOMPLETE] \u7ee7\u7eed\u8865\u8dd1')
 
 
 def prep():

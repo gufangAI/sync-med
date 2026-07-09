@@ -13,7 +13,7 @@ for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"):
 s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK,
                   aws_secret_access_key=SK, region_name="auto")
 
-# 零 LIST(创始人钦定·绝不再有 list_objects):按分片数构造 key 读台账,绝不扫 prefix
+
 TOTAL = int(os.environ.get("TOTAL", "150"))
 
 STATUSES = ["ok", "reuse", "dup", "skip-done", "skip-empty", "skip-noname", "have", "err", "other"]
@@ -37,7 +37,7 @@ for i in range(TOTAL):
     try:
         data = json.loads(s3.get_object(Bucket=BKT, Key=k)["Body"].read())
     except Exception:
-        continue   # 该分片没台账(没跑/失败)→跳过,不报错
+        continue   
     for row in data:
         total_books += 1
         total_pages += row.get("pages", 0)

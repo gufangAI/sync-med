@@ -1,17 +1,5 @@
 #!/usr/bin/env python3
-"""
-fleet_watch.py — 舰队巡查脚本 v2（增强版）
-新增: ocr_depth_check() — 从 run 日志判断 OCR 真实产出，识别空转/料见底。
-
-只读 GitHub Actions run 状态 + run 日志，不触发任何 workflow，不扫 R2，不碰 secrets。
-环境变量: GITHUB_TOKEN (Actions 自动注入)
-
-日志格式依据（ocr.py 实测输出，2026-06-24 确认）:
-  启动行: "shard N/256 imgs A/B"         → A=该shard图数, B=全库总图数
-  汇总行: "=== shard N OCR X new, Y/Z done ===" → X=本次新产出条数
-  空转判定: 单次 run 所有可见 shard 均为 "OCR 0 new" → 该 run 零产出
-  料见底判定: 连续 N 次 run 均零产出 → 触发 alert
-"""
+'\nfleet_watch.py \u2014 \u8230\u961f\u5de1\u67e5\u811a\u672c v2\uff08\u589e\u5f3a\u7248\uff09\n\u65b0\u589e: ocr_depth_check() \u2014 \u4ece run \u65e5\u5fd7\u5224\u65ad OCR \u771f\u5b9e\u4ea7\u51fa\uff0c\u8bc6\u522b\u7a7a\u8f6c/\u6599\u89c1\u5e95\u3002\n\n\u53ea\u8bfb GitHub Actions run \u72b6\u6001 + run \u65e5\u5fd7\uff0c\u4e0d\u89e6\u53d1\u4efb\u4f55 workflow\uff0c\u4e0d\u626b R2\uff0c\u4e0d\u78b0 secrets\u3002\n\u73af\u5883\u53d8\u91cf: GITHUB_TOKEN (Actions \u81ea\u52a8\u6ce8\u5165)\n\n\u65e5\u5fd7\u683c\u5f0f\u4f9d\u636e\uff08ocr.py \u5b9e\u6d4b\u8f93\u51fa\uff0c2026-06-24 \u786e\u8ba4\uff09:\n  \u542f\u52a8\u884c: "shard N/256 imgs A/B"         \u2192 A=\u8be5shard\u56fe\u6570, B=\u5168\u5e93\u603b\u56fe\u6570\n  \u6c47\u603b\u884c: "=== shard N OCR X new, Y/Z done ===" \u2192 X=\u672c\u6b21\u65b0\u4ea7\u51fa\u6761\u6570\n  \u7a7a\u8f6c\u5224\u5b9a: \u5355\u6b21 run \u6240\u6709\u53ef\u89c1 shard \u5747\u4e3a "OCR 0 new" \u2192 \u8be5 run \u96f6\u4ea7\u51fa\n  \u6599\u89c1\u5e95\u5224\u5b9a: \u8fde\u7eed N \u6b21 run \u5747\u96f6\u4ea7\u51fa \u2192 \u89e6\u53d1 alert\n'
 import json
 import os
 import re
@@ -26,26 +14,26 @@ from datetime import datetime, timezone, timedelta
 REPO = "gufangAI/sync-med"
 TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
-# 被盯的 workflow 文件名 -> 显示名 + 异常阈值(小时)
+
 WORKFLOWS = {
     "ocr.yml":         {"name": "OCR",          "alert_hours": 8},
     "sync.yml":        {"name": "sync",         "alert_hours": 24},
-    "guji_sync.yml":   {"name": "guji-sync(古籍迁移)", "alert_hours": 6},
-    "clean-embed.yml": {"name": "clean-embed(clean索引灌库)", "alert_hours": 10},
+    "guji_sync.yml":   {"name": 'guji-sync(\u53e4\u7c4d\u8fc1\u79fb)', "alert_hours": 6},
+    "clean-embed.yml": {"name": 'clean-embed(clean\u7d22\u5f15\u704c\u5e93)', "alert_hours": 10},
 }
 
-# OCR 深度检查参数
+
 OCR_WORKFLOW = "ocr.yml"
-OCR_DEPTH_RUNS = 3          # 回查最近 N 次 run（取已完成的 success run）
-OCR_ZERO_ALERT_THRESHOLD = 3  # 连续几次零产出触发 alert（目前已有 5 次全零）
-OCR_LOG_SAMPLE_JOBS = 8      # 每次 run 最多采样几个 job 的日志（节省 API 调用）
-
-# D1 vs 123 对账参数(2026-07-06 加)
-D1_VS_PAN_MISSING_ALERT_THRESHOLD = 50   # 缺失(D1有123无)超过 N 本 → alert
-D1_VS_PAN_WILD_ALERT_THRESHOLD = 20      # 野生(123有D1无)超过 N 个 → alert(有歧义、只报警不动)
+OCR_DEPTH_RUNS = 3          
+OCR_ZERO_ALERT_THRESHOLD = 3  
+OCR_LOG_SAMPLE_JOBS = 8      
 
 
-# ─── GitHub API 基础 ──────────────────────────────────────────────────────────
+D1_VS_PAN_MISSING_ALERT_THRESHOLD = 50   
+D1_VS_PAN_WILD_ALERT_THRESHOLD = 20      
+
+
+
 
 def gh_api(path: str, accept: str = "application/vnd.github+json") -> dict | list:
     url = f"https://api.github.com/{path.lstrip('/')}"
@@ -63,7 +51,7 @@ def gh_api(path: str, accept: str = "application/vnd.github+json") -> dict | lis
 
 
 def gh_api_raw(url: str) -> bytes:
-    """直接 GET 一个完整 URL，返回 bytes（用于下载 log zip）。"""
+    '\u76f4\u63a5 GET \u4e00\u4e2a\u5b8c\u6574 URL\uff0c\u8fd4\u56de bytes\uff08\u7528\u4e8e\u4e0b\u8f7d log zip\uff09\u3002'
     req = urllib.request.Request(url, headers={
         "Authorization": f"Bearer {TOKEN}",
         "Accept": "application/vnd.github+json",
@@ -78,21 +66,13 @@ def gh_api_raw(url: str) -> bytes:
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """阻止 urllib 自动跟随重定向，让调用方拿到 302 的 Location。"""
+    '\u963b\u6b62 urllib \u81ea\u52a8\u8ddf\u968f\u91cd\u5b9a\u5411\uff0c\u8ba9\u8c03\u7528\u65b9\u62ff\u5230 302 \u7684 Location\u3002'
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         raise urllib.error.HTTPError(req.full_url, code, msg, headers, fp)
 
 
 def _fetch_job_log_text(job_id: int) -> str:
-    """
-    获取单个 job 的日志文本（纯文本，非 ZIP）。
-
-    GitHub /actions/jobs/{id}/logs 返回 302 → Azure blob 预签名 URL。
-    直接跟随重定向会把 Authorization 转发给 blob，导致 Azure 返回 400/403。
-    正确做法:
-      1. 用 _NoRedirect opener 拦截 302，拿到 Location URL。
-      2. 不带 Authorization 重新 GET Location URL（已含 SAS 签名）。
-    """
+    '\n    \u83b7\u53d6\u5355\u4e2a job \u7684\u65e5\u5fd7\u6587\u672c\uff08\u7eaf\u6587\u672c\uff0c\u975e ZIP\uff09\u3002\n\n    GitHub /actions/jobs/{id}/logs \u8fd4\u56de 302 \u2192 Azure blob \u9884\u7b7e\u540d URL\u3002\n    \u76f4\u63a5\u8ddf\u968f\u91cd\u5b9a\u5411\u4f1a\u628a Authorization \u8f6c\u53d1\u7ed9 blob\uff0c\u5bfc\u81f4 Azure \u8fd4\u56de 400/403\u3002\n    \u6b63\u786e\u505a\u6cd5:\n      1. \u7528 _NoRedirect opener \u62e6\u622a 302\uff0c\u62ff\u5230 Location URL\u3002\n      2. \u4e0d\u5e26 Authorization \u91cd\u65b0 GET Location URL\uff08\u5df2\u542b SAS \u7b7e\u540d\uff09\u3002\n    '
     api_url = f"https://api.github.com/repos/{REPO}/actions/jobs/{job_id}/logs"
     req = urllib.request.Request(api_url, headers={
         "Authorization": f"Bearer {TOKEN}",
@@ -102,14 +82,14 @@ def _fetch_job_log_text(job_id: int) -> str:
     opener = urllib.request.build_opener(_NoRedirect)
     try:
         with opener.open(req, timeout=30) as resp:
-            # 极少数情况：直接返回 200（内容较小时）
+            
             return resp.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as e:
         if e.code in (301, 302, 303, 307, 308):
             blob_url = e.headers.get("Location", "")
             if not blob_url:
                 raise RuntimeError(f"job {job_id} log: redirect but no Location header") from e
-            # 不带 Authorization 拉 blob 预签名 URL
+            
             blob_req = urllib.request.Request(blob_url)
             try:
                 with urllib.request.urlopen(blob_req, timeout=60) as blob_resp:
@@ -131,25 +111,17 @@ def hours_ago(dt: datetime | None, now: datetime) -> float | None:
     return (now - dt).total_seconds() / 3600
 
 
-# ─── OCR 深度检查 ─────────────────────────────────────────────────────────────
+
 
 def _fetch_run_log_text(run_id: int, max_jobs: int) -> str:
-    """
-    只下前 max_jobs 个 shard job 的单独日志(jobs API)，不下整个 run 的大 zip。
-    全 run zip 含 256 个 job、下载要十几分钟、会拖垮巡查(实测被 concurrency cancel)；
-    单 job log 是纯文本、秒级。只读不写，不落盘。
-
-    注意: per_page=30 取前 30 个 jobs（prep + run(0)..run(28)）；
-    OCR workflow jobs 创建顺序: prep 排第 0，run(0)..run(255) 接续。
-    jobs[:max_jobs] 取前 max_jobs 个含少量 shard job，足够判断全零。
-    """
+    '\n    \u53ea\u4e0b\u524d max_jobs \u4e2a shard job \u7684\u5355\u72ec\u65e5\u5fd7(jobs API)\uff0c\u4e0d\u4e0b\u6574\u4e2a run \u7684\u5927 zip\u3002\n    \u5168 run zip \u542b 256 \u4e2a job\u3001\u4e0b\u8f7d\u8981\u5341\u51e0\u5206\u949f\u3001\u4f1a\u62d6\u57ae\u5de1\u67e5(\u5b9e\u6d4b\u88ab concurrency cancel)\uff1b\n    \u5355 job log \u662f\u7eaf\u6587\u672c\u3001\u79d2\u7ea7\u3002\u53ea\u8bfb\u4e0d\u5199\uff0c\u4e0d\u843d\u76d8\u3002\n\n    \u6ce8\u610f: per_page=30 \u53d6\u524d 30 \u4e2a jobs\uff08prep + run(0)..run(28)\uff09\uff1b\n    OCR workflow jobs \u521b\u5efa\u987a\u5e8f: prep \u6392\u7b2c 0\uff0crun(0)..run(255) \u63a5\u7eed\u3002\n    jobs[:max_jobs] \u53d6\u524d max_jobs \u4e2a\u542b\u5c11\u91cf shard job\uff0c\u8db3\u591f\u5224\u65ad\u5168\u96f6\u3002\n    '
     try:
         jobs_data = gh_api(f"repos/{REPO}/actions/runs/{run_id}/jobs?per_page=30")
     except RuntimeError as e:
         print(f"  [ocr_depth] jobs list failed for run {run_id}: {e}", file=sys.stderr)
         return ""
     all_jobs = jobs_data.get("jobs", [])
-    # 跳过 prep job（名称不含括号数字），只采样 shard jobs（名称含 "(N)"）
+    
     shard_jobs = [j for j in all_jobs if re.search(r"\(\d+\)", j.get("name", ""))]
     sampled = shard_jobs[:max_jobs] if shard_jobs else all_jobs[:max_jobs]
     print(f"  [ocr_depth] run {run_id}: total_jobs_in_page={len(all_jobs)}, "
@@ -163,7 +135,7 @@ def _fetch_run_log_text(run_id: int, max_jobs: int) -> str:
         try:
             text = _fetch_job_log_text(jid)
             texts.append(text)
-            # 快速验证: 看拿到的内容有没有 shard 汇总行
+            
             found = bool(_SHARD_SUMMARY_RE.search(text))
             print(f"  [ocr_depth]   job {jid} ({jname}): {len(text)} chars, summary_found={found}", file=sys.stderr)
         except RuntimeError as e:
@@ -171,27 +143,18 @@ def _fetch_run_log_text(run_id: int, max_jobs: int) -> str:
     return "\n".join(texts)
 
 
-# 日志正则：匹配 "=== shard N OCR X new, Y/Z done ==="
+
 _SHARD_SUMMARY_RE = re.compile(
     r"=== shard \d+ OCR (\d+) new,\s*(\d+)/(\d+) done ==="
 )
-# 日志正则：匹配 "shard N/256 imgs A/B"
+
 _SHARD_START_RE = re.compile(
     r"shard \d+/\d+ imgs (\d+)/(\d+)"
 )
 
 
 def _parse_ocr_metrics_from_log(log_text: str) -> dict:
-    """
-    从单次 run 的日志文本中提取 OCR 指标。
-    返回:
-        total_new      — 本次 run 产出的新 OCR 条数（所有可见 shard 之和）
-        shard_count    — 出现汇总行的 shard 数
-        zero_shards    — 产出=0 的 shard 数
-        imgs_per_shard — 每 shard 图数（取第一个启动行）
-        total_imgs     — 全库总图数（取第一个启动行）
-        done_ratio     — 平均已完成率（Y/Z 均值），若无则 None
-    """
+    '\n    \u4ece\u5355\u6b21 run \u7684\u65e5\u5fd7\u6587\u672c\u4e2d\u63d0\u53d6 OCR \u6307\u6807\u3002\n    \u8fd4\u56de:\n        total_new      \u2014 \u672c\u6b21 run \u4ea7\u51fa\u7684\u65b0 OCR \u6761\u6570\uff08\u6240\u6709\u53ef\u89c1 shard \u4e4b\u548c\uff09\n        shard_count    \u2014 \u51fa\u73b0\u6c47\u603b\u884c\u7684 shard \u6570\n        zero_shards    \u2014 \u4ea7\u51fa=0 \u7684 shard \u6570\n        imgs_per_shard \u2014 \u6bcf shard \u56fe\u6570\uff08\u53d6\u7b2c\u4e00\u4e2a\u542f\u52a8\u884c\uff09\n        total_imgs     \u2014 \u5168\u5e93\u603b\u56fe\u6570\uff08\u53d6\u7b2c\u4e00\u4e2a\u542f\u52a8\u884c\uff09\n        done_ratio     \u2014 \u5e73\u5747\u5df2\u5b8c\u6210\u7387\uff08Y/Z \u5747\u503c\uff09\uff0c\u82e5\u65e0\u5219 None\n    '
     summaries = _SHARD_SUMMARY_RE.findall(log_text)
     starts = _SHARD_START_RE.findall(log_text)
 
@@ -229,27 +192,7 @@ def _parse_ocr_metrics_from_log(log_text: str) -> dict:
 
 
 def ocr_depth_check(now: datetime) -> dict:
-    """
-    OCR 深度指标检查。
-    逻辑:
-      1. 取 ocr.yml 最近 OCR_DEPTH_RUNS 次 completed/success run
-      2. 对每次 run 下载日志 ZIP，解析 shard 汇总行
-      3. 统计 total_new；若为 0 → 该 run 判定"零产出"
-      4. 若连续 >= OCR_ZERO_ALERT_THRESHOLD 次零产出 → alert
-
-    判空转的核心特征（来自实测日志）:
-      - 每个 shard 均输出 "=== shard N OCR 0 new, Y/Z done ==="
-      - total_new = 0 for ALL sampled shards in that run
-      - 连续多次 run 如此 → 料见底 / 下载线未投新料
-
-    返回 dict:
-        alert        — bool
-        alert_msg    — 文字说明
-        runs_checked — 检查了几次 run
-        zero_streak  — 连续零产出次数
-        per_run      — List[dict] 每次 run 的指标摘要
-        total_imgs   — 全库总图数（最新 run 的值）
-    """
+    '\n    OCR \u6df1\u5ea6\u6307\u6807\u68c0\u67e5\u3002\n    \u903b\u8f91:\n      1. \u53d6 ocr.yml \u6700\u8fd1 OCR_DEPTH_RUNS \u6b21 completed/success run\n      2. \u5bf9\u6bcf\u6b21 run \u4e0b\u8f7d\u65e5\u5fd7 ZIP\uff0c\u89e3\u6790 shard \u6c47\u603b\u884c\n      3. \u7edf\u8ba1 total_new\uff1b\u82e5\u4e3a 0 \u2192 \u8be5 run \u5224\u5b9a"\u96f6\u4ea7\u51fa"\n      4. \u82e5\u8fde\u7eed >= OCR_ZERO_ALERT_THRESHOLD \u6b21\u96f6\u4ea7\u51fa \u2192 alert\n\n    \u5224\u7a7a\u8f6c\u7684\u6838\u5fc3\u7279\u5f81\uff08\u6765\u81ea\u5b9e\u6d4b\u65e5\u5fd7\uff09:\n      - \u6bcf\u4e2a shard \u5747\u8f93\u51fa "=== shard N OCR 0 new, Y/Z done ==="\n      - total_new = 0 for ALL sampled shards in that run\n      - \u8fde\u7eed\u591a\u6b21 run \u5982\u6b64 \u2192 \u6599\u89c1\u5e95 / \u4e0b\u8f7d\u7ebf\u672a\u6295\u65b0\u6599\n\n    \u8fd4\u56de dict:\n        alert        \u2014 bool\n        alert_msg    \u2014 \u6587\u5b57\u8bf4\u660e\n        runs_checked \u2014 \u68c0\u67e5\u4e86\u51e0\u6b21 run\n        zero_streak  \u2014 \u8fde\u7eed\u96f6\u4ea7\u51fa\u6b21\u6570\n        per_run      \u2014 List[dict] \u6bcf\u6b21 run \u7684\u6307\u6807\u6458\u8981\n        total_imgs   \u2014 \u5168\u5e93\u603b\u56fe\u6570\uff08\u6700\u65b0 run \u7684\u503c\uff09\n    '
     result = {
         "alert": False,
         "alert_msg": "",
@@ -268,14 +211,14 @@ def ocr_depth_check(now: datetime) -> dict:
         return result
 
     runs = data.get("workflow_runs", [])
-    # 只取已完成的 run（不管 success/failure，我们要看日志）
+    
     completed_runs = [
         r for r in runs
         if r.get("status") == "completed"
     ][:OCR_DEPTH_RUNS]
 
     if not completed_runs:
-        result["alert_msg"] = "ocr_depth: 无已完成 run 可检查"
+        result["alert_msg"] = 'ocr_depth: \u65e0\u5df2\u5b8c\u6210 run \u53ef\u68c0\u67e5'
         return result
 
     zero_streak = 0
@@ -301,17 +244,17 @@ def ocr_depth_check(now: datetime) -> dict:
             result["total_imgs"] = metrics["total_imgs"]
 
         if metrics["shard_count"] == 0:
-            # 日志采样不够，跳过（不计入 streak）
+            
             print(f"  [ocr_depth] run {run_id}: no shard summary lines found in sampled jobs", file=sys.stderr)
             continue
 
-        # 判断本次 run 是否零产出
-        # 条件: 采样 shard 数 >= 2 且全部 total_new == 0
+        
+        
         is_zero = (metrics["shard_count"] >= 2 and metrics["total_new"] == 0)
         if is_zero:
             zero_streak += 1
         else:
-            # 一旦出现非零产出，streak 终止（从最新向旧回溯，第一个非零即停）
+            
             break
 
     result["runs_checked"] = len(per_run_data)
@@ -321,26 +264,26 @@ def ocr_depth_check(now: datetime) -> dict:
     if zero_streak >= OCR_ZERO_ALERT_THRESHOLD:
         result["alert"] = True
         result["alert_msg"] = (
-            f"⚠️ OCR 空转/料见底: 最近 {zero_streak} 次 run 均零产出 "
-            f"(阈值={OCR_ZERO_ALERT_THRESHOLD})。"
-            f"全库 {result['total_imgs'] or '?'} 张图可能已全部处理完，"
-            f"请检查下载线是否向 R2 投入新料。"
+            f"⚠️ OCR \u7a7a\u8f6c/\u6599\u89c1\u5e95: \u6700\u8fd1 {zero_streak} \u6b21 run \u5747\u96f6\u4ea7\u51fa "
+            f"(\u9608\u503c={OCR_ZERO_ALERT_THRESHOLD})。"
+            f"\u5168\u5e93 {result['total_imgs'] or '?'} \u5f20\u56fe\u53ef\u80fd\u5df2\u5168\u90e8\u5904\u7406\u5b8c，"
+            f"\u8bf7\u68c0\u67e5\u4e0b\u8f7d\u7ebf\u662f\u5426\u5411 R2 \u6295\u5165\u65b0\u6599。"
         )
     elif zero_streak > 0:
         result["alert_msg"] = (
-            f"OCR 近 {zero_streak} 次零产出（未达阈值 {OCR_ZERO_ALERT_THRESHOLD}，持续观察）。"
+            f"OCR \u8fd1 {zero_streak} \u6b21\u96f6\u4ea7\u51fa（\u672a\u8fbe\u9608\u503c {OCR_ZERO_ALERT_THRESHOLD}，\u6301\u7eed\u89c2\u5bdf）。"
         )
     else:
-        result["alert_msg"] = f"OCR 近 {result['runs_checked']} 次 run 有实际产出，正常。"
+        result["alert_msg"] = f"OCR \u8fd1 {result['runs_checked']} \u6b21 run \u6709\u5b9e\u9645\u4ea7\u51fa，\u6b63\u5e38。"
 
     return result
 
 
 def fmt_ocr_depth(depth: dict) -> list[str]:
-    """把 ocr_depth_check 结果格式化为 Markdown 行，并入主报告。"""
+    '\u628a ocr_depth_check \u7ed3\u679c\u683c\u5f0f\u5316\u4e3a Markdown \u884c\uff0c\u5e76\u5165\u4e3b\u62a5\u544a\u3002'
     lines = []
     lines.append("")
-    lines.append("### OCR 深度指标")
+    lines.append('### OCR \u6df1\u5ea6\u6307\u6807')
 
     if depth["alert"]:
         lines.append(f"> **{depth['alert_msg']}**")
@@ -348,11 +291,11 @@ def fmt_ocr_depth(depth: dict) -> list[str]:
         lines.append(f"> {depth['alert_msg']}")
 
     lines.append("")
-    lines.append(f"全库总图数: `{depth['total_imgs'] or '未知'}` | "
-                 f"回查 run 数: {depth['runs_checked']} | "
-                 f"连续零产出: {depth['zero_streak']}")
+    lines.append(f"\u5168\u5e93\u603b\u56fe\u6570: `{depth['total_imgs'] or '未知'}` | "
+                 f"\u56de\u67e5 run \u6570: {depth['runs_checked']} | "
+                 f"\u8fde\u7eed\u96f6\u4ea7\u51fa: {depth['zero_streak']}")
     lines.append("")
-    lines.append("| Run ID | 创建时间 | 结论 | 采样shard数 | 新产出条数 | 零产出shard | 已完成率 |")
+    lines.append('| Run ID | \u521b\u5efa\u65f6\u95f4 | \u7ed3\u8bba | \u91c7\u6837shard\u6570 | \u65b0\u4ea7\u51fa\u6761\u6570 | \u96f6\u4ea7\u51fashard | \u5df2\u5b8c\u6210\u7387 |')
     lines.append("|--------|---------|------|-----------|----------|------------|---------|")
 
     for r in depth["per_run"]:
@@ -366,10 +309,10 @@ def fmt_ocr_depth(depth: dict) -> list[str]:
     return lines
 
 
-# ─── 原有 workflow 状态检查（v1 逻辑不变）────────────────────────────────────
+
 
 def gh_api_put(path: str) -> None:
-    """空 body 的 PUT（用于 enable workflow）。"""
+    '\u7a7a body \u7684 PUT\uff08\u7528\u4e8e enable workflow\uff09\u3002'
     url = f"https://api.github.com/{path.lstrip('/')}"
     req = urllib.request.Request(url, method="PUT", headers={
         "Authorization": f"Bearer {TOKEN}",
@@ -381,16 +324,11 @@ def gh_api_put(path: str) -> None:
 
 
 def self_heal_disabled(file_name: str, cfg: dict) -> str | None:
-    """
-    2026-07-01 新增(治根):发现被监控的 workflow 处于 disabled 状态(手动或自动禁用)
-    → 立即自动重新启用，不等人来看 Issue、不依赖任何外部通知/唤醒服务。
-    这是纯 GitHub Actions 内自愈，每小时巡查一次自动触发，最坏情况 1 小时内自愈。
-    返回:自愈动作说明(str)或 None(无需自愈)。
-    """
+    '\n    2026-07-01 \u65b0\u589e(\u6cbb\u6839):\u53d1\u73b0\u88ab\u76d1\u63a7\u7684 workflow \u5904\u4e8e disabled \u72b6\u6001(\u624b\u52a8\u6216\u81ea\u52a8\u7981\u7528)\n    \u2192 \u7acb\u5373\u81ea\u52a8\u91cd\u65b0\u542f\u7528\uff0c\u4e0d\u7b49\u4eba\u6765\u770b Issue\u3001\u4e0d\u4f9d\u8d56\u4efb\u4f55\u5916\u90e8\u901a\u77e5/\u5524\u9192\u670d\u52a1\u3002\n    \u8fd9\u662f\u7eaf GitHub Actions \u5185\u81ea\u6108\uff0c\u6bcf\u5c0f\u65f6\u5de1\u67e5\u4e00\u6b21\u81ea\u52a8\u89e6\u53d1\uff0c\u6700\u574f\u60c5\u51b5 1 \u5c0f\u65f6\u5185\u81ea\u6108\u3002\n    \u8fd4\u56de:\u81ea\u6108\u52a8\u4f5c\u8bf4\u660e(str)\u6216 None(\u65e0\u9700\u81ea\u6108)\u3002\n    '
     try:
         wf = gh_api(f"repos/{REPO}/actions/workflows/{file_name}")
     except RuntimeError as e:
-        return None  # 查不到就不处理，交给原有 alert 逻辑报告
+        return None  
 
     state = wf.get("state", "")
     if state == "active":
@@ -398,9 +336,9 @@ def self_heal_disabled(file_name: str, cfg: dict) -> str | None:
 
     try:
         gh_api_put(f"repos/{REPO}/actions/workflows/{file_name}/enable")
-        return f"🔧 自愈: {cfg['name']} 原状态={state}，已自动重新启用"
+        return f"🔧 \u81ea\u6108: {cfg['name']} \u539f\u72b6\u6001={state}，\u5df2\u81ea\u52a8\u91cd\u65b0\u542f\u7528"
     except Exception as e:
-        return f"⚠️ 自愈失败: {cfg['name']} 原状态={state}，重新启用出错: {str(e)[:100]}"
+        return f"⚠️ \u81ea\u6108\u5931\u8d25: {cfg['name']} \u539f\u72b6\u6001={state}，\u91cd\u65b0\u542f\u7528\u51fa\u9519: {str(e)[:100]}"
 
 
 def check_workflow(file_name: str, cfg: dict, now: datetime) -> dict:
@@ -469,33 +407,33 @@ def check_workflow(file_name: str, cfg: dict, now: datetime) -> dict:
 
 def fmt_hours(h: float | None) -> str:
     if h is None:
-        return "从未成功"
+        return '\u4ece\u672a\u6210\u529f'
     if h < 1:
-        return f"{int(h*60)}分钟前"
-    return f"{h:.1f}h 前"
+        return f"{int(h*60)}\u5206\u949f\u524d"
+    return f"{h:.1f}h \u524d"
 
 
-# ─── 报告组装 ─────────────────────────────────────────────────────────────────
+
 
 def build_report(results: list[dict], ocr_depth: dict, now: datetime) -> str:
     ts = now.astimezone(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M CST")
 
-    # alert_count 合并 workflow 状态异常 + OCR 深度 alert
+    
     wf_alert_count = sum(1 for r in results if r["alert"])
     ocr_depth_alert = 1 if ocr_depth.get("alert") else 0
     alert_count = wf_alert_count + ocr_depth_alert
 
     lines = []
-    lines.append(f"## 🛡️ 舰队巡查快报 — {ts}\n")
-    lines.append("| 线名 | 最后成功 | 最近结论 | 当前在跑 | 状态 |")
+    lines.append(f"## 🛡️ \u8230\u961f\u5de1\u67e5\u5feb\u62a5 — {ts}\n")
+    lines.append('| \u7ebf\u540d | \u6700\u540e\u6210\u529f | \u6700\u8fd1\u7ed3\u8bba | \u5f53\u524d\u5728\u8dd1 | \u72b6\u6001 |')
     lines.append("|------|---------|---------|---------|------|")
 
     for r in results:
-        status_icon = "⚠️ 异常" if r["alert"] else "✅ 正常"
-        # OCR 行加 OCR 深度 alert 标记
+        status_icon = '\u26a0\ufe0f \u5f02\u5e38' if r["alert"] else '\u2705 \u6b63\u5e38'
+        
         if r["name"] == "OCR" and ocr_depth.get("alert"):
-            status_icon = "⚠️ 异常(空转)"
-        running_icon = "🔄 是" if r["is_running"] else "否"
+            status_icon = '\u26a0\ufe0f \u5f02\u5e38(\u7a7a\u8f6c)'
+        running_icon = '\U0001f504 \u662f' if r["is_running"] else '\u5426'
         last_ok = fmt_hours(r["last_success_hours"])
         conclusion = r["last_conclusion"]
         if conclusion == "success":
@@ -509,15 +447,15 @@ def build_report(results: list[dict], ocr_depth: dict, now: datetime) -> str:
 
     lines.append("")
     if alert_count == 0:
-        lines.append(f"**总结论: ✅ 全部 {len(results)} 条线正常（含 OCR 深度检查）。**")
+        lines.append(f"**\u603b\u7ed3\u8bba: ✅ \u5168\u90e8 {len(results)} \u6761\u7ebf\u6b63\u5e38（\u542b OCR \u6df1\u5ea6\u68c0\u67e5）。**")
     else:
-        lines.append(f"**总结论: ⚠️ {alert_count} 项异常（workflow 状态 {wf_alert_count} + OCR 空转 {ocr_depth_alert}），请立即检查!**")
+        lines.append(f"**\u603b\u7ed3\u8bba: ⚠️ {alert_count} \u9879\u5f02\u5e38（workflow \u72b6\u6001 {wf_alert_count} + OCR \u7a7a\u8f6c {ocr_depth_alert}），\u8bf7\u7acb\u5373\u68c0\u67e5!**")
 
-    # 追加 OCR 深度指标区块
+    
     lines.extend(fmt_ocr_depth(ocr_depth))
 
     lines.append("")
-    lines.append("### 风险提示")
+    lines.append('### \u98ce\u9669\u63d0\u793a')
     for r in results:
         if r["alert"]:
             h = r["last_success_hours"]
@@ -526,63 +464,50 @@ def build_report(results: list[dict], ocr_depth: dict, now: datetime) -> str:
                 {}
             ).get("alert_hours", "?")
             if h is None:
-                lines.append(f"- **{r['name']}**: 从未有成功记录，需立即排查。")
+                lines.append(f"- **{r['name']}**: \u4ece\u672a\u6709\u6210\u529f\u8bb0\u5f55，\u9700\u7acb\u5373\u6392\u67e5。")
             else:
-                lines.append(f"- **{r['name']}**: 上次成功已 {h:.1f}h 前（阈值 {threshold}h），最近结论={r['last_conclusion']}。")
+                lines.append(f"- **{r['name']}**: \u4e0a\u6b21\u6210\u529f\u5df2 {h:.1f}h \u524d（\u9608\u503c {threshold}h），\u6700\u8fd1\u7ed3\u8bba={r['last_conclusion']}。")
 
     if ocr_depth.get("alert"):
-        lines.append(f"- **OCR 深度**: {ocr_depth['alert_msg']}")
+        lines.append(f"- **OCR \u6df1\u5ea6**: {ocr_depth['alert_msg']}")
 
     lines.append("")
-    lines.append("### 下一步")
+    lines.append('### \u4e0b\u4e00\u6b65')
     if alert_count == 0:
-        lines.append("- 无需操作，舰队正常运行中。")
+        lines.append('- \u65e0\u9700\u64cd\u4f5c\uff0c\u8230\u961f\u6b63\u5e38\u8fd0\u884c\u4e2d\u3002')
     else:
         if wf_alert_count > 0:
-            lines.append("- 打开对应 workflow 的 Actions 页面，查看失败 run 的日志。")
-            lines.append("- 确认 R2 凭据 / OCR 模型 / sync 目标是否正常。")
-            lines.append("- 修复后手动 `workflow_dispatch` 重跑该线验证。")
+            lines.append('- \u6253\u5f00\u5bf9\u5e94 workflow \u7684 Actions \u9875\u9762\uff0c\u67e5\u770b\u5931\u8d25 run \u7684\u65e5\u5fd7\u3002')
+            lines.append('- \u786e\u8ba4 R2 \u51ed\u636e / OCR \u6a21\u578b / sync \u76ee\u6807\u662f\u5426\u6b63\u5e38\u3002')
+            lines.append('- \u4fee\u590d\u540e\u624b\u52a8 `workflow_dispatch` \u91cd\u8dd1\u8be5\u7ebf\u9a8c\u8bc1\u3002')
         if ocr_depth_alert:
-            lines.append("- **OCR 空转**: 检查下载线是否有新书入 R2（`book/` 或 `gufang/` 桶）。")
-            lines.append("- 若 R2 确实有新料但 OCR 未处理，检查 ocr.py 的 shard 分桶逻辑是否覆盖新书 prefix。")
-            lines.append("- 若 R2 暂无新料，下载线恢复后 OCR 会自动恢复产出，可暂时降低 ocr.yml 触发频率节省 runner 分钟数。")
+            lines.append('- **OCR \u7a7a\u8f6c**: \u68c0\u67e5\u4e0b\u8f7d\u7ebf\u662f\u5426\u6709\u65b0\u4e66\u5165 R2\uff08`book/` \u6216 `gufang/` \u6876\uff09\u3002')
+            lines.append('- \u82e5 R2 \u786e\u5b9e\u6709\u65b0\u6599\u4f46 OCR \u672a\u5904\u7406\uff0c\u68c0\u67e5 ocr.py \u7684 shard \u5206\u6876\u903b\u8f91\u662f\u5426\u8986\u76d6\u65b0\u4e66 prefix\u3002')
+            lines.append('- \u82e5 R2 \u6682\u65e0\u65b0\u6599\uff0c\u4e0b\u8f7d\u7ebf\u6062\u590d\u540e OCR \u4f1a\u81ea\u52a8\u6062\u590d\u4ea7\u51fa\uff0c\u53ef\u6682\u65f6\u964d\u4f4e ocr.yml \u89e6\u53d1\u9891\u7387\u8282\u7701 runner \u5206\u949f\u6570\u3002')
 
     lines.append("")
-    lines.append(f"*by fleet_watch v2 · 只读 GitHub run 状态+日志 · 不扫 R2 · 不碰 secrets*")
+    lines.append(f"*by fleet_watch v2 · \u53ea\u8bfb GitHub run \u72b6\u6001+\u65e5\u5fd7 · \u4e0d\u626b R2 · \u4e0d\u78b0 secrets*")
 
     return "\n".join(lines)
 
 
-# ─── D1 vs 123 对账(2026-07-06 加·纯只读·分级) ───────────────────────────
+
 
 def d1_vs_pan_reconcile():
-    """对账 D1 catalog vs 123 已备份清单,分级输出差异。
-
-    ★ 只读 D1 + 只读 R2 上的 PAN_DONE_KEY(sync prep 步骤维护的"123已有列表"缓存),
-      绝不调用 123 API、绝不改 D1、绝不写 R2。
-    ★ 分级:
-      - 缺失(D1 有 123 无):低风险,报告数量,可以让 sync 下次自然补上。
-      - 野生(123 有 D1 无):有歧义,只报警不动手(可能是命名不一致、测试数据、误操作)。
-
-    环境变量(全部可选,任一缺失就跳过整个模块,不影响其它巡查):
-      CF_ACCOUNT_ID / D1_DATABASE_ID / D1_API_TOKEN(D1 查询)
-      S_EP / S_AK / S_SK / S_BUCKET / PAN_DONE_KEY(R2 读缓存,复用 sync.py 已有)
-
-    返回:{"ok":bool, "d1_total":int, "pan_zip_have":int, "missing":int, "wild":int, "alert":bool, "alert_msg":str}
-    """
+    '\u5bf9\u8d26 D1 catalog vs 123 \u5df2\u5907\u4efd\u6e05\u5355,\u5206\u7ea7\u8f93\u51fa\u5dee\u5f02\u3002\n\n    \u2605 \u53ea\u8bfb D1 + \u53ea\u8bfb R2 \u4e0a\u7684 PAN_DONE_KEY(sync prep \u6b65\u9aa4\u7ef4\u62a4\u7684"123\u5df2\u6709\u5217\u8868"\u7f13\u5b58),\n      \u7edd\u4e0d\u8c03\u7528 123 API\u3001\u7edd\u4e0d\u6539 D1\u3001\u7edd\u4e0d\u5199 R2\u3002\n    \u2605 \u5206\u7ea7:\n      - \u7f3a\u5931(D1 \u6709 123 \u65e0):\u4f4e\u98ce\u9669,\u62a5\u544a\u6570\u91cf,\u53ef\u4ee5\u8ba9 sync \u4e0b\u6b21\u81ea\u7136\u8865\u4e0a\u3002\n      - \u91ce\u751f(123 \u6709 D1 \u65e0):\u6709\u6b67\u4e49,\u53ea\u62a5\u8b66\u4e0d\u52a8\u624b(\u53ef\u80fd\u662f\u547d\u540d\u4e0d\u4e00\u81f4\u3001\u6d4b\u8bd5\u6570\u636e\u3001\u8bef\u64cd\u4f5c)\u3002\n\n    \u73af\u5883\u53d8\u91cf(\u5168\u90e8\u53ef\u9009,\u4efb\u4e00\u7f3a\u5931\u5c31\u8df3\u8fc7\u6574\u4e2a\u6a21\u5757,\u4e0d\u5f71\u54cd\u5176\u5b83\u5de1\u67e5):\n      CF_ACCOUNT_ID / D1_DATABASE_ID / D1_API_TOKEN(D1 \u67e5\u8be2)\n      S_EP / S_AK / S_SK / S_BUCKET / PAN_DONE_KEY(R2 \u8bfb\u7f13\u5b58,\u590d\u7528 sync.py \u5df2\u6709)\n\n    \u8fd4\u56de:{"ok":bool, "d1_total":int, "pan_zip_have":int, "missing":int, "wild":int, "alert":bool, "alert_msg":str}\n    '
     result = {"ok": False, "d1_total": 0, "pan_zip_have": 0, "missing": 0, "wild": 0,
               "alert": False, "alert_msg": "", "skip_reason": ""}
 
-    # 检查依赖凭据 —— 缺一个就跳过整个模块,不炸(其它巡查照常跑)
+    
     d1_env = ["CF_ACCOUNT_ID", "D1_DATABASE_ID", "D1_API_TOKEN"]
     r2_env = ["S_EP", "S_AK", "S_SK", "S_BUCKET"]
     missing_env = [e for e in (d1_env + r2_env) if not os.environ.get(e)]
     if missing_env:
-        result["skip_reason"] = f"缺环境变量: {','.join(missing_env)}"
+        result["skip_reason"] = f"\u7f3a\u73af\u5883\u53d8\u91cf: {','.join(missing_env)}"
         return result
 
     try:
-        # 1) 查 D1:所有 frontend_visible=1 且 upload_status=done 的书 → D1 应有集合
+        
         acc = os.environ["CF_ACCOUNT_ID"]; db = os.environ["D1_DATABASE_ID"]; tok = os.environ["D1_API_TOKEN"]
         d1_url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/d1/database/{db}/query"
         sql = ("SELECT book_id, book_title FROM books_assets_v2 "
@@ -593,19 +518,19 @@ def d1_vs_pan_reconcile():
         with urllib.request.urlopen(req, timeout=120) as resp:
             j = json.loads(resp.read())
         if not j.get("success"):
-            result["skip_reason"] = f"D1 查询失败: {str(j.get('errors',''))[:100]}"
+            result["skip_reason"] = f"D1 \u67e5\u8be2\u5931\u8d25: {str(j.get('errors',''))[:100]}"
             return result
         rows = (j.get("result") or [{}])[0].get("results") or []
-        # 名单映射:标题 → book_id(标题是 123 上目录名的来源)
+        
         d1_titles = {row.get("book_title"): row.get("book_id") for row in rows if row.get("book_title")}
         result["d1_total"] = len(d1_titles)
 
-        # 2) 读 R2 上 PAN_DONE_KEY 缓存 → 123 已有集合(sync.py 的 prep 会维护它)
+        
         pan_done_key = os.environ.get("PAN_DONE_KEY", "_cc/pan_done.json")
         try:
             import boto3
         except ImportError:
-            result["skip_reason"] = "boto3 未安装(pip install boto3)"
+            result["skip_reason"] = 'boto3 \u672a\u5b89\u88c5(pip install boto3)'
             return result
         s3 = boto3.client("s3", endpoint_url=os.environ["S_EP"],
             aws_access_key_id=os.environ["S_AK"], aws_secret_access_key=os.environ["S_SK"],
@@ -614,25 +539,25 @@ def d1_vs_pan_reconcile():
             pan_done_raw = s3.get_object(Bucket=os.environ["S_BUCKET"], Key=pan_done_key)["Body"].read()
             pan_done = json.loads(pan_done_raw.decode("utf-8"))
         except Exception as e:
-            result["skip_reason"] = f"R2 读 {pan_done_key} 失败({str(e)[:80]}) → 说明 sync.prep 还没跑过·跳过对账"
+            result["skip_reason"] = f"R2 \u8bfb {pan_done_key} \u5931\u8d25({str(e)[:80]}) → \u8bf4\u660e sync.prep \u8fd8\u6ca1\u8dd1\u8fc7·\u8df3\u8fc7\u5bf9\u8d26"
             return result
-        # PAN_DONE_KEY 结构:{"zip":[filename1,...], "pdf":[...]}
+        
         pan_zip_have = set(pan_done.get("zip", []))
         result["pan_zip_have"] = len(pan_zip_have)
 
-        # 3) 分级差异
+        
         expected = {title + ".zip" for title in d1_titles.keys()}
-        missing = expected - pan_zip_have    # D1 有 123 没(sync 下次会自然补)
-        wild = pan_zip_have - expected        # 123 有 D1 没(有歧义,报警)
+        missing = expected - pan_zip_have    
+        wild = pan_zip_have - expected        
         result["missing"] = len(missing)
         result["wild"] = len(wild)
 
-        # 4) 告警(分级阈值)
+        
         alert_parts = []
         if result["missing"] >= D1_VS_PAN_MISSING_ALERT_THRESHOLD:
-            alert_parts.append(f"缺失{result['missing']}本(超阈值{D1_VS_PAN_MISSING_ALERT_THRESHOLD})→sync可能未跑通")
+            alert_parts.append(f"\u7f3a\u5931{result['missing']}\u672c(\u8d85\u9608\u503c{D1_VS_PAN_MISSING_ALERT_THRESHOLD})→sync\u53ef\u80fd\u672a\u8dd1\u901a")
         if result["wild"] >= D1_VS_PAN_WILD_ALERT_THRESHOLD:
-            alert_parts.append(f"野生{result['wild']}个(超阈值{D1_VS_PAN_WILD_ALERT_THRESHOLD})→请人工核对(有歧义·勿删)")
+            alert_parts.append(f"\u91ce\u751f{result['wild']}\u4e2a(\u8d85\u9608\u503c{D1_VS_PAN_WILD_ALERT_THRESHOLD})→\u8bf7\u4eba\u5de5\u6838\u5bf9(\u6709\u6b67\u4e49·\u52ff\u5220)")
         if alert_parts:
             result["alert"] = True
             result["alert_msg"] = " / ".join(alert_parts)
@@ -640,25 +565,25 @@ def d1_vs_pan_reconcile():
         result["ok"] = True
         return result
     except Exception as e:
-        result["skip_reason"] = f"对账异常({str(e)[:100]}) → 本次跳过"
+        result["skip_reason"] = f"\u5bf9\u8d26\u5f02\u5e38({str(e)[:100]}) → \u672c\u6b21\u8df3\u8fc7"
         return result
 
 
 def fmt_d1_vs_pan(r):
-    """对账结果格式化成报告 markdown 段。"""
-    lines = ["", "### 转存 D1↔123 对账"]
+    '\u5bf9\u8d26\u7ed3\u679c\u683c\u5f0f\u5316\u6210\u62a5\u544a markdown \u6bb5\u3002'
+    lines = ["", '### \u8f6c\u5b58 D1\u2194123 \u5bf9\u8d26']
     if not r.get("ok"):
-        lines.append(f"- 跳过: {r.get('skip_reason','未知')}")
+        lines.append(f"- \u8df3\u8fc7: {r.get('skip_reason','未知')}")
         return lines
-    lines.append(f"- D1 应有: {r['d1_total']} 本 · 123 已有(zip): {r['pan_zip_have']} 个")
-    lines.append(f"- **缺失**(D1 有 123 无): {r['missing']} 本 → sync 下次会自然补")
-    lines.append(f"- **野生**(123 有 D1 无): {r['wild']} 个 → 有歧义、只报告、绝不自动删")
+    lines.append(f"- D1 \u5e94\u6709: {r['d1_total']} \u672c · 123 \u5df2\u6709(zip): {r['pan_zip_have']} \u4e2a")
+    lines.append(f"- **\u7f3a\u5931**(D1 \u6709 123 \u65e0): {r['missing']} \u672c → sync \u4e0b\u6b21\u4f1a\u81ea\u7136\u8865")
+    lines.append(f"- **\u91ce\u751f**(123 \u6709 D1 \u65e0): {r['wild']} \u4e2a → \u6709\u6b67\u4e49、\u53ea\u62a5\u544a、\u7edd\u4e0d\u81ea\u52a8\u5220")
     if r.get("alert"):
-        lines.append(f"- ⚠️ 告警: {r['alert_msg']}")
+        lines.append(f"- ⚠️ \u544a\u8b66: {r['alert_msg']}")
     return lines
 
 
-# ─── 主入口 ──────────────────────────────────────────────────────────────────
+
 
 def main():
     if not TOKEN:
@@ -668,21 +593,21 @@ def main():
     now = datetime.now(timezone.utc)
     results = []
 
-    # 1. workflow 状态检查（v1 原有逻辑）
+    
     for file_name, cfg in WORKFLOWS.items():
         print(f"Checking {cfg['name']} ({file_name})...", file=sys.stderr)
         r = check_workflow(file_name, cfg, now)
         results.append(r)
         print(f"  last_success={fmt_hours(r['last_success_hours'])} conclusion={r['last_conclusion']} alert={r['alert']}", file=sys.stderr)
 
-    # 2. OCR 深度检查（v2 新增）
+    
     print("Running OCR depth check...", file=sys.stderr)
     ocr_depth = ocr_depth_check(now)
     print(f"  zero_streak={ocr_depth['zero_streak']} alert={ocr_depth['alert']}", file=sys.stderr)
     if ocr_depth["alert_msg"]:
         print(f"  msg: {ocr_depth['alert_msg']}", file=sys.stderr)
 
-    # 2.5 D1↔123 对账(2026-07-06 加·纯只读·分级告警)
+    
     print("Running D1 vs 123 reconcile...", file=sys.stderr)
     d1pan = d1_vs_pan_reconcile()
     if d1pan.get("ok"):
@@ -690,13 +615,13 @@ def main():
     else:
         print(f"  skipped: {d1pan.get('skip_reason','')}", file=sys.stderr)
 
-    # 3. 组装报告
+    
     report = build_report(results, ocr_depth, now)
-    # 追加对账段(不改 build_report 原有逻辑,防止碰其它模块)
+    
     report += "\n" + "\n".join(fmt_d1_vs_pan(d1pan))
     print(report)
 
-    # 4. 写出 alert 标志供 workflow 读取
+    
     wf_alert_count = sum(1 for r in results if r["alert"])
     ocr_depth_alert = 1 if ocr_depth.get("alert") else 0
     d1pan_alert = 1 if d1pan.get("alert") else 0
