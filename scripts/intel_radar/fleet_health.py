@@ -68,6 +68,15 @@ def upsert_issue(body_md, alert):
     else:
         r = gh("issue", "create", "-R", REPO, "--title", title, "--body", body_md)
         print("issue created:", (r.stdout or r.stderr)[:120])
+        try:
+            num = int((r.stdout or "").strip().rsplit("/", 1)[-1])
+        except Exception:
+            num = None
+    # Issue edits do NOT push notifications; a new comment DOES. Comment only on ALERT.
+    if alert and num:
+        gh("issue", "comment", str(num), "-R", REPO,
+           "--body", f"\U0001F534 ALERT {time.strftime('%m-%d %H:%M UTC', time.gmtime())} — check table above.")
+        print("alert comment posted (push notification)")
 
 def main():
     rows = []
