@@ -16,16 +16,20 @@ SHARD = int(os.environ.get("SHARD", "0")); TOTAL = int(os.environ.get("TOTAL", "
 CAP = int(os.environ.get("CAP", "400"))          # max items fetched per run (keeps a shard under the Actions time budget)
 IA_SLEEP = float(os.environ.get("IA_SLEEP", "1.2"))
 MIN_LEN = int(os.environ.get("MIN_LEN", "500"))  # skip near-empty OCR (image-only scans)
+MAX_BYTES = int(os.environ.get("MAX_BYTES", "8000000"))   # 8MB read cap: huge djvu.txt hangs the runner; cap it (still ~hundreds of pages)
+BUDGET_S = int(os.environ.get("BUDGET_S", "2400"))        # 40min per run wall-clock; cron resumes the rest (avoids Actions 6h hang)
+import time as _t
+_START = _t.time()
 WL = os.environ.get("WORKLIST", os.path.join(os.path.dirname(os.path.abspath(__file__)), "worklist_india.txt"))
 UA = "gufang-india-text-ingest/1.0 (contact: hosonzuo@gmail.com; educational/archival public-domain traditional-medicine corpus)"
 
 s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK, aws_secret_access_key=SK,
                   region_name="auto", config=Config(connect_timeout=15, read_timeout=120, retries={"max_attempts": 3}))
 
-def ia_get(url, timeout=90):
+def ia_get(url, timeout=45):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     r = urllib.request.urlopen(req, timeout=timeout)
-    data = r.read()
+    data = r.read(MAX_BYTES)   # capped read: never drag on a multi-MB OCR blob
     time.sleep(IA_SLEEP)
     return r.status, data
 
@@ -45,6 +49,8 @@ def main():
     for ident in mine:
         if done >= CAP:
             print(f"cap {CAP} reached, cron will resume rest", flush=True); break
+        if _t.time() - _START > BUDGET_S:
+            print(f"time budget {BUDGET_S}s reached, cron will resume rest", flush=True); break
         key = f"india/{ident}.txt"
         try:
             if exists(key):
