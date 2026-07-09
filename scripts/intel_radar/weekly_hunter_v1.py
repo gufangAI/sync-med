@@ -20,9 +20,10 @@ def fetch(url, timeout=30):
         return r.read().decode("utf-8", errors="replace")
 
 def llm(system, user, max_tokens=1600, timeout=120):
-    body = {"model": "cfai", "messages": [{"role": "system", "content": system},
+    # 2026-07-09 平台CTO: CF Workers AI 按Neuron计费·创始人铁令禁用;只走免费家 nvidia,失败重试同家。
+    body = {"model": "nvidia", "messages": [{"role": "system", "content": system},
             {"role": "user", "content": user}], "max_tokens": max_tokens}
-    for model in ("cfai", "nvidia", "cfai"):
+    for model in ("nvidia", "nvidia", "nvidia"):
         body["model"] = model
         try:
             req = urllib.request.Request(GW, data=json.dumps(body).encode(),
