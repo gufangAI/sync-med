@@ -37,7 +37,8 @@ jobs:
     timeout-minutes: 30      # 海量抓取 + 并行分析需要时间
 
     permissions:
-      contents: read   # 只读仓库内容，不需要 issues: write
+      contents: read
+      issues: write    # gh issue create 发情报日报到手机需要(连挂6天缺这个)
 
     steps:
       - name: Checkout repo
@@ -50,6 +51,7 @@ jobs:
 
       - name: Run Intel Radar v3 (cloud mode)
         env:
+          GH_TOKEN: ${{ github.token }}   # gh 发issue认证·连挂6天缺这个
           # LLM keys — 从 repo secrets 读，绝不明文写进代码
           ZHIPU_API_KEY:  ${{ secrets.ZHIPU_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
