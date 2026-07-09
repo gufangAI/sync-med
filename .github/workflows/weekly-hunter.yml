@@ -1,0 +1,34 @@
+name: Eagle Weekly Hunter
+on:
+  schedule:
+    - cron: '0 2 * * 1'   # 每周一 10:00 北京 = 02:00 UTC
+  workflow_dispatch: {}
+
+concurrency:
+  group: eagle-weekly
+  cancel-in-progress: false
+
+jobs:
+  weekly:
+    name: Weekly Leading-Edge Report v1
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      issues: write     # gh issue 推周报到手机(鹰眼日报连挂6天就缺这个,一步配齐)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run weekly hunter
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/intel_radar/weekly_hunter_v1.py
+      - name: Archive report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-report
+          path: weekly_report_*.md
+          if-no-files-found: ignore
