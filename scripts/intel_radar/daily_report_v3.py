@@ -133,6 +133,12 @@ SueAI 是中医古籍智能分析系统:
 def fetch_url(url: str, timeout: int = 30, data: bytes = None,
               headers: dict = None) -> str:
     """同步 HTTP 请求"""
+    # 修复 UnicodeEncodeError:URL 含中文等非ASCII字符时百分号编码(urllib要求URL为纯ASCII)
+    try:
+        url.encode("ascii")
+    except UnicodeEncodeError:
+        from urllib.parse import quote as _q
+        url = _q(url, safe=":/?&=#%+@[]~*'();,!$")
     req_headers = {"User-Agent": "IntelRadar/3.0 (SueAI)"}
     if headers:
         req_headers.update(headers)
