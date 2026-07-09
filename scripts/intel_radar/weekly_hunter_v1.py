@@ -58,31 +58,32 @@ def lane_arxiv():
     print(f"[arxiv] {len(out)} 条", flush=True)
     return out
 
-# ── 赛道② 其他垂直行业AI: HN Algolia(移植主矿脉·权重最高) ─────────────────
-def lane_hn():
+# ── 赛道② 别行业打法(跨界移植主矿脉·权重最高): 精选产品/增长/资本/垂直AI 深度源 RSS ──
+# 教训: HN标题=创业新闻,不是"打法"。真正能搬的打法(出处溯源/留存/定价/护城河/垂直AI怎么做)
+#       藏在这些深度源的文章里。用它们当主矿脉,才对得上"看中医玩家结构上不看的地方"。
+PLAYBOOK_FEEDS = [
+    ("a16z",       "https://a16z.com/feed/"),
+    ("Lenny",      "https://www.lennysnewsletter.com/feed"),
+    ("FirstRound", "https://review.firstround.com/feed"),
+    ("Sequoia",    "https://www.sequoiacap.com/feed/"),
+    ("Stratechery","https://stratechery.com/feed/"),
+]
+def lane_playbook():
     out, seen = [], set()
-    queries = ["AI citation sources trust", "AI provenance grounding", "usage based pricing SaaS",
-               "outcome based pricing AI", "AI user retention playbook", "vertical AI expert product",
-               "domain expert AI moat", "knowledge product subscription", "legal AI how it works",
-               "AI transparency verifiable answers"]
-    week_ago = int(time.time()) - 7 * 86400
-    for q in queries:
+    for name, url in PLAYBOOK_FEEDS:
         try:
-            url = ("https://hn.algolia.com/api/v1/search?query=" + urllib.parse.quote(q)
-                   + f"&tags=story&numericFilters=created_at_i>{week_ago}&hitsPerPage=12")
-            j = json.loads(fetch(url))
-            for h in j.get("hits", []):
-                t = (h.get("title") or "").strip()
-                if not t or t.lower() in seen: continue
-                seen.add(t.lower())
-                out.append({"lane": "垂直行业AI", "title": t,
-                            "brief": f"HN {h.get('points',0)}分/{h.get('num_comments',0)}评 · 查询[{q}]",
-                            "url": h.get("url") or f"https://news.ycombinator.com/item?id={h.get('objectID','')}",
-                            "points": h.get("points", 0)})
+            root = ET.fromstring(fetch(url, timeout=25))
+            for it in list(root.iter("item"))[:8]:   # 深度源发文少,取最近8篇,不卡7天窗口
+                t = (it.findtext("title") or "").strip()
+                if not t or t in seen: continue
+                seen.add(t)
+                desc = re.sub(r"<[^>]+>", " ", (it.findtext("description") or "")).strip()[:220]
+                out.append({"lane": "别行业打法", "title": t,
+                            "brief": f"[{name}] {desc}", "url": it.findtext("link") or ""})
         except Exception as ex:
-            print(f"[hn:{q}] 失败: {str(ex)[:80]}", flush=True)
-        time.sleep(0.6)
-    print(f"[hn] {len(out)} 条", flush=True)
+            print(f"[playbook:{name}] 失败: {str(ex)[:80]}", flush=True)
+        time.sleep(0.4)
+    print(f"[playbook] {len(out)} 条", flush=True)
     return out
 
 # ── 赛道③ 政策/中文行业: Bing News RSS ─────────────────────────────────────
@@ -147,7 +148,7 @@ def deep_analyze(it):
 
 def main():
     print(f"=== 鹰眼周报猎手 v1 · {TODAY} ===", flush=True)
-    items = lane_arxiv() + lane_hn() + lane_policy()
+    items = lane_arxiv() + lane_playbook() + lane_policy()
     if len(items) < 10:
         print(f"[warn] 源太少({len(items)}),如实继续", flush=True)
     scored = score_items(items)
@@ -158,21 +159,27 @@ def main():
     for x in scored:
         if x.get("transplant", 0) >= 2:
             by_lane.setdefault(x["lane"], []).append(x)
-    cands = (by_lane.get("垂直行业AI", [])[:5] + by_lane.get("政策/中文", [])[:3]
+    cands = (by_lane.get("别行业打法", [])[:6] + by_lane.get("政策/中文", [])[:4]
              + by_lane.get("AI技术", [])[:3])
-    print(f"[cand] 垂直行业AI={len(by_lane.get('垂直行业AI',[]))} 政策={len(by_lane.get('政策/中文',[]))} "
+    print(f"[cand] 别行业打法={len(by_lane.get('别行业打法',[]))} 政策={len(by_lane.get('政策/中文',[]))} "
           f"AI技术={len(by_lane.get('AI技术',[]))}", flush=True)
 
-    signals, ai_used = [], 0
+    def toksig(t):   # 主题去重指纹:2字中文词 + 4+字英文词
+        return set(re.findall(r"[一-鿿]{2}|[a-z]{4,}", t.lower()))
+
+    signals, ai_used, picked = [], 0, []
     for it in cands:
         if len(signals) >= 3: break
         if it["lane"] == "AI技术" and ai_used >= 1:   # arXiv封顶1条,位置留给跨行业矿脉
             continue
+        sg = toksig(it["title"])
+        if any(len(sg & p) / max(len(sg | p), 1) > 0.45 for p in picked):   # 近重复(如同一场会3篇)跳过
+            print(f"[dedup] 跳过近重复: {it['title'][:40]}", flush=True); continue
         try:
             d = deep_analyze(it)
             if d and d.get("信号") and not d.get("可忽略"):
                 d["_src"] = it
-                signals.append(d)
+                signals.append(d); picked.append(sg)
                 if it["lane"] == "AI技术": ai_used += 1
                 print(f"[signal] ✓ [{it['lane']}] {d['信号'][:46]}", flush=True)
         except Exception as ex:
