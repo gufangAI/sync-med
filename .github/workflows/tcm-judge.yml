@@ -1,0 +1,49 @@
+name: tcm-judge
+on:
+  workflow_dispatch:
+    inputs:
+      total:
+        description: total shards
+        default: "4"
+      limit:
+        description: trial rows per shard (0=all)
+        default: "0"
+      conc:
+        description: concurrency per shard
+        default: "5"
+
+concurrency:
+  group: tcm-judge
+  cancel-in-progress: false
+
+jobs:
+  judge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -q boto3
+      - name: judge
+        env:
+          XF_KEYS: ${{ secrets.XF_KEYS }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_EP: ${{ secrets.S_EP }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.total }}
+          LIMIT: ${{ github.event.inputs.limit }}
+          CONC: ${{ github.event.inputs.conc }}
+        run: python scripts/tcm_judge.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tcm-judge-part${{ matrix.shard }}
+          path: out/
+          if-no-files-found: warn
