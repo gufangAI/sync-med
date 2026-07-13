@@ -11,7 +11,8 @@ SYNC_URL = os.environ.get("SYNC_URL", "https://gufangai.com/api/admin/asset/pan-
 MODE = os.environ.get("MODE", "scan")
 LIMIT = int(os.environ.get("LIMIT", "0") or 0)
 # path segments from drive root; first segment is CJK, kept escaped (public repo opsec)
-PATH_SEGS = (os.environ.get("PAN_PATH") or "\u53e4\u7c4d,GufangP,yaofang").split(",")
+PATHS = [p.split(",") for p in (os.environ.get("PAN_PATH")
+         or "\u53e4\u7c4d,GufangP,yaofang;\u53e4\u7c4d,GufangP,guji").split(";") if p.strip()]
 
 def to_book_id(name):
     # 123 folder names for naikaku segments lack the catalog prefix: 301-0027-01 -> zi301-0027-01
@@ -92,25 +93,23 @@ def main():
             print("nothing to register; exit", flush=True)
             return
 
-    yid = os.environ.get("PAN_YAOFANG_ID")
-    if not yid:
+    folders, files_seen = [], 0
+    for segs in PATHS:
         cur = 0
-        for seg in PATH_SEGS:
+        for seg in segs:
             cur = find_child_folder(cur, seg)
             if cur is None:
                 sys.exit(f"path segment not found: {seg!r}")
-            print(f"seg ok -> {cur}", flush=True)
-        yid = cur
-    print(f"yaofang folder id = {yid}", flush=True)
-
-    folders, files_seen = [], 0
-    for it in iter_children(yid):
-        if it.get("type") == 1:
-            folders.append((it.get("filename"), it.get("fileId")))
-            if len(folders) % 2000 == 0:
-                print(f"..{len(folders)} folders", flush=True)
-        else:
-            files_seen += 1
+        print(f"path ok ({len(segs)} segs) -> {cur}", flush=True)
+        n0 = len(folders)
+        for it in iter_children(cur):
+            if it.get("type") == 1:
+                folders.append((it.get("filename"), it.get("fileId")))
+                if len(folders) % 2000 == 0:
+                    print(f"..{len(folders)} folders", flush=True)
+            else:
+                files_seen += 1
+        print(f"  subtotal this path: {len(folders) - n0}", flush=True)
     print(f"SCAN total folders={len(folders)} loose_files={files_seen}", flush=True)
 
     os.makedirs("out", exist_ok=True)
