@@ -15,11 +15,13 @@ PATHS = [p.split(",") for p in (os.environ.get("PAN_PATH")
          or "\u53e4\u7c4d,GufangP,yaofang;\u53e4\u7c4d,GufangP,guji").split(";") if p.strip()]
 
 def to_book_id(name):
-    # 123 folder names for naikaku segments lack the catalog prefix: 301-0027-01 -> zi301-0027-01
+    # first token is the id when folder is named "<id> <title...>" (2026-07-14 founder convention);
+    # naikaku segments may lack the catalog prefix: 301-0027-01 -> zi301-0027-01
     import re as _re
-    if _re.match(r"^\d{3}-", name):
-        return "zi" + name
-    return name
+    tok = str(name).split()[0] if str(name).split() else str(name)
+    if _re.match(r"^\d{3}-", tok):
+        return "zi" + tok
+    return tok
 
 
 S = requests.Session()
@@ -89,7 +91,40 @@ def main():
             sys.exit(f"map query failed: http{r.status_code} {str(j)[:150]}")
         print(f"D1 visible books: {len(d1map)}", flush=True)
 
+    # recursive discovery (2026-07-14): book folder = first token resolves in D1 map (or raw known id);
+    # unknown folders are category layers -> descend, up to depth 5. Never descend into book folders.
+    known = set(d1map.keys()) if d1map is not None else None
     folders, files_seen = [], 0
+    unrecognized = []
+
+    def looks_like_book(name):
+        bid = to_book_id(name)
+        if known is not None:
+            return bid in known
+        import re as _re
+        return bool(_re.match(r"^[a-z]{0,8}\d{2,3}-\d{4}(-\d+)?$", bid)
+                    or _re.match(r"^(ndl|nijl|fuji|osaka)-", bid)
+                    or _re.match(r"^[a-z]{2,8}[_-]?\d+", bid))
+
+    def walk(fid, depth, trail):
+        nonlocal files_seen
+        subdirs = []
+        for it in iter_children(fid):
+            if it.get("type") == 1:
+                subdirs.append((it.get("filename"), it.get("fileId")))
+            else:
+                files_seen += 1
+        for name, cid in subdirs:
+            if looks_like_book(name):
+                folders.append((name, cid))
+                if len(folders) % 2000 == 0:
+                    print(f"..{len(folders)} folders", flush=True)
+            elif depth < 5:
+                print(f"  descend [{trail}/{name}]", flush=True)
+                walk(cid, depth + 1, f"{trail}/{name}")
+            else:
+                unrecognized.append((f"{trail}/{name}", cid))
+
     for segs in PATHS:
         cur = 0
         for seg in segs:
@@ -98,15 +133,15 @@ def main():
                 sys.exit(f"path segment not found: {seg!r}")
         print(f"path ok ({len(segs)} segs) -> {cur}", flush=True)
         n0 = len(folders)
-        for it in iter_children(cur):
-            if it.get("type") == 1:
-                folders.append((it.get("filename"), it.get("fileId")))
-                if len(folders) % 2000 == 0:
-                    print(f"..{len(folders)} folders", flush=True)
-            else:
-                files_seen += 1
+        walk(cur, 0, "~")
         print(f"  subtotal this path: {len(folders) - n0}", flush=True)
-    print(f"SCAN total folders={len(folders)} loose_files={files_seen}", flush=True)
+    print(f"SCAN total folders={len(folders)} loose_files={files_seen} unrecognized={len(unrecognized)}", flush=True)
+    os.makedirs("out", exist_ok=True)
+    with open("out/unrecognized.csv", "w", newline="", encoding="utf-8") as f0:
+        w0 = csv.writer(f0)
+        w0.writerow(["path", "fileId"])
+        for row in unrecognized:
+            w0.writerow(row)
 
     os.makedirs("out", exist_ok=True)
     with open("out/pan_scan.csv", "w", newline="", encoding="utf-8") as f:
