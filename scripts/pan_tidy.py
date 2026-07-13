@@ -84,7 +84,35 @@ def locate():
         print(f"parent {pid} ({pname}): {len(names)} files, e.g. {names[:3]}", flush=True)
 
 
+def scan_root_all():
+    # TRASH mode: list EVERYTHING at root including trashed items (previous scans skipped trashed)
+    n_live_d = n_live_f = 0
+    trashed = []
+    last = 0
+    while True:
+        j = pan("GET", f"/api/v2/file/list?parentFileId=0&limit=100&lastFileId={last}")
+        if not j:
+            break
+        d = j.get("data") or {}
+        for it in d.get("fileList") or []:
+            if it.get("trashed") in (1, True):
+                trashed.append((it.get("filename"), it.get("type")))
+            elif it.get("type") == 1:
+                n_live_d += 1
+            else:
+                n_live_f += 1
+        last = d.get("lastFileId")
+        if last in (None, -1, 0, ""):
+            break
+    print(f"root live: dirs={n_live_d} files={n_live_f}  trashed-at-root: {len(trashed)}", flush=True)
+    for name, t in trashed[:40]:
+        print(f"  [trash] {'D' if t==1 else 'F'} {name}", flush=True)
+
+
 def main():
+    if os.environ.get("TRASH", "") == "1":
+        scan_root_all()
+        return
     if os.environ.get("SEARCH", "") == "1":
         locate()
         return
