@@ -1,6 +1,6 @@
 # enroll no-record books: read roster from R2, locate their 123 folders, count pages, INSERT via narrow endpoint.
 # Roster (R2 _cc/*.json.gz): { "<book_id>": {"t": "<title>", "a": "<author>", "r": "<req_no>"}, ... }
-import os, sys, csv, gzip, io, json, time
+import os, sys, csv, json, time
 from concurrent.futures import ThreadPoolExecutor
 import requests
 
@@ -8,16 +8,13 @@ PAN = os.environ.get("PAN_BASE", "https://open-api.123pan.com")
 PCID = os.environ["PAN_CID"]; PSEC = os.environ["PAN_SEC"]
 ENROLL_URL = os.environ.get("ENROLL_URL", "https://gufangai.com/api/admin/asset/pan-enroll")
 TOKEN = os.environ["ASSET_SYNC_TOKEN"]
-ROSTER_KEY = os.environ.get("ROSTER_KEY", "_cc/fuji_enroll.json.gz")
+ROSTER_FILE = os.environ.get("ROSTER_FILE", "scripts/fuji_roster.json")
 SOURCE_ROOT = os.environ.get("SOURCE_ROOT", "fujikawa")
 LIBRARY = os.environ.get("LIBRARY", "")
 PREFIX = os.environ.get("FOLDER_PREFIX", "")  # only consider 123 folders whose name starts with this
 LIMIT = int(os.environ.get("LIMIT", "0") or 0)
 PATHS = [p.split(",") for p in (os.environ.get("PAN_PATH")
          or "\u53e4\u7c4d,GufangP,yaofang;\u53e4\u7c4d,GufangP,guji").split(";") if p.strip()]
-
-import boto3
-from botocore.config import Config as BotoCfg
 
 S = requests.Session()
 _tok = {"v": None}
@@ -82,11 +79,7 @@ def count_pages(fid):
 
 
 def main():
-    s3 = boto3.client("s3", endpoint_url=os.environ["S_EP"],
-                      aws_access_key_id=os.environ["S_AK"], aws_secret_access_key=os.environ["S_SK"],
-                      config=BotoCfg(retries={"max_attempts": 5}))
-    obj = s3.get_object(Bucket=os.environ.get("S_BUCKET", "guyaofang-assets"), Key=ROSTER_KEY)
-    roster = json.load(gzip.open(io.BytesIO(obj["Body"].read()), "rt", encoding="utf-8"))
+    roster = json.load(open(ROSTER_FILE, encoding="utf-8"))
     print(f"roster: {len(roster)} books", flush=True)
 
     # locate folders across both paths (last wins, same as aligner)
