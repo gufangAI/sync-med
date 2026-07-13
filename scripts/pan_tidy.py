@@ -57,7 +57,37 @@ def iter_children(parent):
             return
 
 
+def locate():
+    # SEARCH mode: find files by keyword across the whole drive, print their parent folders
+    kw = os.environ.get("SEARCH_KW", "_ctext_")
+    hits = []
+    last = 0
+    while True:
+        j = pan("GET", f"/api/v2/file/list?parentFileId=0&limit=100&lastFileId={last}&searchData={kw}&searchMode=0")
+        if not j:
+            break
+        d = j.get("data") or {}
+        for it in d.get("fileList") or []:
+            if it.get("trashed") in (1, True):
+                continue
+            hits.append(it)
+        last = d.get("lastFileId")
+        if last in (None, -1, 0, ""):
+            break
+    print(f"search hits: {len(hits)}", flush=True)
+    parents = {}
+    for it in hits[:300]:
+        parents.setdefault(it.get("parentFileId"), []).append(it.get("filename"))
+    for pid, names in parents.items():
+        info = pan("GET", f"/api/v1/file/detail?fileID={pid}") if pid else None
+        pname = ((info or {}).get("data") or {}).get("filename", "?")
+        print(f"parent {pid} ({pname}): {len(names)} files, e.g. {names[:3]}", flush=True)
+
+
 def main():
+    if os.environ.get("SEARCH", "") == "1":
+        locate()
+        return
     pat = re.compile(PATTERN)
     # find or create target folder at root
     target = None
