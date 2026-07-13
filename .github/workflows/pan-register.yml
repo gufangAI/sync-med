@@ -8,6 +8,9 @@ on:
       limit:
         description: 'max folders to register, 0 = all'
         default: '0'
+      path:
+        description: 'comma-separated 123 folder path from root (empty = default yaofang)'
+        default: ''
   schedule:
     - cron: '23 */2 * * *'
 concurrency:
@@ -31,6 +34,7 @@ jobs:
           ASSET_SYNC_TOKEN: ${{ secrets.ASSET_SYNC_TOKEN }}
           MODE: ${{ inputs.mode || 'auto' }}
           LIMIT: ${{ inputs.limit || '0' }}
+          PAN_PATH: ${{ inputs.path || '' }}
         run: python scripts/pan_register.py
       - uses: actions/upload-artifact@v4
         if: always()
