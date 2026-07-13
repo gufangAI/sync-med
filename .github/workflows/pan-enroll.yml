@@ -1,0 +1,50 @@
+name: pan-enroll
+on:
+  workflow_dispatch:
+    inputs:
+      roster_key:
+        description: 'R2 key of roster json.gz'
+        default: '_cc/fuji_enroll.json.gz'
+      source_root:
+        description: 'source_root for new records'
+        default: 'fujikawa'
+      prefix:
+        description: 'only consider 123 folders with this name prefix'
+        default: 'fuji-'
+      limit:
+        description: 'max books to enroll, 0 = all'
+        default: '0'
+concurrency:
+  group: pan-enroll
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip -q install requests boto3
+      - name: enroll
+        env:
+          PAN_BASE: ${{ secrets.PAN_BASE }}
+          PAN_CID: ${{ secrets.PAN_CID }}
+          PAN_SEC: ${{ secrets.PAN_SEC }}
+          ASSET_SYNC_TOKEN: ${{ secrets.ASSET_SYNC_TOKEN }}
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          ROSTER_KEY: ${{ inputs.roster_key }}
+          SOURCE_ROOT: ${{ inputs.source_root }}
+          FOLDER_PREFIX: ${{ inputs.prefix }}
+          LIMIT: ${{ inputs.limit }}
+        run: python scripts/pan_enroll.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pan-enroll-out
+          path: out/
+          if-no-files-found: warn
