@@ -32,6 +32,23 @@ def s3():
     )
 
 
+def probe(key):
+    # 1-shot health check: some keys in the pool lack chat-model grants
+    # (xunfei AppIdNoAuthError) -> filter to live keys before the run.
+    payload = {"model": MODEL, "messages": [{"role": "user", "content": "1"}], "max_tokens": 2}
+    req = urllib.request.Request(
+        XF_BASE + "/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            r.read()
+        return True
+    except Exception:
+        return False
+
+
 def ask(idx, row):
     text = ((row[1] or "") + "\n" + (row[2] or "") + "\n" + (row[3] or ""))[:1500]
     payload = {
@@ -55,13 +72,21 @@ def ask(idx, row):
             v = 1 if ans.startswith("1") else 0
             return idx, row[0], v, ""
         except Exception as e:  # backoff on 429/5xx/timeouts, capped retries
+            code = getattr(e, "code", "")
             if attempt == 3:
-                return idx, row[0], -1, type(e).__name__
+                return idx, row[0], -1, f"{type(e).__name__}:{code}"
             time.sleep(2 ** attempt + random.random() * 2)
     return idx, row[0], -1, "exhausted"
 
 
 def main():
+    global KEYS
+    live = [k for k in KEYS if probe(k)]
+    print(f"key probe: {len(live)}/{len(KEYS)} live", flush=True)
+    if not live:
+        sys.exit("no live chat-capable key in pool")
+    KEYS = live
+
     cli = s3()
     bucket = "guyaofang-assets"
     obj = cli.get_object(Bucket=bucket, Key="_cc/tcm_subset.csv.gz")
