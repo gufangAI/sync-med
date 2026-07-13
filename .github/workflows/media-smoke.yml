@@ -1,0 +1,18 @@
+name: media-smoke
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        default: 'zhipu'
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: gen image
+        run: |
+          curl -s -X POST https://gufangai.com/api/admin/media/gen \
+            -H "X-Asset-Sync-Token: ${{ secrets.ASSET_SYNC_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"kind\":\"image\",\"provider\":\"${{ inputs.provider }}\",\"prompt\":\"Ancient Chinese medical book cover art, traditional style, warm parchment tones, red seal stamp, herbal illustrations, museum quality\"}" \
+            | head -c 700
