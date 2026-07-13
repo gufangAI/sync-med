@@ -29,8 +29,8 @@ jobs:
           PAN_CID: ${{ secrets.PAN_CID }}
           PAN_SEC: ${{ secrets.PAN_SEC }}
           ASSET_SYNC_TOKEN: ${{ secrets.ASSET_SYNC_TOKEN }}
-          MODE: ${{ inputs.mode }}
-          LIMIT: ${{ inputs.limit }}
+          MODE: ${{ inputs.mode || 'auto' }}
+          LIMIT: ${{ inputs.limit || '0' }}
         run: python scripts/pan_register.py
       - uses: actions/upload-artifact@v4
         if: always()
