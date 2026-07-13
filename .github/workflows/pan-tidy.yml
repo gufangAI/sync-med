@@ -11,6 +11,12 @@ on:
       dry:
         description: '1 = list only'
         default: '0'
+      search:
+        description: '1 = locate files by keyword instead of tidying'
+        default: '0'
+      search_kw:
+        description: 'keyword for search mode'
+        default: '_ctext_'
 concurrency:
   group: pan-tidy
 jobs:
@@ -31,4 +37,6 @@ jobs:
           PATTERN: ${{ inputs.pattern }}
           TARGET_NAME: ${{ inputs.target }}
           DRY: ${{ inputs.dry }}
+          SEARCH: ${{ inputs.search }}
+          SEARCH_KW: ${{ inputs.search_kw }}
         run: python scripts/pan_tidy.py
