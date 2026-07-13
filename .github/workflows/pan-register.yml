@@ -3,11 +3,13 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'scan or register'
+        description: 'scan, register, or auto (incremental)'
         default: 'scan'
       limit:
         description: 'max folders to register, 0 = all'
         default: '0'
+  schedule:
+    - cron: '23 */2 * * *'
 concurrency:
   group: pan-register
   cancel-in-progress: false
