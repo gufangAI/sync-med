@@ -1,0 +1,37 @@
+name: pan-reorg
+on:
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: '1 = plan only, no moves'
+        default: '1'
+      limit:
+        description: 'max books to move, 0 = all'
+        default: '0'
+concurrency:
+  group: pan-register
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip -q install requests
+      - name: reorg
+        env:
+          PAN_BASE: ${{ secrets.PAN_BASE }}
+          PAN_CID: ${{ secrets.PAN_CID }}
+          PAN_SEC: ${{ secrets.PAN_SEC }}
+          DRY: ${{ inputs.dry }}
+          LIMIT: ${{ inputs.limit }}
+        run: python scripts/pan_reorg.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pan-reorg-out
+          path: out/
+          if-no-files-found: warn
