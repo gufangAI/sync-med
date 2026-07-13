@@ -1,0 +1,14 @@
+name: probe-sep
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: print endpoint host only
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+        run: |
+          echo "S_EP host: $(echo "$S_EP" | sed -E 's#https?://##; s#/.*##')"
+          echo "S_BUCKET: $S_BUCKET"
