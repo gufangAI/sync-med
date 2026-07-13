@@ -79,19 +79,15 @@ def find_child_folder(parent, name):
 
 
 def main():
-    missing = None
+    d1map = None
     if MODE == "auto":
         tok = os.environ["ASSET_SYNC_TOKEN"]
-        r = requests.get(SYNC_URL + "?mode=missing", headers={"X-Asset-Sync-Token": tok}, timeout=120)
+        r = requests.get(SYNC_URL + "?mode=map", headers={"X-Asset-Sync-Token": tok}, timeout=180)
         j = r.json() if r.status_code == 200 else {}
-        lst = j.get("missing") or (j.get("data") or {}).get("missing")
-        if lst is None:
-            sys.exit(f"missing query failed: http{r.status_code} {str(j)[:150]}")
-        missing = set(lst)
-        print(f"missing pan_dir_id in D1: {len(missing)}", flush=True)
-        if not missing:
-            print("nothing to register; exit", flush=True)
-            return
+        d1map = j.get("map") or (j.get("data") or {}).get("map")
+        if d1map is None:
+            sys.exit(f"map query failed: http{r.status_code} {str(j)[:150]}")
+        print(f"D1 visible books: {len(d1map)}", flush=True)
 
     folders, files_seen = [], 0
     for segs in PATHS:
@@ -128,9 +124,38 @@ def main():
         return
 
     tok = os.environ["ASSET_SYNC_TOKEN"]
-    if missing is not None:
-        folders = [(n, f) for n, f in folders if to_book_id(n) in missing]
-        print(f"after missing-filter: {len(folders)} to register", flush=True)
+    if d1map is not None:
+        # full alignment: 123 is the source of truth. write when D1 lacks pan_dir_id or it differs.
+        seen_fids = set()
+        todo2 = []
+        n_new = n_changed = n_same = n_nod1 = 0
+        for n, f in folders:
+            bid = to_book_id(n)
+            seen_fids.add(str(f))
+            if bid not in d1map:
+                n_nod1 += 1
+                continue
+            cur = str(d1map.get(bid) or "")
+            if cur == str(f):
+                n_same += 1
+            elif cur == "":
+                n_new += 1
+                todo2.append((n, f))
+            else:
+                n_changed += 1
+                todo2.append((n, f))
+        stale = [b for b, v in d1map.items() if v and str(v) not in seen_fids]
+        print(f"align: new={n_new} changed={n_changed} same={n_same} not-in-D1={n_nod1} stale-in-D1={len(stale)}", flush=True)
+        os.makedirs("out", exist_ok=True)
+        with open("out/stale_pan_in_d1.csv", "w", newline="", encoding="utf-8") as f2:
+            w2 = csv.writer(f2)
+            w2.writerow(["book_id", "pan_dir_id_not_seen_in_scan"])
+            for b in stale:
+                w2.writerow([b, d1map[b]])
+        folders = todo2
+        if not folders:
+            print("aligned: nothing to write; exit", flush=True)
+            return
     todo = folders[:LIMIT] if LIMIT > 0 else folders
     stats = {"ok": 0, "notfound": 0, "err": 0}
     results = []
