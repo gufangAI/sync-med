@@ -1,0 +1,13 @@
+name: graph-smoke
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: dry-run provenance build
+        run: |
+          curl -s -X POST https://gufangai.com/api/admin/graph-build-provenance \
+            -H "X-Asset-Sync-Token: ${{ secrets.ASSET_SYNC_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"dry":true,"limit":2}' | head -c 1200
