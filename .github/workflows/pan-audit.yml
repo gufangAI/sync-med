@@ -10,6 +10,11 @@ on:
       conc:
         description: 'concurrency (gentle on 123 API)'
         default: '6'
+      fix:
+        description: 'set 1 to refresh page_count + revive fully-arrived books'
+        default: '0'
+  schedule:
+    - cron: '10 18 * * *'
 concurrency:
   group: pan-audit
   cancel-in-progress: false
@@ -29,9 +34,10 @@ jobs:
           PAN_CID: ${{ secrets.PAN_CID }}
           PAN_SEC: ${{ secrets.PAN_SEC }}
           ASSET_SYNC_TOKEN: ${{ secrets.ASSET_SYNC_TOKEN }}
-          LIMIT: ${{ inputs.limit }}
-          OFFSET: ${{ inputs.offset }}
-          CONC: ${{ inputs.conc }}
+          LIMIT: ${{ inputs.limit || '0' }}
+          OFFSET: ${{ inputs.offset || '0' }}
+          CONC: ${{ inputs.conc || '6' }}
+          FIX: ${{ inputs.fix || '1' }}
         run: python scripts/pan_audit.py
       - uses: actions/upload-artifact@v4
         if: always()
