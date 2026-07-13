@@ -32,7 +32,7 @@ jobs:
       - run: pip install -q boto3
       - name: judge
         env:
-          XF_KEYS: ${{ secrets.XF_CHAT_KEYS }}
+          XF_KEYS: "${{ secrets.XF_KEYS }},${{ secrets.XF_CHAT_KEYS }}"
           S_AK: ${{ secrets.S_AK }}
           S_SK: ${{ secrets.S_SK }}
           S_EP: ${{ secrets.S_EP }}
