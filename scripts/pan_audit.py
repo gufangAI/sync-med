@@ -11,6 +11,8 @@ TOKEN = os.environ["ASSET_SYNC_TOKEN"]
 LIMIT = int(os.environ.get("LIMIT", "0") or 0)
 OFFSET = int(os.environ.get("OFFSET", "0") or 0)
 CONC = int(os.environ.get("CONC", "6") or 6)
+FIX = os.environ.get("FIX", "") == "1"
+TOKEN2 = TOKEN  # alias for fix posts
 
 S = requests.Session()
 _tok = {"v": None}
@@ -111,6 +113,45 @@ def main():
                 print(f"progress {done}/{len(books)} {stats}", flush=True)
 
     print(f"DONE audit total={len(books)} {stats}", flush=True)
+
+    if FIX:
+        # page-refresh + revive: 123 is source of truth for arrived pages.
+        # rule: have >= expect (fully arrived, possibly more) -> update page_count to have (if grew) + visible=1
+        #       expect missing/0 and have >= 4 -> set page_count + visible=1
+        #       have < expect -> leave (still uploading; stays delisted if it was)
+        fixes = []
+        bm = {b["book_id"]: b for b in books}
+        for bid, expect, have, mtxt, zero, st in results:
+            if have is None or have < 0 or have < 4:
+                continue
+            vis = (bm.get(bid) or {}).get("frontend_visible")
+            grew = expect and have > expect
+            arrived_hidden = expect and have >= expect and vis == 0
+            fresh = (not expect)
+            if grew or arrived_hidden or fresh:
+                fixes.append((bid, have))
+        print(f"FIX candidates: {len(fixes)}", flush=True)
+        fstats = {"ok": 0, "err": 0}
+        def fix_one(t):
+            bid, have = t
+            b = bm.get(bid) or {}
+            for att in range(4):
+                try:
+                    r = requests.post(SYNC_URL, headers={"X-Asset-Sync-Token": TOKEN2},
+                                      json={"book_id": bid, "table": "books_assets_v2",
+                                            "pan_dir_id": str(b.get("pan_dir_id")),
+                                            "page_count": have, "frontend_visible": 1}, timeout=30)
+                    if r.status_code == 200:
+                        return "ok"
+                except Exception:
+                    pass
+                time.sleep(2 * (att + 1))
+            return "err"
+        with ThreadPoolExecutor(max_workers=6) as ex2:
+            for st2 in ex2.map(fix_one, fixes):
+                fstats[st2] += 1
+        print(f"DONE fix {fstats}", flush=True)
+
     os.makedirs("out", exist_ok=True)
     with open("out/audit_all.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
