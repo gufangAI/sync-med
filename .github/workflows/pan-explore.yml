@@ -1,0 +1,22 @@
+name: pan-explore
+on:
+  workflow_dispatch:
+concurrency:
+  group: pan-explore
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip -q install requests
+      - env:
+          PAN_BASE: ${{ secrets.PAN_BASE }}
+          PAN_CID: ${{ secrets.PAN_CID }}
+          PAN_SEC: ${{ secrets.PAN_SEC }}
+          PAN_DIR_A: ${{ secrets.PAN_DIR_A }}
+          PAN_DIR_B: ${{ secrets.PAN_DIR_B }}
+        run: python scripts/pan_explore.py
