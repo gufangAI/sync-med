@@ -124,6 +124,13 @@ def main():
         return
 
     tok = os.environ["ASSET_SYNC_TOKEN"]
+    # dedup same book across paths (a book may exist in both yaofang and guji): last wins,
+    # matching final write order, so the next align run sees it as stable instead of flip-flopping
+    _d = {}
+    for n, f in folders:
+        _d[to_book_id(n)] = (n, f)
+    folders = list(_d.values())
+    print(f"after dedup: {len(folders)}", flush=True)
     if d1map is not None:
         # full alignment: 123 is the source of truth. write when D1 lacks pan_dir_id or it differs.
         seen_fids = set()
