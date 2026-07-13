@@ -166,7 +166,7 @@ def main():
             try:
                 r = requests.post(SYNC_URL, headers={"X-Asset-Sync-Token": tok},
                                   json={"book_id": to_book_id(name), "table": "books_assets_v2",
-                                        "pan_dir_id": str(fid)}, timeout=30)
+                                        "pan_dir_id": str(fid), "frontend_visible": 1}, timeout=30)
                 if r.status_code == 200:
                     return name, fid, "ok"
                 if r.status_code == 404:
