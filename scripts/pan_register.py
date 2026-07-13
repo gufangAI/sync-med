@@ -97,14 +97,20 @@ def main():
     folders, files_seen = [], 0
     unrecognized = []
 
-    def looks_like_book(name):
+    import re as _re
+    BOOKISH = _re.compile(r"^([a-z]{0,8}\d{2,3}-\d{4}(-\d+)?|(ndl|nijl|osaka)-\d+|fuji-RB\d+|[a-z]{2,8}[_-]?\d{1,6})$")
+
+    def kind_of(name):
+        # book: id resolves in D1; orphan: looks like a book id but has no D1 record (enroll
+        # candidate; do NOT descend -- it holds page files, listing them wasted ~10k calls / 2h);
+        # layer: category folder -> descend
         bid = to_book_id(name)
-        if known is not None:
-            return bid in known
-        import re as _re
-        return bool(_re.match(r"^[a-z]{0,8}\d{2,3}-\d{4}(-\d+)?$", bid)
-                    or _re.match(r"^(ndl|nijl|fuji|osaka)-", bid)
-                    or _re.match(r"^[a-z]{2,8}[_-]?\d+", bid))
+        tok = str(name).split()[0] if str(name).split() else str(name)
+        if known is not None and bid in known:
+            return "book"
+        if BOOKISH.match(tok) or BOOKISH.match(bid):
+            return "book" if known is None else "orphan"
+        return "layer"
 
     def walk(fid, depth, trail):
         nonlocal files_seen
@@ -115,10 +121,13 @@ def main():
             else:
                 files_seen += 1
         for name, cid in subdirs:
-            if looks_like_book(name):
+            k = kind_of(name)
+            if k == "book":
                 folders.append((name, cid))
                 if len(folders) % 2000 == 0:
                     print(f"..{len(folders)} folders", flush=True)
+            elif k == "orphan":
+                unrecognized.append((f"{trail}/{name}", cid))
             elif depth < 5:
                 print(f"  descend [{trail}/{name}]", flush=True)
                 walk(cid, depth + 1, f"{trail}/{name}")
