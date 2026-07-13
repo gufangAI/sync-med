@@ -13,6 +13,14 @@ LIMIT = int(os.environ.get("LIMIT", "0") or 0)
 # path segments from drive root; first segment is CJK, kept escaped (public repo opsec)
 PATH_SEGS = ["\u53e4\u7c4d", "GufangP", "yaofang"]
 
+def to_book_id(name):
+    # 123 folder names for naikaku segments lack the catalog prefix: 301-0027-01 -> zi301-0027-01
+    import re as _re
+    if _re.match(r"^\d{3}-", name):
+        return "zi" + name
+    return name
+
+
 S = requests.Session()
 _tok = {"v": None}
 
@@ -70,6 +78,20 @@ def find_child_folder(parent, name):
 
 
 def main():
+    missing = None
+    if MODE == "auto":
+        tok = os.environ["ASSET_SYNC_TOKEN"]
+        r = requests.get(SYNC_URL + "?mode=missing", headers={"X-Asset-Sync-Token": tok}, timeout=120)
+        j = r.json() if r.status_code == 200 else {}
+        lst = j.get("missing") or (j.get("data") or {}).get("missing")
+        if lst is None:
+            sys.exit(f"missing query failed: http{r.status_code} {str(j)[:150]}")
+        missing = set(lst)
+        print(f"missing pan_dir_id in D1: {len(missing)}", flush=True)
+        if not missing:
+            print("nothing to register; exit", flush=True)
+            return
+
     yid = os.environ.get("PAN_YAOFANG_ID")
     if not yid:
         cur = 0
@@ -103,10 +125,13 @@ def main():
         sample = [it.get("filename") for _, it in zip(range(5), iter_children(fid0))]
         print(f"sample folder {name0} ({fid0}) -> {sample}", flush=True)
 
-    if MODE != "register":
+    if MODE not in ("register", "auto"):
         return
 
     tok = os.environ["ASSET_SYNC_TOKEN"]
+    if missing is not None:
+        folders = [(n, f) for n, f in folders if to_book_id(n) in missing]
+        print(f"after missing-filter: {len(folders)} to register", flush=True)
     todo = folders[:LIMIT] if LIMIT > 0 else folders
     stats = {"ok": 0, "notfound": 0, "err": 0}
     results = []
@@ -116,7 +141,7 @@ def main():
         for att in range(4):
             try:
                 r = requests.post(SYNC_URL, headers={"X-Asset-Sync-Token": tok},
-                                  json={"book_id": name, "table": "books_assets_v2",
+                                  json={"book_id": to_book_id(name), "table": "books_assets_v2",
                                         "pan_dir_id": str(fid)}, timeout=30)
                 if r.status_code == 200:
                     return name, fid, "ok"
