@@ -1,0 +1,34 @@
+name: pan-tidy
+on:
+  workflow_dispatch:
+    inputs:
+      pattern:
+        description: 'regex of loose root files to move'
+        default: '^_ctext_.*\.txt$'
+      target:
+        description: 'target folder name at root'
+        default: 'R2_text_corpus_backup'
+      dry:
+        description: '1 = list only'
+        default: '0'
+concurrency:
+  group: pan-tidy
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip -q install requests
+      - name: tidy
+        env:
+          PAN_BASE: ${{ secrets.PAN_BASE }}
+          PAN_CID: ${{ secrets.PAN_CID }}
+          PAN_SEC: ${{ secrets.PAN_SEC }}
+          PATTERN: ${{ inputs.pattern }}
+          TARGET_NAME: ${{ inputs.target }}
+          DRY: ${{ inputs.dry }}
+        run: python scripts/pan_tidy.py
