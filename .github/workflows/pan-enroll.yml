@@ -2,9 +2,9 @@ name: pan-enroll
 on:
   workflow_dispatch:
     inputs:
-      roster_key:
-        description: 'R2 key of roster json.gz'
-        default: '_cc/fuji_enroll.json.gz'
+      roster_file:
+        description: 'roster json path in repo (ascii-escaped)'
+        default: 'scripts/fuji_roster.json'
       source_root:
         description: 'source_root for new records'
         default: 'fujikawa'
@@ -26,18 +26,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip -q install requests boto3
+      - run: pip -q install requests
       - name: enroll
         env:
           PAN_BASE: ${{ secrets.PAN_BASE }}
           PAN_CID: ${{ secrets.PAN_CID }}
           PAN_SEC: ${{ secrets.PAN_SEC }}
           ASSET_SYNC_TOKEN: ${{ secrets.ASSET_SYNC_TOKEN }}
-          S_EP: ${{ secrets.S_EP }}
-          S_AK: ${{ secrets.S_AK }}
-          S_SK: ${{ secrets.S_SK }}
-          S_BUCKET: ${{ secrets.S_BUCKET }}
-          ROSTER_KEY: ${{ inputs.roster_key }}
+          ROSTER_FILE: ${{ inputs.roster_file }}
           SOURCE_ROOT: ${{ inputs.source_root }}
           FOLDER_PREFIX: ${{ inputs.prefix }}
           LIMIT: ${{ inputs.limit }}
