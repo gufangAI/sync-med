@@ -11,7 +11,7 @@ SYNC_URL = os.environ.get("SYNC_URL", "https://gufangai.com/api/admin/asset/pan-
 MODE = os.environ.get("MODE", "scan")
 LIMIT = int(os.environ.get("LIMIT", "0") or 0)
 # path segments from drive root; first segment is CJK, kept escaped (public repo opsec)
-PATH_SEGS = ["\u53e4\u7c4d", "GufangP", "yaofang"]
+PATH_SEGS = (os.environ.get("PAN_PATH") or "\u53e4\u7c4d,GufangP,yaofang").split(",")
 
 def to_book_id(name):
     # 123 folder names for naikaku segments lack the catalog prefix: 301-0027-01 -> zi301-0027-01
