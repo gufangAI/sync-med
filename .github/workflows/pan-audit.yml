@@ -1,0 +1,41 @@
+name: pan-audit
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'max books to audit, 0 = all'
+        default: '0'
+      offset:
+        default: '0'
+      conc:
+        description: 'concurrency (gentle on 123 API)'
+        default: '6'
+concurrency:
+  group: pan-audit
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip -q install requests
+      - name: audit
+        env:
+          PAN_BASE: ${{ secrets.PAN_BASE }}
+          PAN_CID: ${{ secrets.PAN_CID }}
+          PAN_SEC: ${{ secrets.PAN_SEC }}
+          ASSET_SYNC_TOKEN: ${{ secrets.ASSET_SYNC_TOKEN }}
+          LIMIT: ${{ inputs.limit }}
+          OFFSET: ${{ inputs.offset }}
+          CONC: ${{ inputs.conc }}
+        run: python scripts/pan_audit.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pan-audit-out
+          path: out/
+          if-no-files-found: warn
