@@ -17,6 +17,9 @@ on:
       search_kw:
         description: 'keyword for search mode'
         default: '_ctext_'
+      trash:
+        description: '1 = scan root incl. trashed items'
+        default: '0'
 concurrency:
   group: pan-tidy
 jobs:
@@ -39,4 +42,5 @@ jobs:
           DRY: ${{ inputs.dry }}
           SEARCH: ${{ inputs.search }}
           SEARCH_KW: ${{ inputs.search_kw }}
+          TRASH: ${{ inputs.trash }}
         run: python scripts/pan_tidy.py
