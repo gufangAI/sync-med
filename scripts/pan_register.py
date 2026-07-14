@@ -153,10 +153,19 @@ def main():
 
     for segs in PATHS:
         cur = 0
+        ok = True
         for seg in segs:
-            cur = find_child_folder(cur, seg)
-            if cur is None:
-                sys.exit(f"path segment not found: {seg!r}")
+            nxt = find_child_folder(cur, seg)
+            if nxt is None:
+                # tolerate: a path may be renamed/moved while download line reorganizes 123.
+                # skip this path (do NOT abort whole run) + print real siblings to locate new layout.
+                sibs = [it.get("filename") for it in iter_children(cur) if it.get("type") == 1][:40]
+                print("path seg %r not found under parent %s; siblings: %s" % (seg, cur, sibs), flush=True)
+                ok = False
+                break
+            cur = nxt
+        if not ok:
+            continue
         print(f"path ok ({len(segs)} segs) -> {cur}", flush=True)
         n0 = len(folders)
         walk(cur, 0, "~")
