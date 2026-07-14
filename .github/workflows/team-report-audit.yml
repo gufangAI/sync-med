@@ -1,0 +1,34 @@
+name: team-report-audit
+# AI 团队日报审核:各线每天必交 reports/<line>/<date>.md,本 workflow 自动收+LLM审+标红Issue.
+# 创始人零干预,只在手机看到红色Issue(有问题时).立此因:下载线自研跑偏一个月没人管坑全团队(2026-07-14).
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'audit date YYYY-MM-DD (blank=today)'
+        default: ''
+  schedule:
+    - cron: '0 12 * * *'   # 20:00 Beijing (UTC+8) = 12:00 UTC, end-of-day report check
+permissions:
+  issues: write
+  contents: read
+concurrency:
+  group: team-report-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: audit team reports
+        env:
+          GH_ISSUE_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          XF_API_KEYS: ${{ secrets.XF_API_KEYS }}
+          XF_KEY: ${{ secrets.XF_KEY }}
+          AUDIT_DATE: ${{ inputs.date }}
+        run: python scripts/team_report_audit.py
