@@ -2,7 +2,7 @@
 # CC-down: OCR worker - GitHub Actions + RapidOCR (onnxruntime PP-OCR, free cloud concurrency).
 # R2 med-book images (book/{id}/page_NNNN.webp) -> RapidOCR -> text -> R2 _ocr/{id}/page_NNNN.txt (SueAI fuel).
 # RapidOCR(onnxruntime) avoids paddle's AVX512 SIGILL on runners + ships models in the wheel (no baidu CDN).
-import os, io, re, json, boto3, numpy as np
+import os, io, re, json, boto3, requests, numpy as np
 from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
@@ -27,9 +27,38 @@ def reqof(g):
     return f"{m.group(1)}-{m.group(2)}" if m else None
 
 
+def _rebuild_pages_from_d1():
+    # 同 sync.py 已验证的 2026-07-05 自愈模式: PAGES_KEY 缓存丢失时直接查 D1 现场重建。
+    acc = os.environ.get("CF_ACCOUNT_ID"); db = os.environ.get("D1_DATABASE_ID"); tok = os.environ.get("D1_API_TOKEN")
+    if not (acc and db and tok):
+        raise RuntimeError("PAGES_KEY 读不到 + 缺 CF_ACCOUNT_ID/D1_DATABASE_ID/D1_API_TOKEN，无法从 D1 兜底")
+    url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/d1/database/{db}/query"
+    sql = ("SELECT book_id, page_count FROM books_assets_v2 "
+           "WHERE frontend_visible=1 AND upload_status='done' AND page_count > 0")
+    r = requests.post(url, headers={"Authorization": "Bearer " + tok}, json={"sql": sql}, timeout=120)
+    r.raise_for_status()
+    j = r.json()
+    if not j.get("success"):
+        raise RuntimeError(f"D1 查询失败: {str(j.get('errors', ''))[:200]}")
+    rows = (j.get("result") or [{}])[0].get("results") or []
+    return {row["book_id"]: int(row["page_count"]) for row in rows if row.get("book_id") and row.get("page_count")}
+
+
 # Zero-LIST: read the page-count manifest (id -> page_count) and build keys directly;
 # never list_objects over the whole bucket (full bucket scans were the cost spike).
-PAGES = json.loads(s3.get_object(Bucket=BUCKET, Key=os.environ.get("PAGES_KEY", "_cc/med_pages.json"))["Body"].read().decode("utf-8"))
+PAGES_KEY = os.environ.get("PAGES_KEY", "_cc/med_pages.json")
+try:
+    PAGES = json.loads(s3.get_object(Bucket=BUCKET, Key=PAGES_KEY)["Body"].read().decode("utf-8"))
+except Exception as e:
+    print(f"WARNING: PAGES_KEY {PAGES_KEY} unreadable ({e}) -> rebuilding from D1...", flush=True)
+    PAGES = _rebuild_pages_from_d1()
+    print(f"D1 rebuild ok: {len(PAGES)} books", flush=True)
+    try:
+        s3.put_object(Bucket=BUCKET, Key=PAGES_KEY, Body=json.dumps(PAGES, ensure_ascii=False).encode("utf-8"))
+        print(f"cached back to R2: {PAGES_KEY}", flush=True)
+    except Exception as e2:
+        print(f"WARNING: cache-back failed ({e2}) -> next run will rebuild again, not fatal", flush=True)
+
 imgs = []
 for bid, pc in PAGES.items():
     if (allow is not None and reqof(bid) not in allow) or int(pc) <= 0:
@@ -37,7 +66,10 @@ for bid, pc in PAGES.items():
     imgs += [f"book/{bid}/page_{n:04d}.webp" for n in range(1, int(pc) + 1)]
 imgs.sort()
 mine = [k for i, k in enumerate(imgs) if i % TOTAL == SHARD]
-print(f"shard {SHARD}/{TOTAL} imgs {len(mine)}/{len(imgs)}", flush=True)
+_pilot = os.environ.get("PILOT", "").strip()
+if _pilot:
+    mine = mine[:int(_pilot)]   # small first-batch trial before full run
+print(f"shard {SHARD}/{TOTAL} imgs {len(mine)}/{len(imgs)} pilot={_pilot or 'no'}", flush=True)
 done = 0; skipped = 0
 for k in mine:
     txtkey = "_ocr/" + k[len("book/"):].rsplit(".", 1)[0] + ".txt"

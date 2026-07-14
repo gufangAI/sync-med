@@ -239,8 +239,19 @@ def main():
     items = sorted(groups.items())
     ak = os.environ.get("ALLOW_KEY")              # private allow-list (req numbers, one per line) in source bucket
     if ak:
-        body = s3.get_object(Bucket=SRC, Key=ak)["Body"].read().decode("utf-8")
-        allow = set(x.strip() for x in body.splitlines() if x.strip())
+        try:
+            body = s3.get_object(Bucket=SRC, Key=ak)["Body"].read().decode("utf-8")
+            allow = set(x.strip() for x in body.splitlines() if x.strip())
+        except Exception as e:
+            print(f"WARNING: ALLOW_KEY {ak} unreadable ({e}) -> rebuilding as EVERY req-number currently in "
+                  f"this catalog (no extra restriction) -- this is a reconstruction, not the original file; "
+                  f"verify it matches the intended allow-list", flush=True)
+            allow = {_req_of(g) for g, _ in items if _req_of(g)}
+            try:
+                s3.put_object(Bucket=SRC, Key=ak, Body=("\n".join(sorted(allow))).encode())
+                print(f"cached back to R2: {ak} ({len(allow)} reqs)", flush=True)
+            except Exception as e2:
+                print(f"WARNING: cache-back failed ({e2}) -> next run will rebuild again, not fatal", flush=True)
         items = [(g, k) for g, k in items if _req_of(g) in allow]
         print(f"allow-list active: {len(allow)} reqs -> {len(items)} groups", flush=True)
     mine = [(g, k) for i, (g, k) in enumerate(items) if i % TOTAL == SHARD]

@@ -46,6 +46,9 @@ jobs:
           S_SK: ${{ secrets.S_SK }}
           S_BUCKET: ${{ secrets.S_BUCKET }}
           ALLOW_KEY: ${{ secrets.ALLOW_KEY }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
           XF_KEYS: ${{ secrets.XF_KEYS }}
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ github.event.inputs.total || '14' }}
