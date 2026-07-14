@@ -57,9 +57,8 @@ def xf_audit(text):
     if not XF_KEYS:
         return {"status": "warn", "flags": ["\u5ba1\u6838LLM\u65e0\u51ed\u636e\u00b7\u4ec5\u68c0\u67e5\u662f\u5426\u63d0\u4ea4"], "one_line": "\u672a\u505a\u5185\u5bb9\u5ba1\u6838"}
     body = {"model": XF_MODEL, "messages": [
-        {"role": "system", "content": AUDIT_SYS},
-        {"role": "user", "content": text[:6000]},
-    ], "temperature": 0.2}
+        {"role": "user", "content": AUDIT_SYS + chr(10) + chr(10) + "===" + chr(10) + chr(10) + text[:6000]},
+    ], "temperature": 0.2, "max_tokens": 600}
     for key in XF_KEYS:
         try:
             req = urllib.request.Request(XF_HOST + "/chat/completions",
