@@ -70,9 +70,9 @@ def xf_audit(text):
             s = content[content.find("{"): content.rfind("}") + 1]
             return json.loads(s)
         except Exception as e:
-            last = str(e)
+            last = str(e) + " | body: " + (e.read().decode("utf-8", "replace")[:300] if hasattr(e, "read") else "")
             continue
-    return {"status": "warn", "flags": ["\u5ba1\u6838LLM\u8c03\u7528\u5931\u8d25:" + last[:80]], "one_line": "\u5ba1\u6838\u672a\u5b8c\u6210"}
+    return {"status": "warn", "flags": ["\u5ba1\u6838LLM\u8c03\u7528\u5931\u8d25:" + last[:300]], "one_line": "\u5ba1\u6838\u672a\u5b8c\u6210"}
 
 
 def main():
