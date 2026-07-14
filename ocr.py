@@ -10,7 +10,16 @@ EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKE
 SHARD = int(os.environ.get("SHARD", "0")); TOTAL = int(os.environ.get("TOTAL", "1"))
 s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK, aws_secret_access_key=SK, region_name="auto")
 engine = RapidOCR()
-allow = set(s3.get_object(Bucket=BUCKET, Key=os.environ["ALLOW_KEY"])["Body"].read().decode().split())
+
+# 2026-07-14: ALLOW_KEY 指向的 R2 对象已不存在(NoSuchKey),此前无 try/except 直接让全部 256 shard
+# 秒失败、OCR 停摆 30+ 小时。改成容错(同 sync.py 对 ALLOW_KEY 的处理:找不到就不设白名单限制,
+# 不是当致命错误崩掉);allow=None 时下面过滤条件不生效,处理 PAGES 清单里的全部书。
+allow = None
+try:
+    allow = set(s3.get_object(Bucket=BUCKET, Key=os.environ["ALLOW_KEY"])["Body"].read().decode().split())
+    print(f"allow-list loaded: {len(allow)} reqs", flush=True)
+except Exception as e:
+    print(f"WARN allow-list unavailable ({str(e)[:80]}) -> no whitelist filter this run, processing all of PAGES manifest", flush=True)
 
 
 def reqof(g):
@@ -23,7 +32,7 @@ def reqof(g):
 PAGES = json.loads(s3.get_object(Bucket=BUCKET, Key=os.environ.get("PAGES_KEY", "_cc/med_pages.json"))["Body"].read().decode("utf-8"))
 imgs = []
 for bid, pc in PAGES.items():
-    if reqof(bid) not in allow or int(pc) <= 0:
+    if (allow is not None and reqof(bid) not in allow) or int(pc) <= 0:
         continue
     imgs += [f"book/{bid}/page_{n:04d}.webp" for n in range(1, int(pc) + 1)]
 imgs.sort()
