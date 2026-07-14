@@ -14,11 +14,17 @@ LIMIT = int(os.environ.get("LIMIT", "0") or 0)
 PATHS = [p.split(",") for p in (os.environ.get("PAN_PATH")
          or "\u53e4\u7c4d,GufangP,yaofang;\u53e4\u7c4d,GufangP,guji").split(";") if p.strip()]
 
+_CN_CAT_PREFIX = {"\u5b50": "zi", "\u53f2": "shi", "\u5225": "bie", "\u522b": "bie", "\u96c6": "ji", "\u7d93": "jing", "\u7ecf": "jing"}
+
 def to_book_id(name):
-    # first token is the id when folder is named "<id> <title...>" (2026-07-14 founder convention);
-    # naikaku segments may lack the catalog prefix: 301-0027-01 -> zi301-0027-01
+    # 2026-07-14 two-layer convention: volume folder named "<id> <title>", first token = book_id.
+    # Chinese catalog prefix -> pinyin to match D1 book_id (e.g. \u5225024-... -> bie024-...);
+    # bare naikaku segment 301-0027-01 -> zi301-0027-01.
     import re as _re
     tok = str(name).split()[0] if str(name).split() else str(name)
+    m = _re.match(r"^([\u4e00-\u9fff])(\d{2,3}-\d{4}.*)$", tok)
+    if m and m.group(1) in _CN_CAT_PREFIX:
+        return _CN_CAT_PREFIX[m.group(1)] + m.group(2)
     if _re.match(r"^\d{3}-", tok):
         return "zi" + tok
     return tok
