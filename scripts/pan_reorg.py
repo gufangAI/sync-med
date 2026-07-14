@@ -9,8 +9,12 @@ PCID = os.environ["PAN_CID"]; PSEC = os.environ["PAN_SEC"]
 LIMIT = int(os.environ.get("LIMIT", "0") or 0)   # max books to move this run (0 = all)
 DRY = os.environ.get("DRY", "") == "1"
 # source paths to drain (comma path; semicolon-separated)
+# 2026-07-14: \u4e0b\u8f7d\u7ebf\u628a guji \u62c6\u6210 guji1/guji2 \u540e,\u786c\u7f16\u7801\u5355\u6570 "guji" \u4f1a src-not-found \u76f4\u63a5\u6574\u4e2a run \u70b8\u6389
+# (\u8ddf pan_register.py \u8e29\u8fc7\u7684\u540c\u4e00\u4e2a\u5751)\u3002\u9ed8\u8ba4\u8def\u5f84\u6539\u6210\u5b9e\u9645\u5b58\u5728\u7684 yaofang/guji1/guji2;
+# \u4e0d\u518d\u731c\u6d4b\u7684 \u53e4\u65b9webp/\u53e4\u7c4dwebp(webp\u56fe\u7247\u76ee\u5f55,\u975e\u4e66\u6587\u4ef6\u5939)/\u8f6c\u79fb(\u7528\u9014\u672a\u6838\u5b9e) \u4e00\u5f8b\u4e0d\u9ed8\u8ba4\u7eb3\u5165,
+# \u8981\u6536\u7f16\u8fd9\u4e9b\u5f97\u663e\u5f0f\u4f20 SRC_PATHS\u3002
 SRC = [p.split(",") for p in (os.environ.get("SRC_PATHS")
-       or "\u53e4\u7c4d,GufangP,yaofang;\u53e4\u7c4d,GufangP,guji").split(";") if p.strip()]
+       or "\u53e4\u7c4d,GufangP,yaofang;\u53e4\u7c4d,GufangP,guji1;\u53e4\u7c4d,GufangP,guji2").split(";") if p.strip()]
 ROOT_PATH = (os.environ.get("DEST_ROOT") or "\u53e4\u7c4d,GufangP,gufang").split(",")
 
 # prefix -> (library, section) ; section "" = directly under library folder
@@ -124,10 +128,15 @@ def main():
     left_rows = []
     for segs in SRC:
         cur = 0
+        not_found = False
         for seg in segs:
             cur = find_child_folder(cur, seg)
             if cur is None:
-                sys.exit(f"src path not found: {seg!r}")
+                print(f"WARN src path not found, skipping: {'/'.join(segs)} (missing segment {seg!r})", flush=True)
+                not_found = True
+                break
+        if not_found:
+            continue
         for it in iter_children(cur):
             if it.get("type") != 1:
                 continue
