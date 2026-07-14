@@ -28,7 +28,7 @@ jobs:
         env:
           GH_ISSUE_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          XF_API_KEYS: ${{ secrets.XF_API_KEYS }}
-          XF_KEY: ${{ secrets.XF_KEY }}
+          XF_API_KEYS: ${{ secrets.XF_CHAT_KEYS }}
+          XF_KEY: ${{ secrets.XF_KEYS }}
           AUDIT_DATE: ${{ inputs.date }}
         run: python scripts/team_report_audit.py
