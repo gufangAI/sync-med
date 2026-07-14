@@ -11,8 +11,8 @@ SYNC_URL = os.environ.get("SYNC_URL", "https://gufangai.com/api/admin/asset/pan-
 MODE = os.environ.get("MODE", "scan")
 LIMIT = int(os.environ.get("LIMIT", "0") or 0)
 # path segments from drive root; first segment is CJK, kept escaped (public repo opsec)
-PATHS = [p.split(",") for p in (os.environ.get("PAN_PATH")
-         or "\u53e4\u7c4d,GufangP,yaofang;\u53e4\u7c4d,GufangP,guji").split(";") if p.strip()]
+PATHS = ([p.split(",") for p in os.environ["PAN_PATH"].split(";") if p.strip()]
+         if os.environ.get("PAN_PATH") else None)  # None -> auto-discover under GufangP
 
 _CN_CAT_PREFIX = {"\u5b50": "zi", "\u53f2": "shi", "\u5225": "bie", "\u522b": "bie", "\u96c6": "ji", "\u7d93": "jing", "\u7ecf": "jing"}
 
@@ -96,6 +96,26 @@ def main():
         if d1map is None:
             sys.exit(f"map query failed: http{r.status_code} {str(j)[:150]}")
         print(f"D1 visible books: {len(d1map)}", flush=True)
+
+    # auto-discover scan roots under GufangP when PAN_PATH unset (download line keeps reshaping 123:
+    # guji->guji1/guji2, added \u53e4\u65b9webp/\u53e4\u7c4dwebp...). Scan every child dir except transit/PDF/archive.
+    global PATHS
+    if PATHS is None:
+        gp = 0
+        for seg in ["\u53e4\u7c4d", "GufangP"]:
+            gp = find_child_folder(gp, seg)
+            if gp is None:
+                sys.exit("GufangP root not found for auto-discover")
+        roots = []
+        for it in iter_children(gp):
+            if it.get("type") != 1:
+                continue
+            nm = it.get("filename") or ""
+            if nm in ("\u8f6c\u79fb", "fodian") or "\u539f\u6863" in nm or "\u5f52\u6863" in nm or "PDF" in nm:
+                continue  # skip \u8f6c\u79fb / fodian / *\u539f\u6863* / *\u5f52\u6863* / *PDF*
+            roots.append(["\u53e4\u7c4d", "GufangP", nm])
+        PATHS = roots
+        print("auto-discovered %d roots: %s" % (len(roots), [r[-1] for r in roots]), flush=True)
 
     # recursive discovery (2026-07-14): book folder = first token resolves in D1 map (or raw known id);
     # unknown folders are category layers -> descend, up to depth 5. Never descend into book folders.
@@ -216,10 +236,10 @@ def main():
                 n_same += 1
             elif cur == "":
                 n_new += 1
-                todo2.append((n, f))
+                todo2.append((bid, f))
             else:
                 n_changed += 1
-                todo2.append((n, f))
+                todo2.append((bid, f))
         stale = [b for b, v in d1map.items() if v and str(v) not in seen_fids]
         print(f"align: new={n_new} changed={n_changed} same={n_same} not-in-D1={n_nod1} stale-in-D1={len(stale)}", flush=True)
         os.makedirs("out", exist_ok=True)
