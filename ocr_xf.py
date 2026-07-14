@@ -96,23 +96,18 @@ except Exception as e:
     except Exception as e2:
         print(f"WARNING: cache-back failed ({e2}) -> next run will rebuild again, not fatal", flush=True)
 
-ALLOW_KEY = os.environ["ALLOW_KEY"]
+# 同 ocr.py 2026-07-14 已定的做法: ALLOW_KEY 对象缺失时不当致命错误崩溃，退化为不设白名单限制
+# (allow=None -> 处理 PAGES 清单里的全部书)，而不是重建/猜测一份内容再写回。
+allow = None
 try:
-    allow = set(s3.get_object(Bucket=BUCKET, Key=ALLOW_KEY)["Body"].read().decode().split())
+    allow = set(s3.get_object(Bucket=BUCKET, Key=os.environ["ALLOW_KEY"])["Body"].read().decode().split())
+    print(f"allow-list loaded: {len(allow)} reqs", flush=True)
 except Exception as e:
-    print(f"WARNING: ALLOW_KEY {ALLOW_KEY} unreadable ({e}) -> rebuilding as EVERY req-number currently in "
-          f"{PAGES_KEY} (no extra restriction) -- this is a reconstruction, not the original file; "
-          f"verify it matches the intended allow-list", flush=True)
-    allow = {reqof(bid) for bid in PAGES if reqof(bid)}
-    try:
-        s3.put_object(Bucket=BUCKET, Key=ALLOW_KEY, Body=("\n".join(sorted(allow))).encode())
-        print(f"cached back to R2: {ALLOW_KEY} ({len(allow)} reqs)", flush=True)
-    except Exception as e2:
-        print(f"WARNING: cache-back failed ({e2}) -> next run will rebuild again, not fatal", flush=True)
+    print(f"WARN allow-list unavailable ({str(e)[:80]}) -> no whitelist filter this run, processing all of PAGES manifest", flush=True)
 
 imgs = []
 for bid, pc in PAGES.items():
-    if reqof(bid) not in allow or int(pc) <= 0:
+    if (allow is not None and reqof(bid) not in allow) or int(pc) <= 0:
         continue
     imgs += [f"book/{bid}/page_{n:04d}.webp" for n in range(1, int(pc) + 1)]
 imgs.sort()
