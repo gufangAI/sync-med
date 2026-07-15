@@ -1,0 +1,50 @@
+name: make-book-video
+on:
+  workflow_dispatch:
+    inputs:
+      book_id:
+        description: D1 book_id
+        default: "yxf07"
+      pan_dir_id:
+        description: 123 folder fileId(册文件夹,不是书聚合层)
+        default: "36780084"
+      book_title:
+        description: 书名(视频底部文字)
+        default: "醫心方"
+      top_text:
+        description: 顶部品牌语
+        default: "海外流失古籍回归计划"
+      max_pages:
+        description: 取前几页做样片
+        default: "8"
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          pip install -q requests pillow
+      - name: generate video
+        env:
+          PAN_CID: ${{ secrets.PAN_CID }}
+          PAN_SEC: ${{ secrets.PAN_SEC }}
+          BOOK_ID: ${{ github.event.inputs.book_id }}
+          PAN_DIR_ID: ${{ github.event.inputs.pan_dir_id }}
+          BOOK_TITLE: ${{ github.event.inputs.book_title }}
+          TOP_TEXT: ${{ github.event.inputs.top_text }}
+          MAX_PAGES: ${{ github.event.inputs.max_pages }}
+        run: python scripts/make_book_video.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: book-video-${{ github.event.inputs.book_id }}
+          path: out/
+          retention-days: 7
+          if-no-files-found: warn
