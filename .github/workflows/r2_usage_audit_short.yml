@@ -1,0 +1,146 @@
+name: r2-usage-audit
+
+#
+#   dataset = r2OperationsAdaptiveGroups(developers.cloudflare.com/r2/platform/metrics-analytics/)
+#       CompleteMultipartUpload/CreateMultipartUpload/LifecycleStorageTierTransition/
+#       ListMultipartUploads/UploadPart/UploadPartCopy/ListParts/PutBucketEncryption/
+#       PutBucketCors/PutBucketLifecycleConfiguration
+#       GetBucketLocation/GetBucketCors/GetBucketLifecycleConfiguration
+#     Free = DeleteObject/DeleteBucket/AbortMultipartUpload
+#
+
+on:
+  workflow_dispatch:
+    inputs:
+      days_back:
+        default: "1"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: query R2 operations by bucket + actionType (last 31 days, daily buckets)
+        run: |
+          set -euo pipefail
+
+          END_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          START_DATE=$(date -u -d "${{ github.event.inputs.days_back }} days ago" +%Y-%m-%dT%H:%M:%SZ)
+
+          echo "=== 查询窗口(GraphQL Analytics 保留期上限=31天) ==="
+          echo "start=${START_DATE}  end=${END_DATE}"
+          echo ""
+
+          QUERY='query R2VolumeByBucketAndAction($accountTag: String!, $startDate: Time!, $endDate: Time!) {
+            viewer {
+              accounts(filter: { accountTag: $accountTag }) {
+                r2OperationsAdaptiveGroups(
+                  limit: 10000
+                  filter: { datetime_geq: $startDate, datetime_leq: $endDate }
+                ) {
+                  sum { requests }
+                  dimensions { bucketName actionType }
+                }
+              }
+            }
+          }'
+
+          BODY=$(jq -n \
+            --arg query "$QUERY" \
+            --arg accountTag "$CF_ACCOUNT_ID" \
+            --arg startDate "$START_DATE" \
+            --arg endDate "$END_DATE" \
+            '{query: $query, variables: {accountTag: $accountTag, startDate: $startDate, endDate: $endDate}}')
+
+          if [ -n "${CF_API_TOKEN_SCOPED:-}" ]; then
+            AUTH_ARGS=(-H "Authorization: Bearer ${CF_API_TOKEN_SCOPED}")
+          else
+            AUTH_ARGS=(-H "X-Auth-Email: ${CF_GLOBAL_EMAIL}" -H "X-Auth-Key: ${CF_GLOBAL_API_KEY}")
+          fi
+
+          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" \
+            https://api.cloudflare.com/client/v4/graphql \
+            "${AUTH_ARGS[@]}" \
+            -H "Content-Type: application/json" \
+            --data "$BODY")
+
+          echo "=== HTTP status: ${HTTP_CODE} ==="
+          echo ""
+          echo "=== Raw response (只含用量数字,不含任何凭据) ==="
+          cat response.json
+          echo ""
+          echo ""
+
+          if jq -e '.errors' response.json >/dev/null 2>&1 && [ "$(jq '.errors | length' response.json)" != "0" ] && [ "$(jq '.errors' response.json)" != "null" ]; then
+            echo "=== GraphQL errors detected ==="
+            jq '.errors' response.json
+          fi
+
+          echo ""
+          echo "=== 按 bucket + actionType 汇总的原始明细 ==="
+          jq -r '
+            .data.viewer.accounts[0].r2OperationsAdaptiveGroups[]?
+            | [.dimensions.bucketName, .dimensions.actionType, (.sum.requests|tostring)]
+            | @tsv
+          ' response.json | sort
+
+          echo ""
+          echo "=== Class A/B/Free 映射后·按 bucket 汇总 ==="
+          jq -r '
+            def classOf(a):
+              if (a | IN("ListBuckets","PutBucket","ListObjects","PutObject","CopyObject",
+                         "CompleteMultipartUpload","CreateMultipartUpload","LifecycleStorageTierTransition",
+                         "ListMultipartUploads","UploadPart","UploadPartCopy","ListParts",
+                         "PutBucketEncryption","PutBucketCors","PutBucketLifecycleConfiguration"))
+              then "ClassA"
+              elif (a | IN("HeadBucket","HeadObject","GetObject","UsageSummary","GetBucketEncryption",
+                           "GetBucketLocation","GetBucketCors","GetBucketLifecycleConfiguration"))
+              then "ClassB"
+              else "Free_or_Other"
+              end;
+            .data.viewer.accounts[0].r2OperationsAdaptiveGroups[]?
+            | [.dimensions.bucketName, classOf(.dimensions.actionType), .dimensions.actionType, .sum.requests]
+            | @tsv
+          ' response.json | sort | awk -F'\t' '
+            {
+              key = $1 "\t" $2
+              total[key] += $4
+              detail[key] = detail[key] "    " $3 "=" $4 "\n"
+            }
+            END {
+              for (k in total) {
+                split(k, parts, "\t")
+                printf "%-40s %-10s total=%s\n", parts[1], parts[2], total[k]
+              }
+            }
+          ' | sort
+
+          echo ""
+          echo "=== 按 bucket 汇总 Class A / Class B 总数(不分 actionType 明细) ==="
+          jq -r '
+            def classOf(a):
+              if (a | IN("ListBuckets","PutBucket","ListObjects","PutObject","CopyObject",
+                         "CompleteMultipartUpload","CreateMultipartUpload","LifecycleStorageTierTransition",
+                         "ListMultipartUploads","UploadPart","UploadPartCopy","ListParts",
+                         "PutBucketEncryption","PutBucketCors","PutBucketLifecycleConfiguration"))
+              then "ClassA"
+              elif (a | IN("HeadBucket","HeadObject","GetObject","UsageSummary","GetBucketEncryption",
+                           "GetBucketLocation","GetBucketCors","GetBucketLifecycleConfiguration"))
+              then "ClassB"
+              else "Free_or_Other"
+              end;
+            .data.viewer.accounts[0].r2OperationsAdaptiveGroups[]?
+            | [.dimensions.bucketName, classOf(.dimensions.actionType), .sum.requests]
+            | @tsv
+          ' response.json | awk -F'\t' '
+            { total[$1"\t"$2] += $3; grand[$2] += $3 }
+            END {
+              for (k in total) { split(k, p, "\t"); printf "%-40s %-15s %s\n", p[1], p[2], total[k] }
+              print "---"
+              for (g in grand) { printf "GRAND TOTAL %-15s %s\n", g, grand[g] }
+            }
+          ' | sort
+        env:
+          CF_ACCOUNT_ID:       ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN_SCOPED: ${{ secrets.CF_API_TOKEN_SCOPED }}
+          CF_GLOBAL_EMAIL:   ${{ secrets.CF_GLOBAL_EMAIL }}
+          CF_GLOBAL_API_KEY: ${{ secrets.CF_GLOBAL_API_KEY }}
