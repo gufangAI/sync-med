@@ -10,7 +10,7 @@ on:
         description: books per shard per run (high = full)
         default: "400"
       workers:
-        description: per-shard concurrency
+        description: per-shard scrape concurrency (只管抓取,123上传永远串行)
         default: "8"
   schedule:
     - cron: "0 */6 * * *"   # resume gently every 6h
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      max-parallel: 20
+      max-parallel: 6   # 123账号总并发~15-20;上传逐shard串行,6个shard同跑=最多6路123连接,留余量给其他123任务
       matrix:
         shard: ${{ fromJSON(needs.prep.outputs.shards) }}
     steps:
@@ -43,14 +43,26 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install --quiet boto3
+      - run: pip install --quiet requests
+      - name: restore ledger cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ledger.json
+          key: ctext-ledger-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            ctext-ledger-s${{ matrix.shard }}-
       - run: python ctext_harvest.py
         env:
-          S_EP: ${{ secrets.S_EP }}
-          S_AK: ${{ secrets.S_AK }}
-          S_SK: ${{ secrets.S_SK }}
-          S_BUCKET: ${{ secrets.S_BUCKET }}
+          PAN_BASE: ${{ secrets.PAN_BASE }}
+          PAN_CID: ${{ secrets.PAN_CID }}
+          PAN_SEC: ${{ secrets.PAN_SEC }}
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ github.event.inputs.total || '20' }}
           LIMIT: ${{ github.event.inputs.limit || '400' }}
           WORKERS: ${{ github.event.inputs.workers || '8' }}
+      - name: save ledger cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ledger.json
+          key: ctext-ledger-s${{ matrix.shard }}-${{ github.run_id }}
