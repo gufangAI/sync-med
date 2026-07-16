@@ -7,7 +7,7 @@ on:
         default: '^_ctext_.*\.txt$'
       target:
         description: 'target folder name at root'
-        default: 'R2_text_corpus_backup'
+        default: 'ctext'
       dry:
         description: '1 = list only'
         default: '0'
@@ -20,6 +20,8 @@ on:
       trash:
         description: '1 = scan root incl. trashed items'
         default: '0'
+  schedule:
+    - cron: '0 */6 * * *'   # 2026-07-17 每6小时自动清扫散落_ctext_*.txt回ctext目录,别再手动喊
 concurrency:
   group: pan-tidy
 jobs:
@@ -37,10 +39,10 @@ jobs:
           PAN_BASE: ${{ secrets.PAN_BASE }}
           PAN_CID: ${{ secrets.PAN_CID }}
           PAN_SEC: ${{ secrets.PAN_SEC }}
-          PATTERN: ${{ inputs.pattern }}
-          TARGET_NAME: ${{ inputs.target }}
-          DRY: ${{ inputs.dry }}
-          SEARCH: ${{ inputs.search }}
-          SEARCH_KW: ${{ inputs.search_kw }}
-          TRASH: ${{ inputs.trash }}
+          PATTERN: ${{ inputs.pattern || '^_ctext_.*\.txt$' }}
+          TARGET_NAME: ${{ inputs.target || 'ctext' }}
+          DRY: ${{ inputs.dry || '0' }}
+          SEARCH: ${{ inputs.search || '0' }}
+          SEARCH_KW: ${{ inputs.search_kw || '_ctext_' }}
+          TRASH: ${{ inputs.trash || '0' }}
         run: python scripts/pan_tidy.py
