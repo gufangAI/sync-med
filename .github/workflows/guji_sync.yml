@@ -63,7 +63,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      max-parallel: 256
+      max-parallel: 8   # was 256: default total=3 means this rarely bound in practice, but it's a
+                        # landmine for any manual dispatch with a larger total; org-wide Free-plan
+                        # ceiling is ~20 concurrent jobs shared across gufangAI (2026-07-16 fix).
       matrix:
         shard: ${{ fromJSON(needs.prep.outputs.shards) }}
     timeout-minutes: 350

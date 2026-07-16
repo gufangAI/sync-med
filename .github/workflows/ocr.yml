@@ -32,7 +32,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      max-parallel: 256
+      max-parallel: 8   # was 256: org-wide Free-plan Actions concurrency ceiling is ~20 jobs shared
+                        # across the whole gufangAI org; 256 let one ocr.yml tick monopolize all of it
+                        # for hours, starving every other repo/workflow (2026-07-16 queue-jam root cause).
       matrix:
         shard: ${{ fromJSON(needs.prep.outputs.shards) }}
     steps:
