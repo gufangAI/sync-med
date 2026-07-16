@@ -1,0 +1,17 @@
+name: diag-pan-account
+on:
+  workflow_dispatch: {}
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet requests
+      - run: python scripts/_diag_pan_account.py
+        env:
+          PAN_BASE: ${{ secrets.PAN_BASE }}
+          PAN_CID: ${{ secrets.PAN_CID }}
+          PAN_SEC: ${{ secrets.PAN_SEC }}
