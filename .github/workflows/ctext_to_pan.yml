@@ -1,0 +1,35 @@
+name: ctext-to-pan
+# 取代 CF Worker "r2-to-123"(每分钟跑13天/传根目录/已禁用,教训见2026-07-17事故):
+# R2 "_ctext/" 前缀 -> 123云盘"ctext"文件夹(不再落根目录),传完删R2省存储费。
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: '本次最多处理多少个R2对象'
+        default: '500'
+  schedule:
+    - cron: '15 * * * *'   # 每小时一次,跟ctext_harvest(每6h产出)节奏匹配,别再每分钟那么猛
+concurrency:
+  group: ctext-to-pan
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet boto3 requests
+      - name: transfer
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          PAN_BASE: ${{ secrets.PAN_BASE }}
+          PAN_CID: ${{ secrets.PAN_CID }}
+          PAN_SEC: ${{ secrets.PAN_SEC }}
+          LIMIT: ${{ inputs.limit || '500' }}
+        run: python ctext_to_pan.py
