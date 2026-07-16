@@ -21,7 +21,7 @@ on:
         description: '1 = scan root incl. trashed items'
         default: '0'
   schedule:
-    - cron: '0 */6 * * *'   # 2026-07-17 每6小时自动清扫散落_ctext_*.txt回ctext目录,别再手动喊
+    - cron: '0 * * * *'   # 2026-07-17 每小时自动清扫散落_ctext_*.txt回ctext目录,在查清真实源头前先按更高频率兜底
 concurrency:
   group: pan-tidy
 jobs:
