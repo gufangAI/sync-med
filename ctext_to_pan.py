@@ -45,16 +45,19 @@ def upload_to_pan(parent_id, filename, data):
         j = r.json()
     d = j.get("data") or {}
     if d.get("reuse"):
-        return True
+        return True, None
     servers = d.get("servers") or []
     if not servers:
-        return False
+        return False, f"create resp: {json.dumps(j, ensure_ascii=False)[:300]}"
     hb = {"Platform": "open_platform", "Authorization": "Bearer " + token()}
     ru = S.post(servers[0] + "/upload/v2/file/single/create",
                 data={"parentFileID": str(parent_id), "filename": filename, "etag": md5, "size": str(size)},
                 files={"file": (filename, data)}, headers=hb, timeout=60)
-    du = (ru.json() or {}).get("data") or {}
-    return bool(du.get("completed"))
+    juu = ru.json() or {}
+    du = juu.get("data") or {}
+    if du.get("completed"):
+        return True, None
+    return False, f"single/create resp: {json.dumps(juu, ensure_ascii=False)[:300]}"
 
 def main():
     print(f"扫 R2[{S_BUCKET}] prefix=_ctext/ limit={LIMIT}", flush=True)
@@ -68,12 +71,13 @@ def main():
             try:
                 body = s3.get_object(Bucket=S_BUCKET, Key=key)["Body"].read()
                 name = key.replace("_ctext/", "").replace("/", "_")
-                if upload_to_pan(CTEXT_DIR, name, body):
+                success, err = upload_to_pan(CTEXT_DIR, name, body)
+                if success:
                     s3.delete_object(Bucket=S_BUCKET, Key=key)
                     ok += 1
                 else:
                     fail += 1
-                    print(f"  [upload fail] {key}", flush=True)
+                    print(f"  [upload fail] {key} :: {err}", flush=True)
             except Exception as e:
                 fail += 1
                 print(f"  [err] {key}: {str(e)[:150]}", flush=True)
