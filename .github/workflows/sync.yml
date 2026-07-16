@@ -1,8 +1,9 @@
 name: sync
 
 on:
-  # schedule 暂停(2026-07-17事故:_cc/med_names.json manifest被流氓CF Worker "r2-to-123"误删且无自愈,
-  # 至少7-11起每3h全shard skip-noname零产出空转;先止损,等NAME_KEY自愈补上再恢复cron)
+  schedule:
+    - cron: "0 */3 * * *"          # 每3h自动跑·无人值守(幂等skip-done·补完后都是秒跳)
+    # 2026-07-17: NAME_KEY自愈已验证真实生效(D1现场重建39488个书名成功),恢复cron。
   workflow_dispatch:
     inputs:
       total:
