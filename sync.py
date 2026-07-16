@@ -20,6 +20,36 @@ ZIP_ONLY = os.environ.get("ZIP_ONLY") == "1"
 s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK,
                   aws_secret_access_key=SK, region_name="auto",
                   config=Config(connect_timeout=15, read_timeout=60, retries={"max_attempts": 3}))  
+def _key_of(book_id):
+    # normalize book_id -> lookup key: strip non-digit prefix, de-zero-pad trailing volume no.
+    # shared by handle() and _rebuild_names_from_d1() so the two can never drift apart.
+    p = re.sub(r"^\D+", "", book_id).split("-")
+    return "-".join(p[:-1] + [str(int(p[-1]))]) if p and p[-1].isdigit() else "-".join(p)
+
+
+def _rebuild_names_from_d1():
+    # NAME_KEY 清单从 R2 读不到时,直接查 D1 现场生成并写回 R2 缓存(自愈),同 _rebuild_pages_from_d1 一个模式。
+    # 治 2026-07-17 事故: 流氓 CF Worker 把 R2 桶里任意对象(含这份 manifest)每分钟扫 5 个转 123 后即删,
+    # NAME_KEY 原本没有兜底 -> 至少 2026-07-11 起全部 shard 持续 skip-noname 零产出、空转烧 Actions 分钟。
+    acc = os.environ.get("CF_ACCOUNT_ID"); db = os.environ.get("D1_DATABASE_ID"); tok = os.environ.get("D1_API_TOKEN")
+    if not (acc and db and tok):
+        raise RuntimeError("NAME_KEY 读不到 + 缺 CF_ACCOUNT_ID/D1_DATABASE_ID/D1_API_TOKEN,无法从 D1 兜底")
+    url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/d1/database/{db}/query"
+    sql = ("SELECT book_id, book_title FROM books_assets_v2 "
+           "WHERE frontend_visible=1 AND upload_status='done' AND book_title IS NOT NULL")
+    r = requests.post(url, headers={"Authorization": "Bearer "+tok}, json={"sql": sql}, timeout=120)
+    r.raise_for_status()
+    j = r.json()
+    if not j.get("success"): raise RuntimeError(f"D1 查询失败: {str(j.get('errors',''))[:200]}")
+    rows = (j.get("result") or [{}])[0].get("results") or []
+    names = {}
+    for row in rows:
+        bid = row.get("book_id"); title = row.get("book_title")
+        if not bid or not title: continue
+        names[_key_of(bid)] = title
+    return names
+
+
 # title map (req-number -> book name) loaded from private storage; source stays CJK-free
 NAMES = {}
 _nk = os.environ.get("NAME_KEY")
@@ -27,11 +57,14 @@ if _nk:
     try:
         NAMES = json.loads(s3.get_object(Bucket=SRC, Key=_nk)["Body"].read().decode("utf-8"))
     except Exception as e:
-        
-        
-        
-        print(f"WARNING: NAME_KEY manifest unreadable (key={_nk}): {e} "
-              f"-> NAMES empty, every book will skip-noname this run", flush=True)
+        print(f"WARNING: NAME_KEY {_nk} unreadable ({e}) -> rebuilding from D1...", flush=True)
+        NAMES = _rebuild_names_from_d1()
+        print(f"D1 rebuild ok: {len(NAMES)} names", flush=True)
+        try:
+            s3.put_object(Bucket=SRC, Key=_nk, Body=json.dumps(NAMES, ensure_ascii=False).encode("utf-8"))
+            print(f"cached back to R2: {_nk}", flush=True)
+        except Exception as e2:
+            print(f"WARNING: cache-back failed ({e2}) -> next run will rebuild again, not fatal", flush=True)
 # already-backed-up sets (built once by prep step listing the 123 backup folders): skip BEFORE any
 # R2 GET or 123 create call -> no wasted ops, no "filename duplicate" errors.
 DONE_ZIP = set(); DONE_PDF = set()
@@ -167,8 +200,7 @@ def list_groups():
 def handle(gid, keys):
     keys.sort(key=lambda k: int(re.search(r"(\d+)\.\w+$", k.rsplit("/", 1)[-1]).group(1)))  # numeric page order for OCR, never string-sort
     gid_tail = gid.split("/")[-1]
-    _p = re.sub(r"^\D+", "", gid_tail).split("-")               # normalize: strip prefix + leading zeros in volume no.
-    _key = "-".join(_p[:-1] + [str(int(_p[-1]))]) if _p and _p[-1].isdigit() else "-".join(_p)
+    _key = _key_of(gid_tail)
     if _key not in NAMES:
         return ("skip-noname", "skip-noname")                  # no D1 title -> skip, never write book_id-named files (OCR cleanliness)
     disp = NAMES[_key]                                          # = D1 book_title; CJK from private storage
