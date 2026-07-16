@@ -12,7 +12,7 @@ on:
         description: 'comma-separated 123 folder path from root (empty = default yaofang)'
         default: ''
   schedule:
-    - cron: '23 */2 * * *'
+    - cron: '0 3 * * *'   # 2026-07-17 改每天1次(原每2h,但单次实测耗3-5小时,比触发间隔还长,导致排队积压)
 concurrency:
   group: pan-register
   cancel-in-progress: false
