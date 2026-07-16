@@ -9,7 +9,6 @@ S_EP = os.environ["S_EP"]; S_AK = os.environ["S_AK"]; S_SK = os.environ["S_SK"]
 S_BUCKET = os.environ["S_BUCKET"]
 PAN_BASE = os.environ.get("PAN_BASE", "https://open-api.123pan.com")
 PAN_CID = os.environ["PAN_CID"]; PAN_SEC = os.environ["PAN_SEC"]
-CTEXT_DIR = int(os.environ.get("CTEXT_DIR", "32846668"))  # 136号账号下"ctext"文件夹,已确认真实fileId
 LIMIT = int(os.environ.get("LIMIT", "500"))
 
 s3 = boto3.client("s3", endpoint_url=S_EP, aws_access_key_id=S_AK, aws_secret_access_key=S_SK,
@@ -27,6 +26,34 @@ def token():
     if not _tok["v"]:
         sys.exit("123 token failed: " + r.text[:200])
     return _tok["v"]
+
+def list_dir(parent_id):
+    out, last = [], 0
+    h = {"Platform": "open_platform", "Authorization": "Bearer " + token()}
+    while True:
+        r = S.get(PAN_BASE + "/api/v2/file/list",
+                  params={"parentFileId": parent_id, "limit": 100, "lastFileId": last}, headers=h, timeout=20)
+        j = r.json()
+        d = j.get("data") or {}
+        fl = d.get("fileList") or []
+        out.extend(fl)
+        last = d.get("lastFileId", -1)
+        if last in (-1, 0, None) or not fl:
+            break
+    return out
+
+def find_or_create_ctext_dir():
+    """按名字在根目录找"ctext"文件夹;不存在就建。不写死fileId,避免跨账号ID不通用。"""
+    root = list_dir(0)
+    hit = next((f for f in root if f.get("filename") == "ctext" and f.get("type") == 1), None)
+    if hit:
+        return int(hit["fileId"])
+    h = {"Platform": "open_platform", "Authorization": "Bearer " + token(), "Content-Type": "application/json"}
+    r = S.post(PAN_BASE + "/upload/v1/file/mkdir", json={"parentID": 0, "name": "ctext"}, headers=h, timeout=20)
+    d = (r.json() or {}).get("data") or {}
+    if d.get("dirID"):
+        return int(d["dirID"])
+    sys.exit("找不到也建不了ctext文件夹: " + r.text[:300])
 
 def upload_to_pan(parent_id, filename, data):
     md5 = hashlib.md5(data).hexdigest()
@@ -60,6 +87,8 @@ def upload_to_pan(parent_id, filename, data):
     return False, f"single/create resp: {json.dumps(juu, ensure_ascii=False)[:300]}"
 
 def main():
+    ctext_dir = find_or_create_ctext_dir()
+    print(f"ctext目录 fileId={ctext_dir}", flush=True)
     print(f"扫 R2[{S_BUCKET}] prefix=_ctext/ limit={LIMIT}", flush=True)
     paginator = s3.get_paginator("list_objects_v2")
     ok = fail = 0
@@ -71,7 +100,7 @@ def main():
             try:
                 body = s3.get_object(Bucket=S_BUCKET, Key=key)["Body"].read()
                 name = key.replace("_ctext/", "").replace("/", "_")
-                success, err = upload_to_pan(CTEXT_DIR, name, body)
+                success, err = upload_to_pan(ctext_dir, name, body)
                 if success:
                     s3.delete_object(Bucket=S_BUCKET, Key=key)
                     ok += 1
