@@ -198,7 +198,7 @@ def main():
             return
         try:
             body = harvest(b["urn"])
-            if body and len(body) > 60:
+            if body and len(body) > 120:  # 提高阈值(原60太低,实测<=~100字符的多是目录/索引条目非正文,2026-07-17)
                 with lock: scraped.append((name, body.encode("utf-8")))
             else:
                 with lock: cnt["err"] += 1
