@@ -7,15 +7,15 @@ on:
       limit:
         description: '本次最多处理多少个R2对象'
         default: '500'
-  schedule:
-    - cron: '15 * * * *'   # 每小时一次,跟ctext_harvest(每6h产出)节奏匹配,别再每分钟那么猛
+  # schedule 已移除(2026-07-17): 新版 ctext_harvest.py 抓取后直传123不再写R2,
+  # _ctext/ 前缀以后不会再有新内容;这条以后只是清历史遗留的手动收尾,不需要常跑。
 concurrency:
   group: ctext-to-pan
   cancel-in-progress: false
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 180   # 原30分钟实测跑950个才用了30分钟就被切,提高上限让存量一次跑完
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
