@@ -48,7 +48,8 @@ jobs:
       - name: ingest shard
         run: python vectorize_ingest.py
         env:
-          CF_ACCOUNT_ID:     ${{ secrets.CF_ACCOUNT_ID }}
+          CF_ACCOUNT_ID:       ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN_SCOPED: ${{ secrets.CF_API_TOKEN_SCOPED }}
           CF_GLOBAL_EMAIL:   ${{ secrets.CF_GLOBAL_EMAIL }}
           CF_GLOBAL_API_KEY: ${{ secrets.CF_GLOBAL_API_KEY }}
           R2_ENDPOINT:       ${{ secrets.VEC_R2_ENDPOINT }}
@@ -66,10 +67,16 @@ jobs:
     steps:
       - name: query index vector count
         run: |
+          if [ -n "${CF_API_TOKEN_SCOPED:-}" ]; then
+            AUTH_ARGS=(-H "Authorization: Bearer ${CF_API_TOKEN_SCOPED}")
+          else
+            AUTH_ARGS=(-H "X-Auth-Email: ${CF_GLOBAL_EMAIL}" -H "X-Auth-Key: ${CF_GLOBAL_API_KEY}")
+          fi
           curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/vectorize/v2/indexes/tcm-rag-768/info" \
-            -H "X-Auth-Email: ${CF_GLOBAL_EMAIL}" -H "X-Auth-Key: ${CF_GLOBAL_API_KEY}" \
+            "${AUTH_ARGS[@]}" \
             -H "Content-Type: application/json" | tee "$GITHUB_STEP_SUMMARY"
         env:
-          CF_ACCOUNT_ID:     ${{ secrets.CF_ACCOUNT_ID }}
+          CF_ACCOUNT_ID:       ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN_SCOPED: ${{ secrets.CF_API_TOKEN_SCOPED }}
           CF_GLOBAL_EMAIL:   ${{ secrets.CF_GLOBAL_EMAIL }}
           CF_GLOBAL_API_KEY: ${{ secrets.CF_GLOBAL_API_KEY }}

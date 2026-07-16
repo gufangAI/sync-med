@@ -22,7 +22,11 @@
 #
 # Env vars (injected via GitHub Actions secrets):
 #   R2_ENDPOINT, R2_ACCESS_KEY, R2_SECRET_KEY   -- R2 S3-compatible (read clean_text/, write _done/)
-#   CF_ACCOUNT_ID, CF_GLOBAL_EMAIL, CF_GLOBAL_API_KEY -- Vectorize REST auth (Global Key, not scoped token)
+#   CF_ACCOUNT_ID -- Cloudflare account id
+#   CF_API_TOKEN_SCOPED -- Vectorize REST auth, preferred (scoped token: Vectorize Write +
+#     Account Analytics Read, this account only; added 2026-07-16 credential rotation)
+#   CF_GLOBAL_EMAIL, CF_GLOBAL_API_KEY -- legacy Global Key auth, used only as fallback
+#     when CF_API_TOKEN_SCOPED is not set (kept for rollback; see cf_auth_headers())
 #   XF_KEYS                                      -- Xunfei key pool, comma/space separated "appid:key" or bare key
 #   SHARD, TOTAL                                 -- matrix shard index
 #   VEC_INDEX (default tcm-rag-clean-768)
@@ -42,9 +46,20 @@ MANIFEST_KEY = PREFIX + "_manifest.json"
 
 INDEX = os.environ.get("VEC_INDEX", "tcm-rag-clean-768")
 ACCT = os.environ["CF_ACCOUNT_ID"]
-EMAIL = os.environ["CF_GLOBAL_EMAIL"]
-GKEY = os.environ["CF_GLOBAL_API_KEY"]
+# 2026-07-16 credential rotation: prefer the narrowly-scoped API Token (Vectorize Write +
+# Account Analytics Read, this CF account only). Falls back to the legacy account-wide
+# Global Key only if CF_API_TOKEN_SCOPED isn't set yet -- keeps old behavior as a real,
+# zero-code-change rollback path. See docs/new/CF凭据轮换_sync-med_2026-07-16.md
+CF_SCOPED_TOKEN = os.environ.get("CF_API_TOKEN_SCOPED", "")
+EMAIL = os.environ.get("CF_GLOBAL_EMAIL", "")
+GKEY = os.environ.get("CF_GLOBAL_API_KEY", "")
 UPSERT_URL = f"https://api.cloudflare.com/client/v4/accounts/{ACCT}/vectorize/v2/indexes/{INDEX}/upsert"
+
+
+def cf_auth_headers():
+    if CF_SCOPED_TOKEN:
+        return {"Authorization": f"Bearer {CF_SCOPED_TOKEN}"}
+    return {"X-Auth-Email": EMAIL, "X-Auth-Key": GKEY}
 
 SHARD = int(os.environ.get("SHARD", "0"))
 TOTAL = int(os.environ.get("TOTAL", "1"))
@@ -129,7 +144,7 @@ def embed(text, tries=4):
 def upsert_rows(rows, tries=4):
     ndjson = "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n"
     body = ndjson.encode("utf-8")
-    headers = {"X-Auth-Email": EMAIL, "X-Auth-Key": GKEY, "Content-Type": "application/x-ndjson"}
+    headers = {**cf_auth_headers(), "Content-Type": "application/x-ndjson"}
     for attempt in range(1, tries + 1):
         try:
             r = requests.post(UPSERT_URL, headers=headers, data=body, timeout=90)
