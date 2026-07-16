@@ -15,8 +15,7 @@ on:
       max_pending:
         description: "max offline tasks per shard (tune for 429 avoidance)"
         default: "20"
-  schedule:
-    - cron: "0 */6 * * *"
+  # 2026-07-17 创始人确认此迁移任务几天前已完成,禁用自动cron(不再需要定时重跑,只留手动dispatch备用)
 
 concurrency:
   group: guji-sync
