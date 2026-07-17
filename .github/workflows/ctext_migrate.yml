@@ -1,0 +1,78 @@
+name: ctext_migrate_rename
+
+on:
+  workflow_dispatch:
+    inputs:
+      total:
+        description: shard count
+        default: "20"
+      limit:
+        description: old files per shard per run
+        default: "300"
+  schedule:
+    - cron: "30 */6 * * *"   # 错开ctext_harvest(整点),同样每6小时一轮,自愈式重试失败项
+
+concurrency:
+  group: ctext-migrate
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.g.outputs.shards }}
+    steps:
+      - id: g
+        run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
+        env:
+          T: ${{ github.event.inputs.total || '20' }}
+
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4   # 迁移=每条要下载+上传+(可能)删除,单条123调用更重,并发比harvest更保守
+      matrix:
+        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet requests
+      - name: restore migrate ledger
+        uses: actions/cache/restore@v4
+        with:
+          path: migrate_ledger.json
+          key: ctext-migledger-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            ctext-migledger-s${{ matrix.shard }}-
+      - name: restore author cache
+        uses: actions/cache/restore@v4
+        with:
+          path: author_cache.json
+          key: ctext-authors-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            ctext-authors-s${{ matrix.shard }}-
+      - run: python ctext_migrate_rename.py
+        env:
+          PAN_BASE: ${{ secrets.PAN_BASE }}
+          PAN_CID: ${{ secrets.CTEXT_PAN_CID }}
+          PAN_SEC: ${{ secrets.CTEXT_PAN_SEC }}
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.total || '20' }}
+          LIMIT: ${{ github.event.inputs.limit || '300' }}
+      - name: save migrate ledger
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: migrate_ledger.json
+          key: ctext-migledger-s${{ matrix.shard }}-${{ github.run_id }}
+      - name: save author cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: author_cache.json
+          key: ctext-authors-s${{ matrix.shard }}-${{ github.run_id }}
