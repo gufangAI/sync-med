@@ -51,11 +51,19 @@ jobs:
           key: ctext-ledger-s${{ matrix.shard }}-${{ github.run_id }}
           restore-keys: |
             ctext-ledger-s${{ matrix.shard }}-
+      - name: restore author cache
+        uses: actions/cache/restore@v4
+        with:
+          path: author_cache.json
+          key: ctext-authors-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            ctext-authors-s${{ matrix.shard }}-
       - run: python ctext_harvest.py
         env:
           PAN_BASE: ${{ secrets.PAN_BASE }}
           PAN_CID: ${{ secrets.CTEXT_PAN_CID }}
           PAN_SEC: ${{ secrets.CTEXT_PAN_SEC }}
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ github.event.inputs.total || '20' }}
           LIMIT: ${{ github.event.inputs.limit || '400' }}
@@ -66,3 +74,9 @@ jobs:
         with:
           path: ledger.json
           key: ctext-ledger-s${{ matrix.shard }}-${{ github.run_id }}
+      - name: save author cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: author_cache.json
+          key: ctext-authors-s${{ matrix.shard }}-${{ github.run_id }}
