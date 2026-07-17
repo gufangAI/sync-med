@@ -5,7 +5,7 @@ on:
     inputs:
       total:
         description: shard count
-        default: "20"
+        default: "2"
       limit:
         description: books per shard per run (high = full)
         default: "400"
@@ -28,14 +28,14 @@ jobs:
       - id: g
         run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
         env:
-          T: ${{ github.event.inputs.total || '20' }}
+          T: ${{ github.event.inputs.total || '2' }}
 
   run:
     needs: prep
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      max-parallel: 6   # 123账号总并发~15-20;上传逐shard串行,6个shard同跑=最多6路123连接,留余量给其他123任务
+      max-parallel: 2   # 2026-07-17创始人钦定:免费并发槽位共享,别跟其他线抢;2个shard同跑=最多2路123连接
       matrix:
         shard: ${{ fromJSON(needs.prep.outputs.shards) }}
     steps:
@@ -65,7 +65,7 @@ jobs:
           PAN_SEC: ${{ secrets.CTEXT_PAN_SEC }}
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           SHARD: ${{ matrix.shard }}
-          TOTAL: ${{ github.event.inputs.total || '20' }}
+          TOTAL: ${{ github.event.inputs.total || '2' }}
           LIMIT: ${{ github.event.inputs.limit || '400' }}
           WORKERS: ${{ github.event.inputs.workers || '8' }}
       - name: save ledger cache
