@@ -48,9 +48,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ledger.json
-          key: ctext-ledger-s${{ matrix.shard }}-${{ github.run_id }}
+          key: ctext-ledger2-s${{ matrix.shard }}-${{ github.run_id }}
           restore-keys: |
-            ctext-ledger-s${{ matrix.shard }}-
+            ctext-ledger2-s${{ matrix.shard }}-
       - name: restore author cache
         uses: actions/cache/restore@v4
         with:
@@ -73,7 +73,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ledger.json
-          key: ctext-ledger-s${{ matrix.shard }}-${{ github.run_id }}
+          key: ctext-ledger2-s${{ matrix.shard }}-${{ github.run_id }}
       - name: save author cache
         if: always()
         uses: actions/cache/save@v4
