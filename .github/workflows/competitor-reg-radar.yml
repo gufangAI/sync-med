@@ -1,0 +1,63 @@
+# ============================================================
+# 情报雷达 · 竞品/监管定向雷达
+# 与 intel-radar.yml(AI技术趋势日报)相互独立、零改动关系:
+#   - 独立脚本 scripts/intel_radar/competitor_reg_radar.py
+#   - 独立 concurrency group,不抢 intel-radar 的执行队列
+#   - 复用同一套免费模型池 secrets(ZHIPU_API_KEY / NVIDIA_API_KEY),不新增付费依赖
+#   - 每周一次(竞品/监管变化慢,没必要像 arXiv 扫描那样按天跑)
+# ============================================================
+
+name: Competitor & Regulatory Radar
+
+on:
+  schedule:
+    - cron: '0 3 * * 4'   # 每周四 11:00 北京 = 03:00 UTC (错开日报10点+鹰眼周报周一10点)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只抓取不分析 (测试抓取量)'
+        required: false
+        default: 'false'
+
+concurrency:
+  group: competitor-reg-radar
+  cancel-in-progress: false
+
+jobs:
+  radar:
+    name: Generate Competitor & Regulatory Radar Report
+    runs-on: ubuntu-latest   # 标准 runner, public repo 完全免费
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      issues: write    # gh issue create 发报告需要
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Competitor & Regulatory Radar
+        env:
+          GH_TOKEN: ${{ github.token }}   # gh issue create 认证
+          ZHIPU_API_KEY:  ${{ secrets.ZHIPU_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: |
+          EXTRA_ARGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS --dry-run"
+          fi
+          python scripts/intel_radar/competitor_reg_radar.py $EXTRA_ARGS
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: competitor-reg-radar-${{ github.run_id }}
+          path: scripts/intel_radar/reports/
+          retention-days: 30
