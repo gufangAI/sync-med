@@ -761,6 +761,12 @@ def upsert_issue(body_md, alert, n_critical):
     else:
         r = gh("issue", "create", "-R", REPORT_REPO, "--title", title, "--body", body_md,
                "--label", ISSUE_LABEL)
+        if r.returncode != 0:
+            # Label missing/renamed/deleted must never silently swallow the whole report --
+            # retry without it so the founder still gets the Issue (label is cosmetic, the
+            # report is the point). Learned the hard way: first real run hit exactly this.
+            print(f"issue create with label failed ({(r.stderr or r.stdout)[:160]}), retrying without label")
+            r = gh("issue", "create", "-R", REPORT_REPO, "--title", title, "--body", body_md)
         print("issue created:", (r.stdout or r.stderr)[:160])
         try:
             num = int((r.stdout or "").strip().rsplit("/", 1)[-1])
