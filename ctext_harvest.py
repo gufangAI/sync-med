@@ -2,6 +2,11 @@
 # ctext.org text harvester -> 直传123云盘"ctext"文件夹(GitHub Actions矩阵分片)。
 # 不再经R2:抓取+上传123在同一个job内完成;去重账本ledger.json走actions/cache(GitHub自带免费缓存),
 # 缺失/首次跑时从123实际文件列表自愈(绝不裸跑致重复上传)。
+#
+# 2026-07-17 创始人钦定规范:文件名必须是中文(书名),内容开头须有"書名/作者/說明"头部——
+#   ctext的gettexttitles API只给title+urn,没有author/description字段(实测确认,非疏漏)。
+#   作者用免费模型(智谱glm-4-flash)批量查——经典古籍作者学界大多有公论,查不准的老实标"作者不詳",
+#   绝不瞎编;结果按title缓存(同名书作者不变,不用每次都查,走actions/cache同一套机制)。
 import os, re, html, time, json, hashlib, threading, urllib.request, urllib.parse, ssl
 import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -18,6 +23,10 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0 Safari/537.36"
 PAN_BASE = os.environ.get("PAN_BASE", "https://open-api.123pan.com")
 PAN_CID = os.environ["PAN_CID"]; PAN_SEC = os.environ["PAN_SEC"]
 LEDGER = "ledger.json"
+AUTHOR_CACHE = "author_cache.json"
+
+ZHIPU_KEY = os.environ.get("ZHIPU_API_KEY", "")
+ZHIPU_BASE = "https://open.bigmodel.cn/api/paas/v4"
 
 S = requests.Session()
 _tok = {"v": None}
@@ -147,8 +156,75 @@ def harvest(urn):
     return "\n".join(text)
 
 
-def slug_name(urn):
-    return re.sub(r"[^A-Za-z0-9_-]", "_", urn.split("ctp:")[-1]) + ".txt"
+# ── 中文文件名 + 書名/作者/說明 头部(2026-07-17 创始人钦定规范)────────────
+_UNSAFE = re.compile(r'[\\/:*?"<>|\r\n\t]')
+
+
+def cn_filename(title, urn):
+    """文件名 = 中文书名 + urn简称(保证唯一,同名书不冲突;urn本身天然唯一)。"""
+    x = urn.split("ctp:")[-1]
+    safe_title = _UNSAFE.sub("", title).strip() or x
+    return f"{safe_title}_{x}.txt"
+
+
+def load_author_cache():
+    if os.path.exists(AUTHOR_CACHE):
+        try:
+            with open(AUTHOR_CACHE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
+def save_author_cache(cache):
+    with open(AUTHOR_CACHE, "w", encoding="utf-8") as f:
+        json.dump(cache, f, ensure_ascii=False, indent=1)
+
+
+def lookup_authors_batch(titles):
+    """批量查经典古籍作者(智谱glm-4-flash免费档),每批20个题名,查不准老实标"作者不詳",绝不瞎编。"""
+    if not ZHIPU_KEY or not titles:
+        return {t: "作者不詳" for t in titles}
+    out = {}
+    batch_size = 20
+    for i in range(0, len(titles), batch_size):
+        batch = titles[i:i + batch_size]
+        prompt = (
+            "你是中国古典文献学专家。给出下列古籍题名各自公认的作者(或编者/传述者)。\n"
+            "规则:①只写学界公认、有共识的作者,不确定/存在争议/佚名/历代递修无定论的,一律写\"作者不詳\";"
+            "②绝不编造;③每个题名一行,格式:题名=作者。\n\n"
+            + "\n".join(f"- {t}" for t in batch)
+        )
+        try:
+            r = S.post(
+                ZHIPU_BASE + "/chat/completions",
+                headers={"Authorization": f"Bearer {ZHIPU_KEY}", "Content-Type": "application/json"},
+                json={"model": "glm-4-flash", "messages": [{"role": "user", "content": prompt}], "temperature": 0.1},
+                timeout=60,
+            )
+            content = r.json()["choices"][0]["message"]["content"]
+            for line in content.strip().split("\n"):
+                if "=" in line:
+                    t, a = line.split("=", 1)
+                    t, a = t.strip().lstrip("-").strip(), a.strip()
+                    if t in batch:
+                        out[t] = a or "作者不詳"
+        except Exception as e:
+            print("  [作者查询失败] %s" % e, flush=True)
+        for t in batch:
+            out.setdefault(t, "作者不詳")
+        time.sleep(0.3)
+    return out
+
+
+def build_header(title, author, urn):
+    return (
+        f"書名：{title}\n"
+        f"作者：{author}\n"
+        f"說明：本文據中國哲學書電子化計劃(ctext.org)收錄版本整理，僅作古籍研究語料使用。URN：{urn}\n"
+        f"{'─' * 40}\n\n"
+    )
 
 
 def load_ledger():
@@ -180,9 +256,18 @@ def main():
     ctext_dir = find_or_create_ctext_dir()
     print("ctext目录 fileId=%d" % ctext_dir, flush=True)
 
+    # 作者批量查询(先查缓存,缺的才调模型;结果落盘复用,同名书不重复查)
+    author_cache = load_author_cache()
+    titles_needed = [b["title"] for b in mine if b["title"] not in author_cache]
+    if titles_needed:
+        fresh = lookup_authors_batch(sorted(set(titles_needed)))
+        author_cache.update(fresh)
+        save_author_cache(author_cache)
+        print("作者查询: 新查 %d 个题名" % len(set(titles_needed)), flush=True)
+
     done = load_ledger()
     ledger_was_empty = not done
-    want_names = {slug_name(b["urn"]) for b in mine}
+    want_names = {cn_filename(b["title"], b["urn"]) for b in mine}
     if ledger_was_empty and want_names:
         done |= bootstrap_ledger_from_pan(ctext_dir, want_names)
         print("ledger自愈:从123现有文件补回 %d 条" % len(done), flush=True)
@@ -192,14 +277,16 @@ def main():
     scraped = []   # [(filename, text_bytes)]
 
     def scrape_one(b):
-        name = slug_name(b["urn"])
+        name = cn_filename(b["title"], b["urn"])
         if name in done:
             with lock: cnt["skip"] += 1
             return
         try:
             body = harvest(b["urn"])
             if body and len(body) > 120:  # 提高阈值(原60太低,实测<=~100字符的多是目录/索引条目非正文,2026-07-17)
-                with lock: scraped.append((name, body.encode("utf-8")))
+                author = author_cache.get(b["title"], "作者不詳")
+                full = build_header(b["title"], author, b["urn"]) + body
+                with lock: scraped.append((name, full.encode("utf-8")))
             else:
                 with lock: cnt["err"] += 1
         except Exception:
@@ -218,11 +305,9 @@ def main():
             done.add(name)
             if cnt["ok"] % 50 == 0:
                 print("  ok=%d skip=%d err=%d" % (cnt["ok"], cnt["skip"], cnt["err"]), flush=True)
-        else:
-            cnt["err"] += 1
 
     save_ledger(done)
-    print("=== shard %d ctext ok %d, skip %d, err %d (ledger共%d条) ===" % (SHARD, cnt["ok"], cnt["skip"], cnt["err"], len(done)), flush=True)
+    print("完成: ok=%d skip=%d err=%d" % (cnt["ok"], cnt["skip"], cnt["err"]), flush=True)
 
 
 if __name__ == "__main__":
