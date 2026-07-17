@@ -1,0 +1,51 @@
+name: code-self-audit
+# Static self-audit of guyaofang-web (private repo, cross-repo checkout below) -- looks for the
+# exact bug shapes a manual ChatGPT review found on 2026-07-17 that our intel-radar never could
+# (intel-radar watches external AI trends, not our own repo): D1 schema field mismatches (SQL
+# referencing a column that doesn't exist -- crashes at runtime), Cloudflare Workers AI redline
+# usage, hardcoded secrets, and stale/uncommitted git state. Zero AI calls, zero cost.
+# Script + design notes: scripts/code_audit/self_audit.py
+on:
+  schedule:
+    - cron: '0 3 * * 1'   # 03:00 UTC Monday = 11:00 Beijing Monday, once a week (structural issues, not daily churn)
+  workflow_dispatch: {}
+permissions:
+  issues: write
+  contents: read
+concurrency:
+  group: code-self-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: checkout sync-med (this repo -- has the audit script)
+        uses: actions/checkout@v4
+
+      - name: checkout guyaofang-web (private repo being audited)
+        uses: actions/checkout@v4
+        with:
+          repository: hosonzuo8848/guyaofang
+          token: ${{ secrets.GUYAOFANG_CHECKOUT_TOKEN }}
+          path: guyaofang-web
+          fetch-depth: 0   # need real commit history for the "days since last commit" check
+
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+
+      - name: run self-audit + upsert Issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+        run: python scripts/code_audit/self_audit.py --repo guyaofang-web --json audit_result.json
+
+      - name: upload full findings artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-self-audit-${{ github.run_id }}
+          path: audit_result.json
+          retention-days: 30
