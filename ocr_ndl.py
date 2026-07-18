@@ -99,16 +99,25 @@ os.makedirs(TMP, exist_ok=True)
 CONF_MIN = 0.6    # 2026-07-19实测标定:密排类书垃圾输出置信度0.25-0.49,正常识别0.9+,两者有明显断层
 CJK_MIN = 0.3     # 2026-07-19实测标定:垃圾幻觉块CJK占比恒为0(纯拉丁字母/数字),真实文字块恒接近1.0
 
+# 2026-07-19创始人指示:去重台账改用GitHub Actions cache(本地ledger.json),
+# 不再逐页R2 head_object——省R2调用,也不再需要"删测试文件"碰destructive-op-gate。
+LEDGER = "ledger.json"
+ledger = set()
+if os.path.exists(LEDGER):
+    try:
+        ledger = set(json.load(open(LEDGER, encoding="utf-8")))
+    except Exception:
+        ledger = set()
+print(f"ledger已有 {len(ledger)} 条记录", flush=True)
+
 done, skip, err, low_conf = 0, 0, 0, 0
 for bid, p, pdid in mine:
     pstr = str(p).zfill(4)
+    lkey = f"{bid}:{pstr}"
     txtkey = f"_ocr/{bid}/page_{pstr}.txt"
-    try:
-        s3.head_object(Bucket=BUCKET, Key=txtkey)
+    if lkey in ledger:
         skip += 1
         continue
-    except Exception:
-        pass
 
     img_path = f"{TMP}/page_{pstr}.webp"
     try:
@@ -145,11 +154,13 @@ for bid, p, pdid in mine:
             # 过滤完基本空了(整页低质量/真空白页)——标记为空,不存半页垃圾冒充"识别成功"
             s3.put_object(Bucket=BUCKET, Key=txtkey, Body=b"", ContentType="text/plain; charset=utf-8")
             low_conf += 1
+            ledger.add(lkey)
             if dropped:
                 print(f"低质量跳过 {bid} p{p}:{dropped}个块全部低于置信度{CONF_MIN},存空文件", flush=True)
         else:
             s3.put_object(Bucket=BUCKET, Key=txtkey, Body=text.encode("utf-8"), ContentType="text/plain; charset=utf-8")
             done += 1
+            ledger.add(lkey)
             if dropped:
                 print(f"部分过滤 {bid} p{p}:丢{dropped}个低置信度块,保留{len(kept)}个", flush=True)
             if done % 20 == 0:
@@ -164,6 +175,7 @@ for bid, p, pdid in mine:
             except Exception:
                 pass
 
+json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocr_ndl_{SHARD}.json",
               Body=json.dumps({"shard": SHARD, "total": len(mine), "done": done, "skip": skip, "err": err, "low_conf": low_conf}).encode())
 print(f"=== shard {SHARD} 完成 done={done} skip={skip} err={err} low_conf={low_conf} / {len(mine)} ===", flush=True)
