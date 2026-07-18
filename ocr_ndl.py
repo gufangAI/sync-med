@@ -66,14 +66,34 @@ def fetch_page_from_123(pan_dir_id, page_str):
     return r.content if r.status_code == 200 else None
 
 # D1 里拉候选书目:已上线影像、非宮内庁(合规待批,先排除)、按book_id分片
-def d1_query(sql):
+def d1_query(sql, params=None):
     url = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACC}/d1/database/{D1_DB}/query"
-    r = requests.post(url, headers={"Authorization": "Bearer " + D1_TOK}, json={"sql": sql}, timeout=120)
+    r = requests.post(url, headers={"Authorization": "Bearer " + D1_TOK},
+                       json={"sql": sql, "params": params or []}, timeout=120)
     r.raise_for_status()
     j = r.json()
     if not j.get("success"):
         raise RuntimeError(f"D1查询失败: {str(j.get('errors',''))[:200]}")
     return (j.get("result") or [{}])[0].get("results") or []
+
+RUN_ID = os.environ.get("GITHUB_RUN_ID", "")
+
+# 2026-07-19创始人指示:OCR集结进后台管理资产——每个shard跑完写一行汇总到ocr_jobs,
+# 哨兵 book_id='_ndl_pipeline'/table_name='_pipeline_run'(与per-book行共存,见migrations/040)。
+# 后台 Tab4Ocr「云端NDLOCR流水线」区块靠这行数据显示,不用手动查GitHub。
+def d1_report_run(status, total, done_n, skip_n, err_n, low_conf_n, error_msg=""):
+    now = int(time.time())
+    try:
+        d1_query(
+            "INSERT INTO ocr_jobs (book_id, table_name, run_id, shard, status, engine, "
+            "total_pages, done_pages, skip_pages, failed_pages, low_conf_pages, error_msg, "
+            "created_at, started_at, finished_at, updated_at) "
+            "VALUES ('_ndl_pipeline','_pipeline_run',?,?,?, 'ndlocr-lite', ?,?,?,?,?,?, ?,?,?,?)",
+            [RUN_ID, SHARD, status, total, done_n, skip_n, err_n, low_conf_n,
+             (error_msg or "")[:500], now, now, now, now],
+        )
+    except Exception as e:
+        print(f"WARN D1汇总行写入失败(不影响OCR本身,只是后台看板少一条): {str(e)[:200]}", flush=True)
 
 rows = d1_query(
     "SELECT book_id, page_count, pan_dir_id FROM books_assets_v2 "
@@ -178,4 +198,5 @@ for bid, p, pdid in mine:
 json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocr_ndl_{SHARD}.json",
               Body=json.dumps({"shard": SHARD, "total": len(mine), "done": done, "skip": skip, "err": err, "low_conf": low_conf}).encode())
+d1_report_run("done", len(mine), done, skip, err, low_conf)
 print(f"=== shard {SHARD} 完成 done={done} skip={skip} err={err} low_conf={low_conf} / {len(mine)} ===", flush=True)
