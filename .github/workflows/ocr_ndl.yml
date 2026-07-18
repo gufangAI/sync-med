@@ -1,0 +1,56 @@
+name: ocr-ndl
+
+on:
+  workflow_dispatch:
+    inputs:
+      total:
+        description: shard count (concurrency)
+        default: "40"
+      pilot:
+        description: pilot page cap per shard (empty = full run)
+        default: ""
+  schedule:
+    - cron: '30 */6 * * *'   # 错开ocr.yml(整点),同一套org并发池温和轮换
+
+concurrency:
+  group: ocr-ndl-run
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.g.outputs.shards }}
+    steps:
+      - id: g
+        run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
+        env:
+          T: ${{ github.event.inputs.total || '40' }}
+
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 8   # 2026-07-16血泪教训沿用:org整体Free-plan并发上限~20,和ocr.yml共享,别抢爆
+      matrix:
+        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: git clone --depth 1 https://github.com/ndl-lab/ndlocr-lite
+      - run: pip install --quiet -r ndlocr-lite/requirements.txt boto3 requests
+      - run: python ocr_ndl.py
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.total || '40' }}
+          PILOT: ${{ github.event.inputs.pilot }}
