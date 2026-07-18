@@ -42,6 +42,13 @@ jobs:
           python-version: "3.11"
       - run: git clone --depth 1 https://github.com/ndl-lab/ndlocr-lite
       - run: pip install --quiet -r ndlocr-lite/requirements.txt boto3 requests
+      - name: restore ledger cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ledger.json
+          key: ocrndl-ledger-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            ocrndl-ledger-s${{ matrix.shard }}-
       - run: python ocr_ndl.py
         env:
           S_EP: ${{ secrets.S_EP }}
@@ -56,3 +63,9 @@ jobs:
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ github.event.inputs.total || '40' }}
           PILOT: ${{ github.event.inputs.pilot }}
+      - name: save ledger cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ledger.json
+          key: ocrndl-ledger-s${{ matrix.shard }}-${{ github.run_id }}
