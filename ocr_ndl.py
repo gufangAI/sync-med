@@ -85,7 +85,9 @@ OCR_SRC = "ndlocr-lite/src"
 TMP = "/tmp/ndl_work"
 os.makedirs(TMP, exist_ok=True)
 
-done, skip, err = 0, 0, 0
+CONF_MIN = 0.6   # 2026-07-19实测标定:空白衬页/密排类书垃圾输出置信度0.25-0.49,正常识别0.9+,两者有明显断层,阈值取中间
+
+done, skip, err, low_conf = 0, 0, 0, 0
 for bid, p, pdid in mine:
     pstr = str(p).zfill(4)
     txtkey = f"_ocr/{bid}/page_{pstr}.txt"
@@ -119,12 +121,26 @@ for bid, p, pdid in mine:
             err += 1
             continue
         data = json.load(open(jf, encoding="utf-8"))
-        lines = [b.get("text") for pb in data.get("contents", []) for b in pb if b.get("text")]
-        text = "\n".join(lines)
-        s3.put_object(Bucket=BUCKET, Key=txtkey, Body=text.encode("utf-8"), ContentType="text/plain; charset=utf-8")
-        done += 1
-        if done % 20 == 0:
-            print(f"进度 {done}/{len(mine)}", flush=True)
+        all_blocks = [b for pb in data.get("contents", []) for b in pb if b.get("text")]
+        # 2026-07-19实测发现:空白衬页/馆藏章页、密排多栏类书版式会让模型幻觉出重复垃圾
+        # (如"State the the the..."),confidence明显偏低(0.25-0.49 vs 正常识别0.9+)。
+        # 逐块过滤而非整页一刀切:部分清晰部分模糊的页面,保留清晰部分,只丢垃圾块。
+        kept = [b.get("text") for b in all_blocks if (b.get("confidence") or 0) >= CONF_MIN]
+        dropped = len(all_blocks) - len(kept)
+        text = "\n".join(kept)
+        if not text.strip():
+            # 过滤完基本空了(整页低质量/真空白页)——标记为空,不存半页垃圾冒充"识别成功"
+            s3.put_object(Bucket=BUCKET, Key=txtkey, Body=b"", ContentType="text/plain; charset=utf-8")
+            low_conf += 1
+            if dropped:
+                print(f"低质量跳过 {bid} p{p}:{dropped}个块全部低于置信度{CONF_MIN},存空文件", flush=True)
+        else:
+            s3.put_object(Bucket=BUCKET, Key=txtkey, Body=text.encode("utf-8"), ContentType="text/plain; charset=utf-8")
+            done += 1
+            if dropped:
+                print(f"部分过滤 {bid} p{p}:丢{dropped}个低置信度块,保留{len(kept)}个", flush=True)
+            if done % 20 == 0:
+                print(f"进度 {done}/{len(mine)}", flush=True)
     except Exception as e:
         print(f"ERR处理异常 {bid} p{p} :: {str(e)[:100]}", flush=True)
         err += 1
@@ -136,5 +152,5 @@ for bid, p, pdid in mine:
                 pass
 
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocr_ndl_{SHARD}.json",
-              Body=json.dumps({"shard": SHARD, "total": len(mine), "done": done, "skip": skip, "err": err}).encode())
-print(f"=== shard {SHARD} 完成 done={done} skip={skip} err={err} / {len(mine)} ===", flush=True)
+              Body=json.dumps({"shard": SHARD, "total": len(mine), "done": done, "skip": skip, "err": err, "low_conf": low_conf}).encode())
+print(f"=== shard {SHARD} 完成 done={done} skip={skip} err={err} low_conf={low_conf} / {len(mine)} ===", flush=True)
