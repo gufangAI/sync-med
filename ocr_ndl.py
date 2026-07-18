@@ -2,7 +2,18 @@
 # GitHub Actions + NDLOCR-Lite(国立国会図書館官方OCR,CC BY 4.0,CPU免GPU)
 # 页图 <- 阅读器真实公开API(穿透123兜底,不直读R2——R2的book/前缀影像已于2026-07-17迁123,直读会全部NoSuchKey)
 # 识别结果 -> R2 _ocr/{book_id}/page_NNNN.txt(与RapidOCR那条ocr.py同一落点,阅读器fulltext.js两边通吃)
-import os, io, json, time, subprocess, sys, boto3, requests
+import os, io, json, re, time, subprocess, sys, boto3, requests
+
+_CJK_RE = re.compile(r"[一-鿿㐀-䶿぀-ゟ゠-ヿ]")
+
+def cjk_ratio(s):
+    """2026-07-19实测:垃圾幻觉块(如'State the the...'、'1/00 000...FORE')CJK占比恒为0,
+    真实古籍/漢方文字块恒接近1.0——即便置信度被模型判高(实测垃圾块confidence=0.944也见过),
+    CJK占比仍能正确区分,双重判据比单一置信度更可靠。"""
+    t = re.sub(r"\s", "", s or "")
+    if not t:
+        return 0.0
+    return len(_CJK_RE.findall(t)) / len(t)
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKET = os.environ["S_BUCKET"]
 CF_ACC = os.environ["CF_ACCOUNT_ID"]; D1_DB = os.environ["D1_DATABASE_ID"]; D1_TOK = os.environ["D1_API_TOKEN"]
@@ -85,7 +96,8 @@ OCR_SRC = "ndlocr-lite/src"
 TMP = "/tmp/ndl_work"
 os.makedirs(TMP, exist_ok=True)
 
-CONF_MIN = 0.6   # 2026-07-19实测标定:空白衬页/密排类书垃圾输出置信度0.25-0.49,正常识别0.9+,两者有明显断层,阈值取中间
+CONF_MIN = 0.6    # 2026-07-19实测标定:密排类书垃圾输出置信度0.25-0.49,正常识别0.9+,两者有明显断层
+CJK_MIN = 0.3     # 2026-07-19实测标定:垃圾幻觉块CJK占比恒为0(纯拉丁字母/数字),真实文字块恒接近1.0
 
 done, skip, err, low_conf = 0, 0, 0, 0
 for bid, p, pdid in mine:
@@ -125,7 +137,8 @@ for bid, p, pdid in mine:
         # 2026-07-19实测发现:空白衬页/馆藏章页、密排多栏类书版式会让模型幻觉出重复垃圾
         # (如"State the the the..."),confidence明显偏低(0.25-0.49 vs 正常识别0.9+)。
         # 逐块过滤而非整页一刀切:部分清晰部分模糊的页面,保留清晰部分,只丢垃圾块。
-        kept = [b.get("text") for b in all_blocks if (b.get("confidence") or 0) >= CONF_MIN]
+        kept = [b.get("text") for b in all_blocks
+                if (b.get("confidence") or 0) >= CONF_MIN and cjk_ratio(b.get("text")) >= CJK_MIN]
         dropped = len(all_blocks) - len(kept)
         text = "\n".join(kept)
         if not text.strip():
