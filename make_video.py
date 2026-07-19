@@ -365,14 +365,15 @@ def _pan_download_bytes(file_id):
 def _lookup_pan_dir_id(book_id):
     # exact match first, then the same "old id is a suffix of the new id" fallback page.js uses.
     rows = _d1_query(
-        "SELECT pan_dir_id FROM books_assets_v2 WHERE book_id = ? AND upload_status = 'done' LIMIT 1",
+        "SELECT pan_dir_id, upload_status FROM books_assets_v2 WHERE book_id = ? LIMIT 1",
         [book_id])
-    if not rows:
-        rows = _d1_query(
-            "SELECT pan_dir_id FROM books_assets_v2 WHERE upload_status = 'done' AND book_id LIKE ? LIMIT 2",
+    print(f"[123] exact-match query for book_id={book_id!r} -> {rows}", flush=True)
+    if not rows or not rows[0].get("pan_dir_id"):
+        rows2 = _d1_query(
+            "SELECT book_id, pan_dir_id, upload_status FROM books_assets_v2 WHERE book_id LIKE ? LIMIT 5",
             ["%" + book_id])
-        if len(rows) != 1:
-            rows = []
+        print(f"[123] suffix-LIKE diagnostic for %{book_id} -> {rows2}", flush=True)
+        rows = [r for r in rows2 if r.get("pan_dir_id")]
     pan_dir_id = rows[0].get("pan_dir_id") if rows else None
     if not pan_dir_id:
         raise SystemExit(f"no pan_dir_id in D1 for book_id={book_id!r} — can't locate its 123 folder")
