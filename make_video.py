@@ -24,7 +24,9 @@ EXPERT_API = "https://www.gufangai.com/api/ai/expert"
 
 S_EP = os.environ["S_EP"]; S_AK = os.environ["S_AK"]; S_SK = os.environ["S_SK"]; S_BUCKET = os.environ["S_BUCKET"]
 BOOK = os.environ.get("BOOK", "ylgc_2")
-PAGES = [int(x) for x in os.environ.get("PAGES", "1,2,3,4,5,6").split(",")]
+# default capped at 5 pages: ylgc_2 is an overseas/overseas_guji-collection book, and the reader
+# API's freemium gate caps anonymous (guest) requests at 5 pages/book (see fetch_images() below).
+PAGES = [int(x) for x in os.environ.get("PAGES", "1,2,3,4,5").split(",")]
 VOICE = os.environ.get("VOICE", "zh-CN-XiaoxiaoNeural")
 
 # Curated rotation so the cron'd (unattended) runs don't produce the same clip every day.
@@ -133,8 +135,8 @@ def _local_compose_script(analysis, expert_name):
     fang0 = fang[0] if fang else {}
     fname, source = fang0.get("方名", ""), fang0.get("出处", "")
     body = bz
-    if len(body) > 110:
-        cut = body[:120]
+    if len(body) > 60:
+        cut = body[:65]
         m = re.search(r"^(.*[。!?])", cut)
         body = m.group(1) if m else (cut + "。")
     mid = f"{expert_name}认为,{body}"
@@ -159,7 +161,7 @@ def gen_script_from_expert(analysis, expert_name):
     text = re.sub(r"[\U0001F000-\U0001FAFF☀-➿]", "", text)   # strip emoji
     text = re.sub(r"[ \t\n]+", "", text)
     text = re.sub(r"[\"'“”]", "", text)
-    return text[:220]   # hard safety cap regardless of source
+    return text[:160]   # hard safety cap regardless of source (~25-30s of narration at this voice/rate)
 
 
 # ---------- 2. audio-first: TTS that also returns real per-word timestamps ----------
@@ -273,15 +275,28 @@ def build_plain_ass(word_timings, out_path="subs_plain.ass", w=1080, h=1920, off
 
 
 # ---------- 4. real rare-book page images (unique asset — keep this, it is our differentiator) ----------
+# 2026-07-20: the old `book/{BOOK}/page_NNNN.webp` R2 key this used to read (raw boto3 get_object)
+# now 404s for every page -- confirmed independently that R2 is no longer the live source for v2
+# books (functions/api/reader/[book_code]/page.js in guyaofang-web, 2026-07-19 comment: v2 books'
+# R2 images are 100% migrated to 123 pan, R2.get() there is now a guaranteed-fail no-op it
+# deliberately skips). Fetching through the production reader API instead of raw S3 sidesteps the
+# whole R2-vs-123-vs-legacy-key question -- that endpoint already knows where each book's pages
+# really live. Note: this endpoint applies the platform's normal freemium page gate for
+# overseas/overseas_guji books (5 pages/guest) -- keep PAGES within that budget for such books.
+READER_API = "https://www.gufangai.com/api/reader"
+
+
 def fetch_images():
     out = []
     for i, p in enumerate(PAGES):
-        key = f"book/{BOOK}/page_{p:04d}.webp"
+        url = f"{READER_API}/{BOOK}/page?p={p}"
         try:
-            b = s3.get_object(Bucket=S_BUCKET, Key=key)["Body"].read()
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=30, context=CTX) as r:
+                b = r.read()
             fn = f"img{i}.webp"; open(fn, "wb").write(b); out.append(fn)
         except Exception as e:
-            print("img miss", key, str(e)[:80], flush=True)
+            print("img miss", url, str(e)[:80], flush=True)
     return out
 
 
