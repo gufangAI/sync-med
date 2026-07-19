@@ -31,6 +31,19 @@ jobs:
           python-version: "3.12"
       - name: deps
         run: pip install -q requests boto3
+      - name: restore ledger cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ledger.json
+          key: ndl-text-ledger-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            ndl-text-ledger-s${{ matrix.shard }}-
       - name: harvest shard -> 直写 R2
         timeout-minutes: 330
         run: python harvest_ndl_text.py --worklist worklist_ndl_text.csv --shard ${{ matrix.shard }} --total ${{ github.event.inputs.total || '80' }} --limit ${{ github.event.inputs.limit || '0' }}
+      - name: save ledger cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ledger.json
+          key: ndl-text-ledger-s${{ matrix.shard }}-${{ github.run_id }}
