@@ -54,6 +54,13 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install --quiet boto3 requests pillow pymupdf
+      - name: restore ledger cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ledger.json
+          key: fojing-ia-ledger-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            fojing-ia-ledger-s${{ matrix.shard }}-
       - run: python fojing_ia.py
         env:
           S_EP: ${{ secrets.S_EP }}
@@ -65,6 +72,12 @@ jobs:
           PILOT: ${{ github.event.inputs.pilot || '0' }}
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ github.event.inputs.total || '3' }}
+      - name: save ledger cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ledger.json
+          key: fojing-ia-ledger-s${{ matrix.shard }}-${{ github.run_id }}
 
   finalize:
     needs: run
