@@ -5,15 +5,24 @@
 # live production site) -> nova-gateway rewrite into a short spoken script -> edge-tts TTS that
 # ALSO returns real word-level timestamps (WordBoundary events) -> ASS karaoke subtitles built from
 # those exact timestamps (word highlights precisely when it is actually spoken, not a guessed/evenly
-# -split overlay) -> real R2 rare-book page images with varied Ken-Burns (not one identical zoom for
-# every clip) -> burn subs -> mux voice -> automated quality gate (duration / black-frame / non-empty
-# subtitle checks) before it is allowed to land in R2 `_video/`.
+# -split overlay) -> real rare-book page images (fetched straight from 123 pan via a D1 lookup, see
+# fetch_images()) with varied Ken-Burns (not one identical zoom for every clip) -> burn subs -> mux
+# voice -> automated quality gate (duration / black-frame / non-empty subtitle checks) before it is
+# allowed to land in R2 `_video/`.
 #
 # Free-only resource stack: nova-gateway (proxies modelscope/sensenova/agnes/gemini/groq/nvidia/
 # siliconflow — verified via GET / health probe, no Cloudflare Workers AI anywhere) + the production
 # /api/ai/expert endpoint (uses guyaofang-web's own functions/api/gateway/_providers.js free
 # fallback chain when called with a non-paid model) + edge-tts (free, Microsoft). No paid API keys
 # used in this script.
+#
+# Source images: fetched directly from 123 pan (D1 books_assets_v2.pan_dir_id -> 123 file list ->
+# download), NOT through guyaofang-web's public /api/reader endpoint -- that endpoint serves real
+# paying readers behind a paywall gate and carries real production traffic already (~86k/month 403
+# hits per a 2026-07-20 CF traffic check); an internal batch job like this has no business adding
+# load there. This mirrors the D1-query shape already used in this repo's sync.py and the 123
+# list/download sequence already used in guyaofang-web/functions/api/_lib/pan123.js, rather than
+# inventing a new access pattern.
 import os, re, sys, json, time, random, subprocess, urllib.request, urllib.error, ssl, asyncio
 import boto3
 import edge_tts
@@ -22,10 +31,12 @@ NOVA_URL = "https://nova-gateway.hosonzuo.workers.dev"
 NOVA_KEY = os.environ["NOVA_KEY"]
 EXPERT_API = "https://www.gufangai.com/api/ai/expert"
 
+# S_* is R2 -- only used for the *output* video upload now (_video/ writes), never for reading
+# source page images (see fetch_images() below: those come straight from 123 pan + a D1 lookup).
 S_EP = os.environ["S_EP"]; S_AK = os.environ["S_AK"]; S_SK = os.environ["S_SK"]; S_BUCKET = os.environ["S_BUCKET"]
 BOOK = os.environ.get("BOOK", "ylgc_2")
-# default capped at 5 pages: ylgc_2 is an overseas/overseas_guji-collection book, and the reader
-# API's freemium gate caps anonymous (guest) requests at 5 pages/book (see fetch_images() below).
+# 5 pages is just a sane clip length default now, not a platform gate (fetch_images() no longer
+# goes through the guest-metered public reader API -- see the 2026-07-20 note on fetch_images()).
 PAGES = [int(x) for x in os.environ.get("PAGES", "1,2,3,4,5").split(",")]
 VOICE = os.environ.get("VOICE", "zh-CN-XiaoxiaoNeural")
 
@@ -79,6 +90,12 @@ def http_json(method, url, body=None, headers=None, timeout=100):
         headers={**(headers or {}), "Content-Type": "application/json", "User-Agent": UA})
     with urllib.request.urlopen(req, timeout=timeout, context=CTX) as r:
         return r.status, json.loads(r.read().decode("utf-8", "replace"))
+
+
+def http_bytes(url, headers=None, timeout=60):
+    req = urllib.request.Request(url, headers={**(headers or {}), "User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=timeout, context=CTX) as r:
+        return r.read()
 
 
 # ---------- 1. real grounded content: call the production expert-persona API ----------
@@ -275,28 +292,112 @@ def build_plain_ass(word_timings, out_path="subs_plain.ass", w=1080, h=1920, off
 
 
 # ---------- 4. real rare-book page images (unique asset — keep this, it is our differentiator) ----------
-# 2026-07-20: the old `book/{BOOK}/page_NNNN.webp` R2 key this used to read (raw boto3 get_object)
-# now 404s for every page -- confirmed independently that R2 is no longer the live source for v2
-# books (functions/api/reader/[book_code]/page.js in guyaofang-web, 2026-07-19 comment: v2 books'
-# R2 images are 100% migrated to 123 pan, R2.get() there is now a guaranteed-fail no-op it
-# deliberately skips). Fetching through the production reader API instead of raw S3 sidesteps the
-# whole R2-vs-123-vs-legacy-key question -- that endpoint already knows where each book's pages
-# really live. Note: this endpoint applies the platform's normal freemium page gate for
-# overseas/overseas_guji books (5 pages/guest) -- keep PAGES within that budget for such books.
-READER_API = "https://www.gufangai.com/api/reader"
+# History: the old `book/{BOOK}/page_NNNN.webp` R2 key this used to read (raw boto3 get_object) 404s
+# for every page -- confirmed R2 is no longer the live source for v2 books (page.js's own 2026-07-19
+# comment: v2 books' R2 images are 100% migrated to 123 pan, R2.get() there is a guaranteed-fail
+# no-op it deliberately skips). A first fix (2026-07-20 same day) routed image fetches through the
+# public production reader API (/api/reader/{book_code}/page) instead -- that worked, but the
+# founder caught it as the wrong landing spot: that endpoint serves real paying readers (paywall
+# gate, ~86k/month 403 hits on it already per a CF traffic check) and an internal batch job like
+# this one has no business adding load there. Corrected fix (still 2026-07-20): fetch straight from
+# 123 pan, the actual storage, bypassing guyaofang-web's API entirely -- mirrors the exact D1-lookup
+# + 123-list/download pattern already used elsewhere in this repo (sync.py's _rebuild_pages_from_d1
+# for the D1 HTTP API call shape) and in guyaofang-web's own functions/api/_lib/pan123.js
+# (fetchPageFrom123: same token/list/download_info/download sequence, same page_NNNN.webp naming,
+# same PAN_CLIENT_ID/PAN_CLIENT_SECRET credential pair -- reused here rather than inventing a new one).
+PAN_BASE = "https://open-api.123pan.com"
+_pan_tok = {"v": None}
+
+
+def _d1_query(sql, params=None):
+    acc = os.environ.get("CF_ACCOUNT_ID"); db = os.environ.get("D1_DATABASE_ID"); tok = os.environ.get("D1_API_TOKEN")
+    if not (acc and db and tok):
+        raise RuntimeError("missing CF_ACCOUNT_ID/D1_DATABASE_ID/D1_API_TOKEN for D1 lookup")
+    url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/d1/database/{db}/query"
+    body = {"sql": sql, "params": params or []}
+    status, j = http_json("POST", url, body, headers={"Authorization": "Bearer " + tok}, timeout=60)
+    if not j.get("success"):
+        raise RuntimeError(f"D1 query failed: {str(j.get('errors'))[:200]}")
+    return (j.get("result") or [{}])[0].get("results") or []
+
+
+def _pan_token():
+    if _pan_tok["v"] is None:
+        cid = os.environ["PAN_CLIENT_ID"]; csec = os.environ["PAN_CLIENT_SECRET"]
+        status, j = http_json("POST", PAN_BASE + "/api/v1/access_token",
+                               {"clientID": cid, "clientSecret": csec},
+                               headers={"Platform": "open_platform"}, timeout=60)
+        _pan_tok["v"] = (j.get("data") or {}).get("accessToken")
+        if not _pan_tok["v"]:
+            raise RuntimeError(f"123 access_token failed: {str(j)[:200]}")
+    return _pan_tok["v"]
+
+
+def _pan_get(path):
+    headers = {"Platform": "open_platform", "Authorization": "Bearer " + _pan_token()}
+    status, j = http_json("GET", PAN_BASE + path, headers=headers, timeout=60)
+    return j.get("data") or {}
+
+
+def _pan_find_file_id(pan_dir_id, filename):
+    """Same list-and-match-by-filename sequence as fetchPageFrom123() in guyaofang-web."""
+    last_file_id = 0
+    for _ in range(20):
+        d = _pan_get(f"/api/v2/file/list?parentFileId={pan_dir_id}&limit=100&lastFileId={last_file_id}")
+        fl = d.get("fileList") or []
+        hit = next((f for f in fl if f.get("filename") == filename), None)
+        if hit:
+            return hit.get("fileId") or hit.get("fileID")
+        last_file_id = d.get("lastFileId")
+        if last_file_id in (None, -1) or not fl:
+            break
+    return None
+
+
+def _pan_download_bytes(file_id):
+    d = _pan_get(f"/api/v1/file/download_info?fileId={file_id}")
+    url = d.get("downloadUrl")
+    if not url:
+        return None
+    return http_bytes(url, timeout=60)
+
+
+def _lookup_pan_dir_id(book_id):
+    # exact match first, then the same "old id is a suffix of the new id" fallback page.js uses.
+    rows = _d1_query(
+        "SELECT pan_dir_id FROM books_assets_v2 WHERE book_id = ? AND upload_status = 'done' LIMIT 1",
+        [book_id])
+    if not rows:
+        rows = _d1_query(
+            "SELECT pan_dir_id FROM books_assets_v2 WHERE upload_status = 'done' AND book_id LIKE ? LIMIT 2",
+            ["%" + book_id])
+        if len(rows) != 1:
+            rows = []
+    pan_dir_id = rows[0].get("pan_dir_id") if rows else None
+    if not pan_dir_id:
+        raise SystemExit(f"no pan_dir_id in D1 for book_id={book_id!r} — can't locate its 123 folder")
+    return pan_dir_id
 
 
 def fetch_images():
+    pan_dir_id = _lookup_pan_dir_id(BOOK)
+    print(f"[123] {BOOK} -> pan_dir_id={pan_dir_id}", flush=True)
     out = []
     for i, p in enumerate(PAGES):
-        url = f"{READER_API}/{BOOK}/page?p={p}"
+        page_str = f"{p:04d}"
+        filename = f"page_{page_str}.webp"
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA})
-            with urllib.request.urlopen(req, timeout=30, context=CTX) as r:
-                b = r.read()
+            file_id = _pan_find_file_id(pan_dir_id, filename)
+            if not file_id:
+                print("img miss (not found in 123 folder)", filename, flush=True)
+                continue
+            b = _pan_download_bytes(file_id)
+            if not b:
+                print("img miss (download_info/download failed)", filename, flush=True)
+                continue
             fn = f"img{i}.webp"; open(fn, "wb").write(b); out.append(fn)
         except Exception as e:
-            print("img miss", url, str(e)[:80], flush=True)
+            print("img miss", filename, str(e)[:80], flush=True)
     return out
 
 

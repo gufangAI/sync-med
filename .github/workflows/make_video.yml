@@ -9,7 +9,7 @@ on:
         description: R2 book id
         default: "ylgc_2"
       pages:
-        description: comma page numbers (keep <=5 for overseas/overseas_guji-collection books -- anonymous reader API guest gate caps at 5 pages/book)
+        description: comma page numbers (pages are fetched straight from 123 pan, not the public reader API)
         default: "1,2,3,4,5"
       expert_key:
         description: 'expert key from GET /api/ai/expert roster (e.g. zhongjing/yetianshi/zhudanxi/lidongyuan/lishizhen) — "auto" rotates by day-of-year'
@@ -48,6 +48,13 @@ jobs:
           S_AK: ${{ secrets.S_AK }}
           S_SK: ${{ secrets.S_SK }}
           S_BUCKET: ${{ secrets.S_BUCKET }}
+          # source page images come straight from 123 pan (2026-07-20 correction -- do not add the
+          # public reader API back here, it serves real paying readers and shouldn't carry batch load)
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          PAN_CLIENT_ID: ${{ secrets.PAN_CLIENT_ID }}
+          PAN_CLIENT_SECRET: ${{ secrets.PAN_CLIENT_SECRET }}
           BOOK: ${{ github.event.inputs.book || 'ylgc_2' }}
           PAGES: ${{ github.event.inputs.pages || '1,2,3,4,5' }}
           EXPERT_KEY: ${{ github.event.inputs.expert_key || 'auto' }}
