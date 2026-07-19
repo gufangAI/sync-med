@@ -108,9 +108,13 @@ for bid, (pc, pdid) in books.items():
     pages += [(bid, n, pdid) for n in range(1, pc + 1)]
 pages.sort()
 mine = [p for i, p in enumerate(pages) if i % TOTAL == SHARD]
-if PILOT:
-    mine = mine[:int(PILOT)]
-print(f"shard {SHARD}/{TOTAL} 分到 {len(mine)}/{len(pages)} 页  pilot={PILOT or '无'}", flush=True)
+# 2026-07-19实测教训:40分片硬分20246本书全部页数,单分片摊到上万页,CPU跑OCR(无GPU)
+# 一片3.5小时一个都跑不完,会撞GitHub Actions 6小时job上限被杀、白跑一次什么都产不出。
+# 改成每次运行硬顶RUN_CAP页(默认300,可用PILOT覆盖做更小的手动试跑):
+# 保证job window内可靠完成→每次都有真实D1汇总产出;6小时cron自然分批啃完全量,不再空转赌大的。
+RUN_CAP = int(PILOT) if PILOT else 300
+mine = mine[:RUN_CAP]
+print(f"shard {SHARD}/{TOTAL} 分到 {len(mine)}/{len(pages)} 页(本轮硬顶{RUN_CAP})  pilot={PILOT or '无'}", flush=True)
 
 OCR_SRC = "ndlocr-lite/src"
 TMP = "/tmp/ndl_work"
