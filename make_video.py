@@ -513,17 +513,6 @@ def upload(path, key):
 
 
 if __name__ == "__main__":
-    # TEMP (2026-07-20, remove after the 123-branch verification dispatch): BOOK=_find_pan_candidate
-    # just prints a few real book_ids that DO have pan_dir_id set and exits, so a real one can be
-    # picked for a real test dispatch instead of guessing. Not part of the shipped pipeline.
-    if BOOK == "_find_pan_candidate":
-        cands = _d1_query(
-            "SELECT book_id, pan_dir_id, page_count FROM books_assets_v2 "
-            "WHERE upload_status = 'done' AND pan_dir_id IS NOT NULL AND pan_dir_id != '' "
-            "AND page_count >= 5 LIMIT 5")
-        print(f"[find] candidates with pan_dir_id set -> {cands}", flush=True)
-        raise SystemExit(0)
-
     print(f"[run] book={BOOK} pages={PAGES} expert={EXPERT_KEY}/{EXPERT_NAME}", flush=True)
 
     analysis = call_expert(TOPIC)
