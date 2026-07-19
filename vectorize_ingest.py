@@ -133,6 +133,17 @@ def main():
     mine = [b for i, b in enumerate(books) if i % TOTAL == SHARD]
     print(f"[shard {SHARD}/{TOTAL}] manifest={len(books)} books, mine={len(mine)}", flush=True)
 
+    # 2026-07-19修复:原来每本书一次 s3.head_object() 查重(每6小时对全量候选重复扫一遍),
+    # 是R2 HeadObject成本异常的确认真凶之一,改用GitHub Actions cache本地ledger.json记账。
+    LEDGER = "ledger.json"
+    ledger = set()
+    if os.path.exists(LEDGER):
+        try:
+            ledger = set(json.load(open(LEDGER, encoding="utf-8")))
+        except Exception:
+            ledger = set()
+    print(f"ledger已有 {len(ledger)} 条记录", flush=True)
+
     ok_books, skip_books, fail_books, total_vecs = 0, 0, 0, 0
     t0 = time.time()
 
@@ -140,13 +151,9 @@ def main():
         bh = book_hash(book)
         done_key = DONE_PREFIX + bh + ".done"
 
-        
-        try:
-            s3.head_object(Bucket=BUCKET, Key=done_key)
+        if bh in ledger:
             skip_books += 1
             continue
-        except Exception:
-            pass
 
         src_key = PREFIX + book + ".emb.jsonl"
         try:
@@ -158,8 +165,9 @@ def main():
 
         rows = book_to_rows(body, book)
         if not rows:
-            
+
             s3.put_object(Bucket=BUCKET, Key=done_key, Body=b"")
+            ledger.add(bh)
             skip_books += 1
             continue
 
@@ -174,6 +182,7 @@ def main():
 
         if book_ok:
             s3.put_object(Bucket=BUCKET, Key=done_key, Body=b"")
+            ledger.add(bh)
             ok_books += 1
             total_vecs += len(rows)
             if i % 20 == 0 or i == len(mine):
@@ -184,11 +193,13 @@ def main():
         else:
             fail_books += 1
 
+    json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
+
     elapsed = time.time() - t0
     print(f"=== shard {SHARD} done: ok={ok_books} skip={skip_books} fail={fail_books} "
           f"vecs={total_vecs} · {elapsed/60:.1f}min ===", flush=True)
 
-    
+
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
         with open(summary_path, "a", encoding="utf-8") as f:
