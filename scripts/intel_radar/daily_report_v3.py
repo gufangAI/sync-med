@@ -10,6 +10,7 @@ import datetime
 import urllib.request
 import urllib.error
 import urllib.parse
+import http.client
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
@@ -105,6 +106,8 @@ def fetch_url(url: str, timeout: int = 30, data: bytes = None,
         raise RuntimeError(f"HTTP {e.code}: {body}")
     except urllib.error.URLError as e:
         raise RuntimeError(f"\u7f51\u7edc\u8bf7\u6c42\u5931\u8d25: {e}")
+    except (http.client.HTTPException, ConnectionError, TimeoutError, OSError) as e:
+        raise RuntimeError(f"connection glitch (transient, not fatal): {e}")
 
 
 
