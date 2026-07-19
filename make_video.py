@@ -374,6 +374,17 @@ def _lookup_pan_dir_id(book_id):
             ["%" + book_id])
         print(f"[123] suffix-LIKE diagnostic for %{book_id} -> {rows2}", flush=True)
         rows = [r for r in rows2 if r.get("pan_dir_id")]
+    if not rows or not rows[0].get("pan_dir_id"):
+        # 2026-07-20 debug: book_id resolves in this D1 with upload_status='done' but pan_dir_id
+        # is NULL, which contradicts the live reader API (which DOES serve this exact book via
+        # pan123, X-Source: v2+pan123) -- either this D1_DATABASE_ID isn't the same database
+        # guyaofang-web's Worker binds as env.DB, or the pan_dir_id backfill for this book hasn't
+        # landed in whatever this points to. One-shot aggregate to tell those apart.
+        agg = _d1_query(
+            "SELECT COUNT(*) AS total, "
+            "SUM(CASE WHEN pan_dir_id IS NOT NULL AND pan_dir_id != '' THEN 1 ELSE 0 END) AS with_pandir "
+            "FROM books_assets_v2 WHERE upload_status = 'done'")
+        print(f"[123] aggregate diagnostic (upload_status='done' rows) -> {agg}", flush=True)
     pan_dir_id = rows[0].get("pan_dir_id") if rows else None
     if not pan_dir_id:
         raise SystemExit(f"no pan_dir_id in D1 for book_id={book_id!r} — can't locate its 123 folder")
