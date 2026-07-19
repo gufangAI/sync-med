@@ -129,15 +129,16 @@ def sutra_id_from_path(path):
     return os.path.splitext(os.path.basename(path))[0]
 
 
+# 2026-07-19修复:原每部经每次都一次s3.head_object()查重,改GitHub缓存本地_DONE记账
+# (同ocr_ndl.py/ocr.py方法),避免每次跑对全量候选重复敲R2。
+_DONE = set()
+
+
 def process_one(path):
     sid = sutra_id_from_path(path)
     key = f"text/cbeta/{sid}.txt"
-    try:
-        s3.head_object(Bucket=BUCKET, Key=key)
+    if sid in _DONE:
         return {"id": sid, "status": "skip-done"}
-    except ClientError as e:
-        if e.response.get("Error", {}).get("Code") not in ("404", "NoSuchKey", "NotFound"):
-            raise
     try:
         tree = ET.parse(path)
     except ET.ParseError as e:
@@ -163,6 +164,7 @@ def process_one(path):
     )
     out = header + body_text
     s3.put_object(Bucket=BUCKET, Key=key, Body=out.encode("utf-8"))
+    _DONE.add(sid)
     return {
         "id": sid, "status": "ok", "title": title, "author": author,
         "extent": extent, "canon": canon, "vol": vol, "no": no,
@@ -172,6 +174,14 @@ def process_one(path):
 
 
 def main():
+    global _DONE
+    if os.path.exists("ledger.json"):
+        try:
+            _DONE = set(json.load(open("ledger.json", encoding="utf-8")))
+        except Exception:
+            _DONE = set()
+    print(f"ledger已有 {len(_DONE)} 条记录", flush=True)
+
     clone_source()
     files = list_xml_files()
     mine = [f for i, f in enumerate(files) if i % TOTAL == SHARD]
@@ -195,6 +205,7 @@ def main():
             print(f"progress {i+1}/{len(mine)} ok={ok} skip={skip} err={err}", flush=True)
     lk = f"_ledger/fojing_shard_{SHARD}.json"
     s3.put_object(Bucket=BUCKET, Key=lk, Body=json.dumps(ledger, ensure_ascii=False).encode("utf-8"))
+    json.dump(sorted(_DONE), open("ledger.json", "w", encoding="utf-8"), ensure_ascii=False)
     print(f"=== shard {SHARD} complete ok={ok} skip={skip} err={err} total={len(mine)} | ledger -> {lk} ===", flush=True)
 
 
