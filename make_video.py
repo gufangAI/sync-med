@@ -329,8 +329,14 @@ def render_body_clips(imgs, total_audio_s):
         c = f"clip{i}.mp4"
         d = int(seg * fps)
         vf = ("scale=1350:2400:force_original_aspect_ratio=increase,crop=1350:2400," + kb_expr(i, d, fps) + ",setsar=1")
-        sh(["ffmpeg", "-y", "-loop", "1", "-t", f"{seg:.2f}", "-i", im,
-            "-vf", vf, "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "veryfast", c])
+        # IMPORTANT: no "-t" on the input here. "-loop 1 -t X -i img" makes the input itself emit
+        # ~X seconds of frames (at the default 25fps), and zoompan's own d= then holds/expands EACH
+        # of those input frames for d more frames -- a real double-multiplication bug that was
+        # caught locally on 2026-07-20 (a 5-clip run was on track to render tens of thousands of
+        # frames per clip and never finish inside the job timeout). Fix: infinite -loop 1 input +
+        # -frames:v {d} as an OUTPUT cap gives exactly d output frames, i.e. exactly d/fps seconds.
+        sh(["ffmpeg", "-y", "-loop", "1", "-i", im,
+            "-vf", vf, "-frames:v", str(d), "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "veryfast", c])
         clips.append(c)
     open("concat.txt", "w").write("\n".join(f"file '{c}'" for c in clips))
     sh(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "concat.txt", "-c", "copy", "slide.mp4"])
