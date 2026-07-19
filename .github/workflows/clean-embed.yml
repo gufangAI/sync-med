@@ -57,6 +57,13 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install --quiet boto3 requests
+      - name: restore ledger cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ledger.json
+          key: clean-embed-ledger-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            clean-embed-ledger-s${{ matrix.shard }}-
       - name: ingest shard
         run: python clean_embed_ingest.py
         env:
@@ -71,6 +78,12 @@ jobs:
           VEC_INDEX: "tcm-rag-clean-768"
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ github.event.inputs.total || '20' }}
+      - name: save ledger cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ledger.json
+          key: clean-embed-ledger-s${{ matrix.shard }}-${{ github.run_id }}
 
   # AUDIT: query Vectorize REST info endpoint, print vector count after this run (self-reporting).
   audit:
