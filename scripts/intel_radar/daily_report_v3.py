@@ -356,6 +356,26 @@ def fetch_cn_intel() -> list:
     return out
 
 
+HN_RSS_SOURCES = [
+    ("HN:Frontpage", "https://hnrss.org/frontpage"),
+    ("HN:Show", "https://hnrss.org/show"),
+    ("HN:Newest20pt", "https://hnrss.org/newest?points=20"),
+]
+
+
+def fetch_hn_intel() -> list:
+    'Hacker News (hnrss.org bridge, no key needed) - catches niche/indie tools \
+(e.g. Show HN posts) before they hit GitHub Trending or arXiv; this is the \
+category of source most likely to carry a brand-new pattern/tool early.'
+    print("[Fetch] Hacker News (frontpage+show+newest) ...", flush=True)
+    out = []
+    for name, url in HN_RSS_SOURCES:
+        out.extend(fetch_rss(url, name, max_items=40))
+        time.sleep(1.0)
+    print(f"  Hacker News total: {len(out)}")
+    return out
+
+
 def fetch_github_freebies() -> list:
     '\u4e13\u6252 GitHub \u4e0a\u300e\u514d\u8d39\u7b97\u529b/\u7f51\u5173/agent\u300f\u8fd9\u7c7b\u53ef\u76f4\u63a5\u590d\u7528\u7684\u5de5\u5177,\u6309 stars \u8fd1 30 \u5929\u70ed\u5ea6\u7b5b\u3002\n    \u5bf9\u5e94\u300e\u628a\u53ef\u7528\u7684 GitHub / AI \u514d\u8d39\u7b97\u529b\u63a5\u5165\u81ea\u6709\u8c03\u5ea6\u6c60\u300f\u8fd9\u4e00\u65b9\u5411\u3002\n    '
     print('[\u6293\u53d6] GitHub \u514d\u8d39\u7b97\u529b/gateway/agent \u519b\u706b ...', flush=True)
@@ -1056,7 +1076,10 @@ def main():
     cn_items = fetch_cn_intel()
     raw_counts['\u4e2d\u6587\u60c5\u62a5'] = len(cn_items)
 
-    all_items = arxiv_papers + hf_papers + hf_models + pubmed_papers + github_repos + freebies + cn_items
+    hn_items = fetch_hn_intel()
+    raw_counts["Hacker News"] = len(hn_items)
+
+    all_items = arxiv_papers + hf_papers + hf_models + pubmed_papers + github_repos + freebies + cn_items + hn_items
     total_raw = len(all_items)
 
     print(f"\n[\u6293\u53d6\u6c47\u603b] \u603b\u8ba1: {total_raw} \u6761")
@@ -1082,7 +1105,7 @@ def main():
     hf_models_sample = hf_models[:50] if hf_models else []
     
     analyze_items = (arxiv_papers + hf_papers + pubmed_papers + github_repos
-                     + hf_models_sample + freebies + cn_items)
+                     + hf_models_sample + freebies + cn_items + hn_items)
     total_analyzed = len(analyze_items)
     print(f"  \u5b9e\u9645\u5206\u6790: {total_analyzed} \u6761 (HF Models \u622a\u53d6\u524d 50)")
 
