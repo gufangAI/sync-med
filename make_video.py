@@ -95,7 +95,7 @@ def call_expert(q, expert=EXPERT_KEY):
     raise SystemExit(f"expert API all attempts failed: {last_err}")
 
 
-def gen_script_from_expert(analysis, expert_name):
+def _rewrite_via_nova(analysis, expert_name):
     a = analysis["analysis"]
     fang = a.get("古籍方证") or []
     fang0 = fang[0] if fang else {}
@@ -115,12 +115,51 @@ def gen_script_from_expert(analysis, expert_name):
     body = {"model": "auto", "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 500, "temperature": 0.7}
     status, j = http_json("POST", NOVA_URL + "/v1/chat/completions", body,
-                           headers={"Authorization": "Bearer " + NOVA_KEY}, timeout=80)
+                           headers={"Authorization": "Bearer " + NOVA_KEY}, timeout=60)
     text = j["choices"][0]["message"]["content"].strip()
+    if not text:
+        raise RuntimeError("nova-gateway returned empty content")
+    return text
+
+
+def _local_compose_script(analysis, expert_name):
+    """No-extra-AI-call fallback: compose the narration directly from the expert API's own
+    grounded text (its 辨证研讨 field is already required by expert.js's prompt contract to be
+    ≥150 chars of 现代白话/modern vernacular), so it still reads naturally aloud with zero extra
+    network dependency. Used when nova-gateway is unreachable (see 2026-07-20 401 note below)."""
+    a = analysis["analysis"]
+    bz = (a.get("辨证研讨") or "").strip()
+    fang = a.get("古籍方证") or []
+    fang0 = fang[0] if fang else {}
+    fname, source = fang0.get("方名", ""), fang0.get("出处", "")
+    body = bz
+    if len(body) > 110:
+        cut = body[:120]
+        m = re.search(r"^(.*[。!?])", cut)
+        body = m.group(1) if m else (cut + "。")
+    mid = f"{expert_name}认为,{body}"
+    if fname:
+        mid += f"可参{fname}" + (f",出自{source}。" if source else "。")
+    text = f"这则医案,{expert_name}会怎么判?" + mid + "古方AI星图,请AI专家分身为你解读古籍。"
+    return text
+
+
+def gen_script_from_expert(analysis, expert_name):
+    try:
+        text = _rewrite_via_nova(analysis, expert_name)
+        print("[script] source=nova-gateway-rewrite", flush=True)
+    except Exception as e:
+        # 2026-07-20: nova-gateway (nova-gateway.hosonzuo.workers.dev) is returning 401 Unauthorized
+        # with the current NOVA_KEY secret (confirmed independently outside this run too — looks
+        # like the worker's key rotated and this side-repo's secret was never updated). Rather than
+        # fail the whole video on a side-gateway that isn't this task's real dependency, fall back
+        # to composing the narration directly from the expert API's own grounded text.
+        print("[script] nova-gateway rewrite failed, using local fallback composition:", str(e)[:200], flush=True)
+        text = _local_compose_script(analysis, expert_name)
     text = re.sub(r"[\U0001F000-\U0001FAFF☀-➿]", "", text)   # strip emoji
     text = re.sub(r"[ \t\n]+", "", text)
     text = re.sub(r"[\"'“”]", "", text)
-    return text
+    return text[:220]   # hard safety cap regardless of source
 
 
 # ---------- 2. audio-first: TTS that also returns real per-word timestamps ----------
