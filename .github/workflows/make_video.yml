@@ -1,5 +1,7 @@
 name: make_video
 
+# v2 (2026-07-20): audio-first + word-level karaoke subtitles + real expert-persona grounding.
+# See make_video.py header for the full pipeline description.
 on:
   workflow_dispatch:
     inputs:
@@ -9,10 +11,29 @@ on:
       pages:
         description: comma page numbers
         default: "1,2,3,4,5,6"
+      expert_key:
+        description: 'expert key from GET /api/ai/expert roster (e.g. zhongjing/yetianshi/zhudanxi/lidongyuan/lishizhen) — "auto" rotates by day-of-year'
+        default: "auto"
+      expert_name:
+        description: display name for the expert_key above (only used when expert_key != auto)
+        default: "张仲景"
+      topic:
+        description: 'case/symptom phrasing fed to /api/ai/expert (only used when expert_key != auto)'
+        default: ""
+  schedule:
+    # 05:17 UTC = 13:17 Beijing — offset from the top of the hour to avoid piling onto this repo's
+    # many other :00/:15/:30 crons. Daily cadence keeps this experimental line producing without
+    # hammering the shared free-tier gateway / the production /api/ai/expert endpoint.
+    - cron: '17 5 * * *'
+
+concurrency:
+  group: make_video
+  cancel-in-progress: false   # let a running render finish; queue instead of killing it mid-render
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -29,9 +50,16 @@ jobs:
           S_BUCKET: ${{ secrets.S_BUCKET }}
           BOOK: ${{ github.event.inputs.book || 'ylgc_2' }}
           PAGES: ${{ github.event.inputs.pages || '1,2,3,4,5,6' }}
+          EXPERT_KEY: ${{ github.event.inputs.expert_key || 'auto' }}
+          EXPERT_NAME: ${{ github.event.inputs.expert_name || '张仲景' }}
+          TOPIC: ${{ github.event.inputs.topic || '' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: video
-          path: out.mp4
+          name: video-${{ github.run_id }}
+          path: |
+            out.mp4
+            script.txt
+            subs.ass
+          retention-days: 14
           if-no-files-found: ignore
