@@ -937,6 +937,64 @@ def merge_picks(all_items: list, raw_picks: list, top_n: int = 50,
 
 
 
+VERIFY_PROMPT = """You are a skeptical fact-checker (查证官) for SueAI's intel radar.
+Your job is to challenge claimed relevance, not rubber-stamp it - many flagged items
+carry generic boilerplate reasons that would apply equally to hundreds of unrelated repos.
+
+{context}
+
+Flagged signal:
+Title: {title}
+Category: {category}
+Claimed reason: {reason}
+Abstract: {abstract}
+
+Does the claimed reason name a SPECIFIC, concrete connection to one of SueAI's actual
+components listed above (a real module/capability/gap it would plug into) - not just a
+generic "related to RAG/AI" statement that could describe almost any repo in this space?
+
+Reply with strict JSON only, no extra text:
+{{"verified": true or false, "note": "<one short reason in Chinese, <=40 chars>"}}
+"""
+
+
+def verify_top_items(top_items, use_gateway, models, verify_n=15):
+    'Layer3-lite ("查证官"/verification officer, MDAgents-style adversarial \
+check): re-challenges the TOP N highest-scored items claimed relevance with a fresh, \
+skeptically-framed LLM call, so generic boilerplate reasons (e.g. the same "SueAI RAG \
+xiangguan" sentence copy-pasted across unrelated repos) get flagged instead of silently \
+passing through as if the first-pass score alone proved real relevance.'
+    model = models[0] if models else "glm-4-flash"
+    checked = passed = 0
+    for item in top_items[:verify_n]:
+        prompt = VERIFY_PROMPT.format(
+            context=SUEAI_CONTEXT,
+            title=item.get("title", ""),
+            category=item.get("category", ""),
+            reason=item.get("reason", ""),
+            abstract=item.get("abstract", "")[:150],
+        )
+        try:
+            resp = _call_llm_sync(model, [{"role": "user", "content": prompt}],
+                                   max_tokens=150, use_gateway=use_gateway)
+            text = resp.strip()
+            if text.startswith("```"):
+                lines = [l for l in text.split("\n") if not l.strip().startswith("```")]
+                text = "\n".join(lines)
+            data = json.loads(text)
+            item["verified"] = bool(data.get("verified", False))
+            item["verify_note"] = str(data.get("note", ""))[:60]
+            checked += 1
+            if item["verified"]:
+                passed += 1
+        except Exception:
+            item["verified"] = None
+            item["verify_note"] = ""
+    print(f"  [Layer3 verify] {passed}/{checked} passed skeptical check "
+          f"({checked}/{min(verify_n, len(top_items))} attempted)", flush=True)
+    return top_items
+
+
 CATEGORY_EMOJI = {
     "RAG":       "🔍",
     '\u5224\u65ad\u5f15\u64ce':  "🧠",
@@ -1181,11 +1239,12 @@ def main():
     top_items = merge_picks(analyze_items, raw_picks, top_n=args.top)
     print(f"[\u7cbe\u534e] \u7b5b\u51fa TOP {len(top_items)} \u6761 (score>=1)")
 
-    
+
     synthesis_data: Optional[dict] = None
     if use_gateway or ZHIPU_KEY or NVIDIA_KEY:
         active_models_syn = (GATEWAY_MODELS if use_gateway
                              else ([ZHIPU_MODEL] if ZHIPU_KEY else [NVIDIA_MODEL]))
+        top_items = verify_top_items(top_items, use_gateway, active_models_syn, verify_n=15)
         synthesis_data = generate_synthesis(top_items, use_gateway, active_models_syn)
     else:
         print('\n[\u591a\u5b66\u79d1\u7814\u5224] \u65e0 LLM \u53ef\u7528\uff0c\u8df3\u8fc7')
@@ -1436,8 +1495,16 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
             body_lines.append(f"{i}. **[{title_item}]({url})**")
         else:
             body_lines.append(f"{i}. **{title_item}**")
+        verified = item.get("verified")
+        verify_note = item.get("verify_note", "")
+        if verified is True:
+            vmark = f" | ✅已核实" + (f"({verify_note})" if verify_note else "")
+        elif verified is False:
+            vmark = f" | ⚠️待核实" + (f"({verify_note})" if verify_note else "")
+        else:
+            vmark = ""
         body_lines.append(
-            f"   - {stars} [{cat}] {reason}"
+            f"   - {stars} [{cat}] {reason}{vmark}"
         )
         body_lines.append("")
 
