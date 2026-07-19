@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
-
 import argparse
 import csv
 import json
@@ -23,7 +21,6 @@ PREFIX = os.environ.get("TEXT_PREFIX", "text/ndl/")
 s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK,
                   aws_secret_access_key=SK, region_name="auto")
 
-
 def fetch_json(session, url, timeout=60, tries=3):
     last = None
     for a in range(tries):
@@ -37,7 +34,6 @@ def fetch_json(session, url, timeout=60, tries=3):
         time.sleep(2 * (a + 1))
     raise RuntimeError(f"HTTP fail: {last}")
 
-
 def pull_fulltext(session, bid):
     j = fetch_json(session, f"{BASE}/fulltext-json/{bid}")
     blocks = j.get("list", []) if isinstance(j, dict) else (j or [])
@@ -50,15 +46,14 @@ def pull_fulltext(session, bid):
         parts.append("".join(b.get("contents", "") or "" for b in bl))
     return "\n".join(parts), len(pages)
 
+# 2026-07-19\u4fee\u590d:\u539f\u6bcf\u672c\u6bcf\u6b21\u4e00\u6b21s3.head_object()\u67e5\u91cd,\u6539GitHub\u7f13\u5b58\u672c\u5730_DONE\u8bb0\u8d26\u3002
+_DONE = set()
 
 def one(session, bid):
     key = f"{PREFIX}{bid}.txt"
-    try:
-        s3.head_object(Bucket=BUCKET, Key=key)   
+    if bid in _DONE:
         print(f"{bid}: skip(\u5df2\u5728R2)", flush=True)
         return "skip"
-    except Exception:
-        pass
     try:
         text, npages = pull_fulltext(session, bid)
     except Exception as e:
@@ -73,8 +68,8 @@ def one(session, bid):
                   Body=json.dumps({"id": bid, "pages": npages, "chars": len(text),
                                    "source": "ndl_fulltext"}, ensure_ascii=False).encode("utf-8"))
     print(f"{bid}: {npages}\u9875 {len(text)}\u5b57 -> R2 {BUCKET}/{key}", flush=True)
+    _DONE.add(bid)
     return True
-
 
 def main():
     ap = argparse.ArgumentParser()
@@ -83,6 +78,14 @@ def main():
     ap.add_argument("--total", type=int, default=1)
     ap.add_argument("--limit", type=int, default=0)
     a = ap.parse_args()
+
+    global _DONE
+    if os.path.exists("ledger.json"):
+        try:
+            _DONE = set(json.load(open("ledger.json", encoding="utf-8")))
+        except Exception:
+            _DONE = set()
+    print(f"ledger已有 {len(_DONE)} 条记录", flush=True)
 
     rows = list(csv.DictReader(open(a.worklist, encoding="utf-8-sig")))
     jobs = [r["id"].strip() for i, r in enumerate(rows)
@@ -108,8 +111,8 @@ def main():
             print(f"  \u8fdb\u5ea6 {i}/{len(jobs)} · ok={ok} skip={skip} fail={fail}", flush=True)
         time.sleep(0.2)   
 
+    json.dump(sorted(_DONE), open("ledger.json", "w", encoding="utf-8"), ensure_ascii=False)
     print(f"\n=== shard {a.shard} \u5b8c ok={ok} skip={skip} fail={fail} · {(time.time()-t0)/60:.1f}min ===", flush=True)
-
 
 if __name__ == "__main__":
     main()
