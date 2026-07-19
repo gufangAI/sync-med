@@ -127,6 +127,10 @@ def download_volume_pdf(identifier, pdf_name, dest_path):
     return os.path.getsize(dest_path)
 
 
+# 2026-07-19修复:原每页一次s3.head_object()查重,改GitHub缓存本地_DONE记账(同ocr_ndl.py/ocr.py方法)。
+_DONE = set()
+
+
 def render_and_upload(identifier, vol, pdf_path, expected_pages):
     # Import fitz lazily so a metadata-only dry run (not exercised by this script today,
     # but keeps the module importable in odd environments) doesn't require the wheel.
@@ -140,13 +144,9 @@ def render_and_upload(identifier, vol, pdf_path, expected_pages):
     for i in range(n_pages):
         page_no = i + 1
         key = f"{prefix}page_{page_no:04d}.webp"
-        try:
-            s3.head_object(Bucket=BUCKET, Key=key)
+        if key in _DONE:
             skipped += 1
             continue
-        except ClientError as e:
-            if e.response.get("Error", {}).get("Code") not in ("404", "NoSuchKey", "NotFound"):
-                raise
         try:
             page = doc.load_page(i)
             # Render at a DPI that lands close to MAX_LONG_EDGE on the page's long side,
@@ -165,6 +165,7 @@ def render_and_upload(identifier, vol, pdf_path, expected_pages):
             buf = io.BytesIO()
             im.save(buf, format="WEBP", quality=WEBP_QUALITY)
             s3.put_object(Bucket=BUCKET, Key=key, Body=buf.getvalue(), ContentType="image/webp")
+            _DONE.add(key)
             uploaded += 1
         except Exception as e:
             print(f"ERR page {identifier} v{vol_str} p{page_no}: {str(e)[:80]}", flush=True)
@@ -231,6 +232,14 @@ def process_volume(identifier, vinfo, title, license_note):
 
 
 def main():
+    global _DONE
+    if os.path.exists("ledger.json"):
+        try:
+            _DONE = set(json.load(open("ledger.json", encoding="utf-8")))
+        except Exception:
+            _DONE = set()
+    print(f"ledger已有 {len(_DONE)} 条记录", flush=True)
+
     if not IDENTIFIER:
         raise SystemExit("IDENTIFIER env var required")
     meta = fetch_item_metadata(IDENTIFIER)
@@ -257,6 +266,7 @@ def main():
         ledger.append(entry)
     lk = f"_ledger/fojing_ia_{IDENTIFIER}_shard_{SHARD}.json"
     s3.put_object(Bucket=BUCKET, Key=lk, Body=json.dumps(ledger, ensure_ascii=False, indent=1).encode("utf-8"))
+    json.dump(sorted(_DONE), open("ledger.json", "w", encoding="utf-8"), ensure_ascii=False)
     print(f"=== shard {SHARD} complete, {len(ledger)} volumes -> ledger {lk} ===", flush=True)
 
 
