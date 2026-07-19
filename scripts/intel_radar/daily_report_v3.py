@@ -855,6 +855,48 @@ async def analyze_all_parallel(
 
 
 
+_STOPWORDS = {"the", "a", "an", "for", "with", "and", "of", "to", "in", "on",
+              "api", "llm", "ai", "free", "gateway", "proxy", "openai"}
+
+
+def _tokens(text):
+    words = re.findall(r"[a-z0-9一-鿿]+", (text or "").lower())
+    return {w for w in words if len(w) > 1 and w not in _STOPWORDS}
+
+
+def prefilter_dedup(items, sim_threshold=0.6):
+    'Layer2-lite pre-filter (cheap, rule-based, runs BEFORE the LLM analysis pass): \
+drops near-duplicate items (Jaccard token overlap on title+abstract) so the LLM \
+budget is not spent re-scoring 5+ near-identical "free gateway" repos every day. \
+Items are assumed already sorted by relevance/stars (first occurrence wins).'
+    kept = []
+    kept_token_sets = []
+    dropped = 0
+    for item in items:
+        toks = _tokens(item.get("title", "")) | _tokens(item.get("abstract", "")[:200])
+        if not toks:
+            kept.append(item)
+            kept_token_sets.append(toks)
+            continue
+        is_dup = False
+        for prev_toks in kept_token_sets:
+            if not prev_toks:
+                continue
+            overlap = len(toks & prev_toks) / len(toks | prev_toks)
+            if overlap >= sim_threshold:
+                is_dup = True
+                break
+        if is_dup:
+            dropped += 1
+            continue
+        kept.append(item)
+        kept_token_sets.append(toks)
+    if dropped:
+        print(f"  [Layer2 prefilter] dropped {dropped} near-duplicate items "
+              f"({len(items)} -> {len(kept)})", flush=True)
+    return kept
+
+
 def merge_picks(all_items: list, raw_picks: list, top_n: int = 50,
                min_score: int = 2) -> list:
     '\n    \u628a raw_picks \u6620\u5c04\u56de all_items\uff0c\u53bb\u91cd\uff0c\u6309\u5206\u6570\u6392\u5e8f\uff0c\u53d6 TOP N\u3002\n    min_score: \u6700\u4f4e\u5165\u9009\u5206 (\u9ed8\u8ba4 2\uff0c\u8fc7\u6ee4 modelscope \u8fc7\u5bbd\u677e\u7684\u5168\u91cf\u547d\u4e2d)\n    '
@@ -1106,9 +1148,12 @@ def main():
 
     
     hf_models_sample = hf_models[:50] if hf_models else []
-    
+
+    freebies = prefilter_dedup(freebies)
+
     analyze_items = (arxiv_papers + hf_papers + pubmed_papers + github_repos
                      + hf_models_sample + freebies + cn_items + hn_items)
+    analyze_items = prefilter_dedup(analyze_items)
     total_analyzed = len(analyze_items)
     print(f"  \u5b9e\u9645\u5206\u6790: {total_analyzed} \u6761 (HF Models \u622a\u53d6\u524d 50)")
 
