@@ -70,13 +70,24 @@ _pilot = os.environ.get("PILOT", "").strip()
 if _pilot:
     mine = mine[:int(_pilot)]   # small first-batch trial before full run
 print(f"shard {SHARD}/{TOTAL} imgs {len(mine)}/{len(imgs)} pilot={_pilot or 'no'}", flush=True)
+
+# 2026-07-19修复:原来每页一次 s3.head_object() 查重(每6小时对全量候选池重复扫一遍),
+# 是R2 HeadObject成本异常的真凶之一(实测最近24小时guyaofang-lib桶243万次HeadObject)。
+# 改用GitHub Actions cache本地ledger.json记账,跟今天已经验证过、跑通的ocr_ndl.py同一套方法。
+LEDGER = "ledger.json"
+ledger = set()
+if os.path.exists(LEDGER):
+    try:
+        ledger = set(json.load(open(LEDGER, encoding="utf-8")))
+    except Exception:
+        ledger = set()
+print(f"ledger已有 {len(ledger)} 条记录", flush=True)
+
 done = 0; skipped = 0
 for k in mine:
     txtkey = "_ocr/" + k[len("book/"):].rsplit(".", 1)[0] + ".txt"
-    try:
-        s3.head_object(Bucket=BUCKET, Key=txtkey); skipped += 1; continue   # already OCR'd, skip (idempotent)
-    except Exception:
-        pass
+    if txtkey in ledger:
+        skipped += 1; continue
     try:
         b = s3.get_object(Bucket=BUCKET, Key=k)["Body"].read()
         im = np.array(Image.open(io.BytesIO(b)).convert("RGB"))[:, :, ::-1]  # PIL decodes webp->RGB; RapidOCR wants BGR (cv2)
@@ -84,10 +95,13 @@ for k in mine:
         txt = "\n".join(l[1] for l in (res or []))   # res = [[box, text, score], ...]
         s3.put_object(Bucket=BUCKET, Key=txtkey, Body=txt.encode("utf-8"))
         done += 1
+        ledger.add(txtkey)
         if done % 20 == 0:
             print(f"done {done}/{len(mine)}", flush=True)
     except Exception as e:
         print("ERR", k, str(e)[:50], flush=True)
+
+json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocr_{SHARD}.json",
               Body=json.dumps({"shard": SHARD, "total": len(mine), "ocrd": skipped + done, "new": done}).encode())
 print(f"=== shard {SHARD} OCR {done} new, {skipped + done}/{len(mine)} done ===", flush=True)
