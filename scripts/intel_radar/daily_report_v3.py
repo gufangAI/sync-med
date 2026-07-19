@@ -1164,7 +1164,7 @@ def main():
     
     if args.cloud:
         _push_issue(today, top_items, raw_counts, total_raw, total_analyzed,
-                    elapsed, models_used)
+                    elapsed, models_used, synthesis_md=synthesis_md)
 
     
     push_wechat(today, top_items, raw_counts, total_raw, total_analyzed,
@@ -1321,7 +1321,8 @@ def push_wechat(today: str, top_items: list, raw_counts: dict,
 
 def _push_issue(today: str, top_items: list, raw_counts: dict,
                 total_raw: int, total_analyzed: int,
-                elapsed: float, models_used: list):
+                elapsed: float, models_used: list,
+                synthesis_md: Optional[str] = None):
     '\n    \u7528 gh CLI \u521b\u5efa Issue \u5230 gufangAI/sync-med\u3002\n    GH_TOKEN \u7531 Actions \u81ea\u52a8\u6ce8\u5165,\u65e0\u9700\u989d\u5916\u914d\u7f6e\u3002\n    '
     import subprocess
 
@@ -1343,8 +1344,13 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
         f"\u7cbe\u534e: **{top_n} \u6761** | \u7cbe\u534e\u7387: {rate}",
         f"> \u5206\u6790\u6a21\u578b: {', '.join(models_used)} | \u8017\u65f6: {elapsed:.0f}s",
         "",
-        "---",
-        "",
+    ]
+    if synthesis_md:
+
+        body_lines.append(synthesis_md)
+    else:
+        body_lines += ["---", ""]
+    body_lines += [
         '### \u7cbe\u534e TOP 15',
         "",
     ]
