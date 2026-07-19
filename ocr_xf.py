@@ -119,15 +119,24 @@ print(f"shard {SHARD}/{TOTAL} key#{SHARD % len(KEYS)} imgs {len(mine)}/{len(imgs
 
 lock = threading.Lock(); cnt = {"done": 0, "skip": 0, "err": 0}
 
+# 2026-07-19修复:原每页一次s3.head_object()查重,改GitHub缓存本地ledger.json记账
+# (同ocr_ndl.py/ocr.py方法),避免每次跑对全量候选重复敲R2。线程安全:复用现成lock。
+LEDGER = "ledger.json"
+ledger = set()
+if os.path.exists(LEDGER):
+    try:
+        ledger = set(json.load(open(LEDGER, encoding="utf-8")))
+    except Exception:
+        ledger = set()
+print(f"ledger已有 {len(ledger)} 条记录", flush=True)
+
 
 def work(k):
     txtkey = "_ocr/" + k[len("book/"):].rsplit(".", 1)[0] + ".txt"
-    try:
-        s3.head_object(Bucket=BUCKET, Key=txtkey)
-        with lock: cnt["skip"] += 1
-        return
-    except Exception:
-        pass
+    with lock:
+        if txtkey in ledger:
+            cnt["skip"] += 1
+            return
     try:
         b = s3.get_object(Bucket=BUCKET, Key=k)["Body"].read()
         txt = ocr_page(base64.b64encode(b).decode())
@@ -136,6 +145,7 @@ def work(k):
             return
         s3.put_object(Bucket=BUCKET, Key=txtkey, Body=txt.encode("utf-8"))
         with lock:
+            ledger.add(txtkey)
             cnt["done"] += 1
             if cnt["done"] % 20 == 0:
                 print(f"done {cnt['done']} / mine {len(mine)}", flush=True)
@@ -147,6 +157,7 @@ def work(k):
 with ThreadPoolExecutor(max_workers=WORKERS) as ex:
     list(ex.map(work, mine))
 
+json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocrxf_{SHARD}.json",
               Body=json.dumps({"shard": SHARD, "total": len(mine),
                                "ocrd": cnt["skip"] + cnt["done"], "new": cnt["done"], "err": cnt["err"]}).encode())
