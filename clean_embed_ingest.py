@@ -169,6 +169,17 @@ def main():
     mine = [b for i, b in enumerate(books) if i % TOTAL == SHARD]
     print(f"[shard {SHARD}/{TOTAL}] key#{SHARD % len(KEYS)} manifest={len(books)} books, mine={len(mine)}", flush=True)
 
+    # 2026-07-19修复:原来每本书一次 s3.head_object() 查重(每6小时对全量候选重复扫一遍),
+    # 是R2 HeadObject成本异常的确认真凶之一,改用GitHub Actions cache本地ledger.json记账。
+    LEDGER = "ledger.json"
+    ledger = set()
+    if os.path.exists(LEDGER):
+        try:
+            ledger = set(json.load(open(LEDGER, encoding="utf-8")))
+        except Exception:
+            ledger = set()
+    print(f"ledger已有 {len(ledger)} 条记录", flush=True)
+
     ok_books, skip_books, fail_books, total_vecs = 0, 0, 0, 0
     t0 = time.time()
 
@@ -176,13 +187,11 @@ def main():
         source, key, label = item["source"], item["key"], item.get("book", item["key"])
         bh = key_hash(source, key)
         done_key = DONE_PREFIX + source + "_" + bh + ".done"
+        lkey = source + "_" + bh
 
-        try:
-            s3.head_object(Bucket=BUCKET, Key=done_key)
+        if lkey in ledger:
             skip_books += 1
             continue
-        except Exception:
-            pass
 
         src_key = "%s%s/%s.txt" % (PREFIX, source, key)
         try:
@@ -194,6 +203,7 @@ def main():
 
         if not text or len(text.strip()) < MIN_BOOK_CHARS:
             s3.put_object(Bucket=BUCKET, Key=done_key, Body=b"")  # empty book, mark done to avoid re-reading forever
+            ledger.add(lkey)
             skip_books += 1
             continue
 
@@ -234,6 +244,7 @@ def main():
 
         if book_ok:
             s3.put_object(Bucket=BUCKET, Key=done_key, Body=b"")
+            ledger.add(lkey)
             ok_books += 1
             total_vecs += len(rows)
             if i % 20 == 0 or i == len(mine):
@@ -243,6 +254,8 @@ def main():
                       flush=True)
         else:
             fail_books += 1
+
+    json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
 
     elapsed = time.time() - t0
     print(f"=== shard {SHARD} done: ok={ok_books} skip={skip_books} fail={fail_books} "
