@@ -292,19 +292,23 @@ def build_plain_ass(word_timings, out_path="subs_plain.ass", w=1080, h=1920, off
 
 
 # ---------- 4. real rare-book page images (unique asset — keep this, it is our differentiator) ----------
-# History: the old `book/{BOOK}/page_NNNN.webp` R2 key this used to read (raw boto3 get_object) 404s
-# for every page -- confirmed R2 is no longer the live source for v2 books (page.js's own 2026-07-19
-# comment: v2 books' R2 images are 100% migrated to 123 pan, R2.get() there is a guaranteed-fail
-# no-op it deliberately skips). A first fix (2026-07-20 same day) routed image fetches through the
-# public production reader API (/api/reader/{book_code}/page) instead -- that worked, but the
-# founder caught it as the wrong landing spot: that endpoint serves real paying readers (paywall
-# gate, ~86k/month 403 hits on it already per a CF traffic check) and an internal batch job like
-# this one has no business adding load there. Corrected fix (still 2026-07-20): fetch straight from
-# 123 pan, the actual storage, bypassing guyaofang-web's API entirely -- mirrors the exact D1-lookup
-# + 123-list/download pattern already used elsewhere in this repo (sync.py's _rebuild_pages_from_d1
-# for the D1 HTTP API call shape) and in guyaofang-web's own functions/api/_lib/pan123.js
-# (fetchPageFrom123: same token/list/download_info/download sequence, same page_NNNN.webp naming,
-# same PAN_CLIENT_ID/PAN_CLIENT_SECRET credential pair -- reused here rather than inventing a new one).
+# History (all 2026-07-20, same day): the old `book/{BOOK}/page_NNNN.webp` R2 key this used to read
+# (raw boto3 get_object) 404s for every page -- that key prefix looks like a one-off manual mirror
+# that just went stale, not the platform's real convention. Fix #1 routed image fetches through the
+# public production reader API (/api/reader/{book_code}/page) instead -- worked, but the founder
+# caught it as the wrong landing spot: that endpoint serves real paying readers (paywall gate,
+# ~86k/month 403 hits on it already per a CF traffic check) and an internal batch job has no
+# business adding load there. Fix #2 (this one): fetch straight from the real storage via a D1
+# lookup, bypassing guyaofang-web's API entirely -- mirrors the D1-lookup pattern already used
+# elsewhere in this repo (sync.py's _rebuild_pages_from_d1 for the HTTP API call shape) and the
+# exact two-branch source logic guyaofang-web's functions/api/reader/[book_code]/page.js itself
+# uses: pan_dir_id set -> fetch from 123 pan (same token/list/download_info/download sequence as
+# functions/api/_lib/pan123.js's fetchPageFrom123, same PAN_CLIENT_ID/PAN_CLIENT_SECRET pair);
+# pan_dir_id NOT set -> that book hasn't been migrated off R2 yet, read {webp_prefix}page_NNNN.webp
+# from R2 instead (real 2026-07-20 D1 query: only ~88.5%, 46,361/52,402 upload_status='done' rows,
+# have pan_dir_id set -- the R2-to-123 migration is real but not total, and this script's own
+# default test book, ylgc_2, happens to be one of the ~6,000 not-yet-migrated ones). Mirroring both
+# branches instead of assuming one keeps this correct for either kind of book.
 PAN_BASE = "https://open-api.123pan.com"
 _pan_tok = {"v": None}
 
@@ -362,50 +366,53 @@ def _pan_download_bytes(file_id):
     return http_bytes(url, timeout=60)
 
 
-def _lookup_pan_dir_id(book_id):
-    # exact match first, then the same "old id is a suffix of the new id" fallback page.js uses.
+def _lookup_book_source(book_id):
+    """Mirrors page.js's own two-branch source logic exactly, rather than assuming every book is
+    already migrated to 123: 2026-07-20 diagnostics (a real dispatch run's D1 query, not a guess)
+    found only 46,361 of 52,402 upload_status='done' books_assets_v2 rows (~88.5%) have pan_dir_id
+    set -- the migration is real but not total, and ylgc_2 (this script's own default/test book)
+    happens to be one of the ~6,000 not-yet-migrated ones, still correctly served from R2 in
+    production. page.js's rule: pan_dir_id set -> 123; otherwise -> R2 at {webp_prefix}page_NNNN.webp.
+    Mirror both branches so this keeps working regardless of which side any given book is on."""
     rows = _d1_query(
-        "SELECT pan_dir_id, upload_status FROM books_assets_v2 WHERE book_id = ? LIMIT 1",
+        "SELECT pan_dir_id, webp_prefix, upload_status FROM books_assets_v2 WHERE book_id = ? LIMIT 1",
         [book_id])
-    print(f"[123] exact-match query for book_id={book_id!r} -> {rows}", flush=True)
-    if not rows or not rows[0].get("pan_dir_id"):
-        rows2 = _d1_query(
-            "SELECT book_id, pan_dir_id, upload_status FROM books_assets_v2 WHERE book_id LIKE ? LIMIT 5",
+    if not rows:
+        rows = _d1_query(
+            "SELECT book_id, pan_dir_id, webp_prefix, upload_status FROM books_assets_v2 "
+            "WHERE upload_status = 'done' AND book_id LIKE ? LIMIT 2",
             ["%" + book_id])
-        print(f"[123] suffix-LIKE diagnostic for %{book_id} -> {rows2}", flush=True)
-        rows = [r for r in rows2 if r.get("pan_dir_id")]
-    if not rows or not rows[0].get("pan_dir_id"):
-        # 2026-07-20 debug: book_id resolves in this D1 with upload_status='done' but pan_dir_id
-        # is NULL, which contradicts the live reader API (which DOES serve this exact book via
-        # pan123, X-Source: v2+pan123) -- either this D1_DATABASE_ID isn't the same database
-        # guyaofang-web's Worker binds as env.DB, or the pan_dir_id backfill for this book hasn't
-        # landed in whatever this points to. One-shot aggregate to tell those apart.
-        agg = _d1_query(
-            "SELECT COUNT(*) AS total, "
-            "SUM(CASE WHEN pan_dir_id IS NOT NULL AND pan_dir_id != '' THEN 1 ELSE 0 END) AS with_pandir "
-            "FROM books_assets_v2 WHERE upload_status = 'done'")
-        print(f"[123] aggregate diagnostic (upload_status='done' rows) -> {agg}", flush=True)
-    pan_dir_id = rows[0].get("pan_dir_id") if rows else None
-    if not pan_dir_id:
-        raise SystemExit(f"no pan_dir_id in D1 for book_id={book_id!r} — can't locate its 123 folder")
-    return pan_dir_id
+        if len(rows) != 1:
+            rows = []
+    if not rows:
+        raise SystemExit(f"book_id={book_id!r} not found in books_assets_v2 (D1) at all")
+    row = rows[0]
+    print(f"[source] {book_id} -> pan_dir_id={row.get('pan_dir_id')!r} webp_prefix={row.get('webp_prefix')!r}", flush=True)
+    return row.get("pan_dir_id"), row.get("webp_prefix")
 
 
 def fetch_images():
-    pan_dir_id = _lookup_pan_dir_id(BOOK)
-    print(f"[123] {BOOK} -> pan_dir_id={pan_dir_id}", flush=True)
+    pan_dir_id, webp_prefix = _lookup_book_source(BOOK)
     out = []
     for i, p in enumerate(PAGES):
         page_str = f"{p:04d}"
         filename = f"page_{page_str}.webp"
         try:
-            file_id = _pan_find_file_id(pan_dir_id, filename)
-            if not file_id:
-                print("img miss (not found in 123 folder)", filename, flush=True)
-                continue
-            b = _pan_download_bytes(file_id)
-            if not b:
-                print("img miss (download_info/download failed)", filename, flush=True)
+            if pan_dir_id:
+                file_id = _pan_find_file_id(pan_dir_id, filename)
+                if not file_id:
+                    print("img miss (not found in 123 folder)", filename, flush=True)
+                    continue
+                b = _pan_download_bytes(file_id)
+                if not b:
+                    print("img miss (download_info/download failed)", filename, flush=True)
+                    continue
+            elif webp_prefix:
+                # not yet migrated to 123 -- same R2 key page.js's own R2-fallback branch reads
+                key = f"{webp_prefix}{filename}"
+                b = s3.get_object(Bucket=S_BUCKET, Key=key)["Body"].read()
+            else:
+                print("img miss (no pan_dir_id and no webp_prefix for this book)", filename, flush=True)
                 continue
             fn = f"img{i}.webp"; open(fn, "wb").write(b); out.append(fn)
         except Exception as e:
