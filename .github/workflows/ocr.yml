@@ -43,6 +43,13 @@ jobs:
         with:
           python-version: "3.10"
       - run: pip install --quiet rapidocr-onnxruntime boto3 requests pillow "numpy<2"
+      - name: restore ledger cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ledger.json
+          key: ocr-ledger-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            ocr-ledger-s${{ matrix.shard }}-
       - run: python ocr.py
         env:
           S_EP: ${{ secrets.S_EP }}
@@ -56,3 +63,9 @@ jobs:
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ github.event.inputs.total || '256' }}
           PILOT: ${{ github.event.inputs.pilot }}
+      - name: save ledger cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ledger.json
+          key: ocr-ledger-s${{ matrix.shard }}-${{ github.run_id }}
