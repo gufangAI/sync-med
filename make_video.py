@@ -392,6 +392,12 @@ if __name__ == "__main__":
     render_body_clips(imgs, audio_s)
     burn_mode = burn_and_mux("subs.ass", "subs_plain.ass")
 
+    # debug thumbnails so a human (or the agent driving this pipeline) can visually confirm
+    # subtitle sync/quality from the GH Actions artifact without needing to play the full mp4.
+    for ts in (1.0, max(2.0, audio_s * 0.5), max(3.0, audio_s - 1.0)):
+        subprocess.run(["ffmpeg", "-y", "-ss", f"{ts:.2f}", "-i", "out.mp4", "-frames:v", "1",
+                         f"thumb_{ts:.1f}.jpg"], capture_output=True, text=True)
+
     ok, reasons = quality_gate("out.mp4", audio_s, n_lines)
     print(f"[gate] ok={ok} burn_mode={burn_mode} reasons={reasons}", flush=True)
 
