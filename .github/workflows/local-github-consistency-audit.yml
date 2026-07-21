@@ -1,0 +1,111 @@
+name: 🔍 本地-GitHub 一致性审计
+
+# 立此因(2026-07-21/22 夜审计发现): tools/rag/bulk_ingest_vectorize.py 配套写的
+# .github/workflows/bulk_ingest_rag.yml 从来没有 push 到 GitHub、从来没有真正跑过——
+# 182.8 万向量的生产索引实际是人工本地手动跑脚本喂出来的,长期被误以为"有自动化管线在跑"。
+# 这是常态化巡查,不是查一次就关:每周扫一遍"本地曾经写过 vs 远端真实存在"(维度1)、
+# "远端真存在 vs 从未真正跑过的幽灵 workflow"(维度2)、"本地/仓库声称的进度 vs D1/Vectorize
+# 生产真实状态"(维度3)。脚本 + 设计说明: scripts/local_github_consistency_audit.py
+#
+# 云端模式的诚实边界: ubuntu-latest checkout 到的只是"已提交"的仓库状态,天然看不到本机
+# F 盘上从未 git add 过的文件(维度1A)。这部分需要在本机跑 --mode local 才能查全,
+# 云端报告会明确写"本次为云端模式,未做本机深度扫描",不假装什么都查到了。
+on:
+  schedule:
+    - cron: '0 2 * * 2'   # 每周二 02:00 UTC = 10:00 北京(避开周一03:00 code-self-audit / 周四03:00 competitor-reg-radar)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: local-github-consistency-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: checkout sync-med(本仓库,脚本所在处)
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: run consistency audit (cloud mode)
+        id: audit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # 跨仓库读 hosonzuo8848/guyaofang(私有仓,guyaofang-web)的 Actions/contents/search API;
+          # 复用 code-self-audit.yml 已验证可用的同一个 PAT,不新开凭据。
+          GUYAOFANG_TOKEN: ${{ secrets.GUYAOFANG_CHECKOUT_TOKEN }}
+          # 维度3 · Cloudflare 只读查询(Vectorize info + D1 SELECT),全部复用现有 secrets
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN_SCOPED: ${{ secrets.CF_API_TOKEN_SCOPED }}
+          CF_GLOBAL_EMAIL: ${{ secrets.CF_GLOBAL_EMAIL }}
+          CF_GLOBAL_API_KEY: ${{ secrets.CF_GLOBAL_API_KEY }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+        run: python scripts/local_github_consistency_audit.py --mode cloud --json audit_result.json
+
+      - name: Create or update weekly Issue
+        uses: actions/github-script@v7
+        env:
+          REPORT_BODY: ${{ steps.audit.outputs.report_body }}
+          ALERT_COUNT: ${{ steps.audit.outputs.alert_count }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const today = new Date().toISOString().slice(0, 10);
+            const alertCount = parseInt(process.env.ALERT_COUNT || '0', 10);
+
+            const baseTitle = `本地-GitHub 一致性审计 ${today}`;
+            const issueTitle = alertCount > 0 ? `⚠️异常 🔍 ${baseTitle}` : `🔍 ${baseTitle}`;
+            const reportBody = process.env.REPORT_BODY || '(报告为空,请检查脚本输出)';
+
+            const { data: existingLabelIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'local-github-consistency-audit',
+              state: 'open',
+              per_page: 50,
+            });
+
+            const existing = existingLabelIssues.find(issue =>
+              issue.title.includes(`一致性审计 ${today}`)
+            );
+
+            if (existing) {
+              const newBody = existing.body + '\n\n---\n\n' + reportBody;
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                title: issueTitle,
+                body: newBody,
+              });
+              console.log(`Updated issue #${existing.number}: ${issueTitle}`);
+            } else {
+              const { data: newIssue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: reportBody,
+                labels: ['local-github-consistency-audit'],
+              });
+              console.log(`Created issue #${newIssue.number}: ${issueTitle}`);
+              console.log(`Issue URL: ${newIssue.html_url}`);
+            }
+
+      - name: upload full report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: consistency-audit-${{ github.run_id }}
+          path: |
+            audit_result.json
+          if-no-files-found: ignore
+          retention-days: 30
