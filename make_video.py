@@ -6,9 +6,16 @@
 # ALSO returns real word-level timestamps (WordBoundary events) -> ASS karaoke subtitles built from
 # those exact timestamps (word highlights precisely when it is actually spoken, not a guessed/evenly
 # -split overlay) -> real rare-book page images (fetched straight from 123 pan via a D1 lookup, see
-# fetch_images()) with varied Ken-Burns (not one identical zoom for every clip) -> burn subs -> mux
+# fetch_images()) with varied Ken-Burns (not one identical zoom for every clip) + xfade cross-fades
+# between clips (not a hard cut) -> burn subs -> mux
 # voice -> automated quality gate (duration / black-frame / non-empty subtitle checks) before it is
 # allowed to land in R2 `_video/`.
+#
+# 2026-07-21: render_body_clips() now joins clips with ffmpeg's xfade filter (fade/fadeblack/
+# dissolve/wipeleft, rotated by clip index -- see TRANSITIONS below) instead of the old "-f concat
+# -c copy" hard cut. Clip durations are padded up front to exactly compensate for the overlap xfade
+# introduces, so the total slide.mp4 length (and therefore subtitle/audio sync via burn_and_mux's
+# "-shortest" mux) is unchanged from the hard-cut version. See render_body_clips() for the offset math.
 #
 # Free-only resource stack: nova-gateway (proxies modelscope/sensenova/agnes/gemini/groq/nvidia/
 # siliconflow — verified via GET / health probe, no Cloudflare Workers AI anywhere) + the production
@@ -39,6 +46,10 @@ BOOK = os.environ.get("BOOK", "ylgc_2")
 # goes through the guest-metered public reader API -- see the 2026-07-20 note on fetch_images()).
 PAGES = [int(x) for x in os.environ.get("PAGES", "1,2,3,4,5").split(",")]
 VOICE = os.environ.get("VOICE", "zh-CN-XiaoxiaoNeural")
+# cross-fade duration between body clips (render_body_clips, 2026-07-21). Kept short/subtle on
+# purpose to suit solemn classical-text narration -- see render_body_clips() for the offset math
+# and why this is always safe against the seg=max(2.4, ...) per-clip floor below.
+TRANS_DUR = float(os.environ.get("TRANS_DUR", "0.5"))
 
 # Curated rotation so the cron'd (unattended) runs don't produce the same clip every day.
 # Each tuple is (expert_key matching /api/ai/expert's EXPERTS map, display name, a symptom/pulse
@@ -440,14 +451,35 @@ def kb_expr(preset_i, d, fps):
     return f"zoompan=z='{z}':x='{x}':y='{y}':d={d}:s=1080x1920:fps={fps}"
 
 
+# tasteful, restrained cross-fade rotation to match the "classical text lecture" tone (2026-07-21) --
+# deliberately NOT using the flashier/technical xfade transitions (radial, pixelize, squeeze*,
+# wind*, etc.) that would clash with the calm Ken-Burns push-ins/pans above. Same "% len(...)"
+# rotation-by-index pattern as kb_expr's preset_i % 4, so a 5-image clip (the default PAGES count)
+# cycles through all four exactly once with no repeats.
+TRANSITIONS = ["fade", "fadeblack", "dissolve", "wipeleft"]
+
+
+def xfade_name(transition_i):
+    return TRANSITIONS[transition_i % len(TRANSITIONS)]
+
+
 def render_body_clips(imgs, total_audio_s):
     fps = 30
     n = len(imgs)
     seg = max(2.4, total_audio_s / n)
+    # xfade transitions overlap (n-1) cuts by trans_dur seconds each; swapping "-f concat -c copy"
+    # for xfade with no compensation would land the final slide.mp4 (n-1)*trans_dur seconds SHORTER
+    # than before, and burn_and_mux()'s "-shortest" mux against voice.mp3 (sized off this very
+    # total_audio_s) would then silently clip the tail of the narration/subtitles. Pad every clip by
+    # its even share of that overlap up front so the POST-transition total still lands on the same
+    # n*seg target the pipeline always used -- i.e. subtitle/audio sync is unaffected.
+    trans_n = max(0, n - 1)
+    trans_dur = min(TRANS_DUR, seg * 0.3) if trans_n else 0.0  # safety clamp: never eat >30% of a clip
+    seg_padded = seg + (trans_n * trans_dur / n)
+    d = int(seg_padded * fps)
     clips = []
     for i, im in enumerate(imgs):
         c = f"clip{i}.mp4"
-        d = int(seg * fps)
         vf = ("scale=1350:2400:force_original_aspect_ratio=increase,crop=1350:2400," + kb_expr(i, d, fps) + ",setsar=1")
         # IMPORTANT: no "-t" on the input here. "-loop 1 -t X -i img" makes the input itself emit
         # ~X seconds of frames (at the default 25fps), and zoompan's own d= then holds/expands EACH
@@ -458,8 +490,36 @@ def render_body_clips(imgs, total_audio_s):
         sh(["ffmpeg", "-y", "-loop", "1", "-i", im,
             "-vf", vf, "-frames:v", str(d), "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "veryfast", c])
         clips.append(c)
-    open("concat.txt", "w").write("\n".join(f"file '{c}'" for c in clips))
-    sh(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "concat.txt", "-c", "copy", "slide.mp4"])
+
+    if n == 1:
+        # nothing to cross-fade into -- keep the single clip as-is (matches the old
+        # concat-demuxer-of-one behaviour, which was already just a pass-through).
+        os.replace(clips[0], "slide.mp4")
+        return seg * n
+
+    # Chain xfade across all clips in ONE ffmpeg call (filter_complex), rather than N sequential
+    # pairwise re-encodes. Clip lengths are uniform (every clip above was rendered at the same `d`
+    # frames), which gives xfade's offset= chain a clean closed form: each successive stage starts
+    # its transition trans_dur seconds before the RUNNING merged stream would otherwise end. Clips
+    # carry no audio track of their own (voice.mp3 is muxed in later by burn_and_mux), so only the
+    # video graph needs chaining -- no acrossfade/amix bookkeeping required.
+    clip_s = d / fps
+    inputs = []
+    for c in clips:
+        inputs += ["-i", c]
+    filters = []
+    prev_label = "0:v"
+    running_dur = clip_s
+    for i in range(1, n):
+        off = running_dur - trans_dur
+        out_label = "vout" if i == n - 1 else f"v{i}"
+        filters.append(
+            f"[{prev_label}][{i}:v]xfade=transition={xfade_name(i - 1)}:duration={trans_dur:.3f}:"
+            f"offset={off:.3f}[{out_label}]")
+        running_dur = running_dur + clip_s - trans_dur
+        prev_label = out_label
+    sh(["ffmpeg", "-y", *inputs, "-filter_complex", ";".join(filters), "-map", f"[{prev_label}]",
+        "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "veryfast", "slide.mp4"])
     return seg * n
 
 
