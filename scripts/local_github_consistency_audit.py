@@ -447,8 +447,15 @@ def audit_local_checkpoints_vs_reality(repo_slug: str, local_path: str, reality:
                 elif spec["kind"] == "last_summary_line":
                     non_empty = [l.strip() for l in lines if l.strip()]
                     entry["claimed_raw_last_line"] = non_empty[-1] if non_empty else None
-                    m = re.search(r"累计\s*(\d+)\s*块", non_empty[-1]) if non_empty else None
-                    entry["claimed"] = int(m.group(1)) if m else None
+                    # 真实日志两种收尾写法都见过:"累计3960块"(逐本行) / "3960 块入库"(轮次汇总行,
+                    # 实测这是文件真正的最后一行),两个都要认,取最后几行里能匹配到的第一个。
+                    claimed = None
+                    for line in reversed(non_empty[-5:]):
+                        m = re.search(r"累计\s*(\d+)\s*块|(\d+)\s*块入库", line)
+                        if m:
+                            claimed = int(m.group(1) or m.group(2))
+                            break
+                    entry["claimed"] = claimed
             except Exception as e:
                 entry["error"] = str(e)[:150]
         entry["real_value"] = _lookup_reality_value(reality, spec["compares_to"])
