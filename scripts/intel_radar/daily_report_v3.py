@@ -995,6 +995,50 @@ passing through as if the first-pass score alone proved real relevance.'
     return top_items
 
 
+def flag_action_worthy_items(top_items, min_score=4):
+    """给通过Layer3核验且分值达标的高置信度条目打上"建议立即验证"标记,让日报能直接指出哪几条值得当场派agent真测,不用每次口头一条条派。判据:score>=min_score(默认4星)且verified==True(通过怀疑式核验)。这一步只做客观阈值判断,不做"是否已在军火库台账里"这类跨云端-本地的比对(军火库总台账.md在本地F盘,这个脚本跑在云端GitHub Actions,两边没有同步机制,如实标注这个边界,不假装能做到)。"""
+    flagged = []
+    for item in top_items:
+        is_flagged = (item.get("score", 0) >= min_score and item.get("verified") is True)
+        item["action_flag"] = is_flagged
+        if is_flagged:
+            flagged.append(item)
+    print(f"  [自动分诊] {len(flagged)} 条达到\"建议立即验证\"阈值(score>={min_score}+已核验)", flush=True)
+    return top_items, flagged
+
+
+def generate_action_flags_section(flagged_items: list) -> str:
+    """生成"今日建议立即验证"板块,把自动分诊挑出的高置信度条目单独列在最前面,不用翻遍全部TOP15才能找到该行动的那几条。这不是自动派agent(还没有这个基础设施),只是把"该测哪条"这个判断做实,缩短从"鹰眼发现"到"决定要不要测"之间的人工来回。"""
+    if not flagged_items:
+        return (
+            '## \U0001f3af 今日建议立即验证\n\n'
+            '> 本轮无条目同时满足"score>=4且通过Layer3核验"这个阈值,不代表今天没有价值的发现,'
+            '仅代表没有条目达到"高置信度+低风险"的自动分诊标准,详见下方精华情报逐条判断。\n\n'
+            "---\n"
+        )
+    lines = [
+        '## \U0001f3af 今日建议立即验证',
+        "",
+        f'> 以下 {len(flagged_items)} 条同时满足 score>=4 星 且 通过Layer3怀疑式核验,'
+        '是本轮自动分诊挑出的高置信度信号,建议优先派agent真实测试/验证。'
+        '(注:这一步不比对本地军火库总台账.md是否已收录,本地台账和这个云端脚本目前没有同步机制,'
+        '如实标注,不假装做了这层判断)',
+        "",
+    ]
+    for item in flagged_items:
+        title = item.get("title", "")
+        url = item.get("url", "")
+        note = item.get("verify_note", "")
+        if url:
+            lines.append(f"- **[{title}]({url})** — {item.get('reason','')} (核验备注: {note})")
+        else:
+            lines.append(f"- **{title}** — {item.get('reason','')} (核验备注: {note})")
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    return "\n".join(lines)
+
+
 CATEGORY_EMOJI = {
     "RAG":       "🔍",
     '\u5224\u65ad\u5f15\u64ce':  "🧠",
@@ -1016,6 +1060,7 @@ def generate_report_v3(
     total_raw: int,
     total_analyzed: int,
     synthesis_md: Optional[str] = None,
+    action_flags_md: Optional[str] = None,
 ) -> str:
     '\u751f\u6210 Markdown \u62a5\u544a (\u5934\u90e8\u591a\u5b66\u79d1\u7814\u5224 + \u7cbe\u534e\u60c5\u62a5)'
     total_top = len(top_items)
@@ -1038,9 +1083,12 @@ def generate_report_v3(
         "",
     ]
 
-    
+
     if synthesis_md:
         lines.append(synthesis_md)
+
+    if action_flags_md:
+        lines.append(action_flags_md)
 
     lines += [
         '## \u7cbe\u534e\u60c5\u62a5 (\u6309\u5206\u503c\u6392\u5e8f)',
@@ -1241,21 +1289,25 @@ def main():
 
 
     synthesis_data: Optional[dict] = None
+    flagged_items: list = []
     if use_gateway or ZHIPU_KEY or NVIDIA_KEY:
         active_models_syn = (GATEWAY_MODELS if use_gateway
                              else ([ZHIPU_MODEL] if ZHIPU_KEY else [NVIDIA_MODEL]))
         top_items = verify_top_items(top_items, use_gateway, active_models_syn, verify_n=15)
+        top_items, flagged_items = flag_action_worthy_items(top_items)
         synthesis_data = generate_synthesis(top_items, use_gateway, active_models_syn)
     else:
         print('\n[\u591a\u5b66\u79d1\u7814\u5224] \u65e0 LLM \u53ef\u7528\uff0c\u8df3\u8fc7')
 
-    
+
     elapsed   = time.time() - t0
     synthesis_md = generate_synthesis_section(synthesis_data)
+    action_flags_md = generate_action_flags_section(flagged_items)
     report_md = generate_report_v3(
         today, raw_counts, top_items, elapsed, models_used,
         gateway_alive, total_raw, total_analyzed,
         synthesis_md=synthesis_md,
+        action_flags_md=action_flags_md,
     )
 
     out_path = REPORTS_DIR / f"{today}_v3.md"
