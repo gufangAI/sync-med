@@ -139,7 +139,11 @@ def _rewrite_via_nova(analysis, expert_name):
         "要求:①第一句要有钩子、制造悬念或反差,别用「大家好」这类开场白;"
         "②中间用现代白话讲清楚这个病案古籍怎么判、点一个具体方名和它的出处书名;"
         "③结尾自然带一句「古方AI星图,请AI专家分身为你解读古籍」;"
-        "④纯口播文字90-130字,不要emoji、不要分行、不要任何分镜/旁白标注,直接给能念出来的话,标点只保留逗号和句号。\n\n"
+        "④纯口播文字90-130字,不要emoji、不要分行、不要任何分镜/旁白标注,直接给能念出来的话,标点只保留逗号和句号;"
+        "⑤【硬性红线,一个字都不能犯】只准输出最终能直接照着念的口播正文本身,绝不能输出任何思考过程、"
+        "自我检查、自我提示、写作步骤说明这类念不得的「元话术」——凡是「此处需」「需要校验」「需先核实」"
+        "「接下来我」「让我来」「作为一个AI」「以上内容仅供参考」这类第一人称/自我指令/自检措辞,一个字都"
+        "不该出现在输出里;这些是你自己的草稿念头,不是讲给观众听的话。\n\n"
         f"研讨者:{expert_name}\n{raw}"
     )
     body = {"model": "auto", "messages": [{"role": "user", "content": prompt}],
@@ -165,13 +169,54 @@ def _local_compose_script(analysis, expert_name):
     body = bz
     if len(body) > 60:
         cut = body[:65]
-        m = re.search(r"^(.*[。!?])", cut)
+        # 改非贪婪:只截到窗口内第一个句末标点为止,不再贪到最后一个。
+        # 2026-07-21事故(lishizhen/二陈汤那条run):bz的前两句都落在这65字窗口内,旧的贪婪`.*`
+        # 会一路匹配到窗口里最后一个"。",把两句粘成一句——恰好第2句是模型自己漏出来的自检话术
+        # ("此处需先校验痰湿证对应的药物是否准确"),原样混进了body。这里原本的意图就是只取第一句
+        # (看下面紧跟着的"认为,{body}"措辞就知道)。下面的 _strip_meta_commentary() 是第二道、
+        # 各自独立的防线,防的是元话术万一是第1句而不是第2句这种情况。
+        m = re.search(r"^(.*?[。!?])", cut)
         body = m.group(1) if m else (cut + "。")
     mid = f"{expert_name}认为,{body}"
     if fname:
         mid += f"可参{fname}" + (f",出自{source}。" if source else "。")
     text = f"这则医案,{expert_name}会怎么判?" + mid + "古方AI星图,请AI专家分身为你解读古籍。"
     return text
+
+
+# ---------- 第二道防线:不管上面哪条路径产出的文本(nova-gateway改写 或 本地fallback拼装),
+# 只要漏进了AI自检/元话术句子,这里统一拦。真实事故:2026-07-21,expert_key=lishizhen/二陈汤那条run
+# (R2 key _video/yxf07_lishizhen_1784495237.mp4),拼出来的口播是"...一派痰湿内盛之象。李时珍思维
+# 强调先辨药后辨证，此处需先校验痰湿证对应的药物是否准确。可参二陈汤..."——中间那句不是专家人设该说
+# 的话,是底层模型把自己"要不要按指令自检"的内心戏当正文说出来了(expert.js的TAIL系统提示词是一份
+# 很长、条条框框很密的硬指标合同,免费档模型有时会把这种"合规自检"漏进内容字段本身;而
+# _local_compose_script() 是直接切上游这个字段、根本没走LLM改写,所以单靠改prompt治不了这条路径——
+# 上面那处非贪婪正则修复是针对同一起事故的第一道、更窄的防线)。_rewrite_via_nova() 里的prompt加固
+# 是第一道防线(只覆盖nova改写这条路径,而且得模型真听话才有效);这里的逐句过滤是第二道防线,扎在
+# 两条路径都必经的唯一卡口上,即使prompt失守,产线仍然安全。
+_META_PATTERNS = re.compile("|".join([
+    r"此处(应|需|须)", r"(需|须)(先|要)?(校验|核验|核实|确认)", r"接下来(我|,|，|要|将)",
+    r"让我(来|们)?", r"我(认为|觉得)(需要|应该)", r"本段(应|需|须)",
+    r"以上(内容|文字)(仅|只)供", r"作为(一个|一名)?(AI|人工智能|语言模型|助手)",
+    r"^(好的|好,|好，|嗯,|嗯，)", r"字数(要求|限制)", r"根据(用户|上文|上述|题目)(要求|指示)",
+    r"(需要|应)(重新)?(生成|改写|润色)", r"是否准确", r"是否合适", r"是否恰当",
+    r"<think", r"思考过程",
+]))
+
+
+def _strip_meta_commentary(text):
+    """按 。!? 切句(标点留在前一句尾),凡命中 _META_PATTERNS 的句子整句丢弃,剩下的重新拼接。
+    返回 (清洗后文本, 被丢弃的句子列表)。绝不返回空字符串:万一所有句子都命中(正常情况下不该发生——
+    这些pattern写得很窄),就整段原样放行、不清洗,好过上传一条空/近空的口播;但这种情况下返回空的
+    dropped 列表,调用方那行日志就能看出"这次没清洗成功",不会悄无声息地放水。"""
+    parts = [p for p in re.split(r"(?<=[。!?])", text) if p.strip()]
+    kept, dropped = [], []
+    for p in parts:
+        (dropped if _META_PATTERNS.search(p) else kept).append(p)
+    cleaned = "".join(kept).strip()
+    if not cleaned:
+        return text, []
+    return cleaned, dropped
 
 
 def gen_script_from_expert(analysis, expert_name):
@@ -186,6 +231,9 @@ def gen_script_from_expert(analysis, expert_name):
         # to composing the narration directly from the expert API's own grounded text.
         print("[script] nova-gateway rewrite failed, using local fallback composition:", str(e)[:200], flush=True)
         text = _local_compose_script(analysis, expert_name)
+    text, dropped = _strip_meta_commentary(text)
+    if dropped:
+        print(f"[script] 元话术过滤器丢弃了{len(dropped)}句: {dropped}", flush=True)
     text = re.sub(r"[\U0001F000-\U0001FAFF☀-➿]", "", text)   # strip emoji
     text = re.sub(r"[ \t\n]+", "", text)
     text = re.sub(r"[\"'“”]", "", text)
