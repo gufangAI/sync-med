@@ -176,24 +176,23 @@ def render_and_upload(identifier, vol, pdf_path, expected_pages):
     return {"pdf_pages": n_pages, "expected_pages": expected_pages, "uploaded": uploaded, "skipped": skipped, "errored": errored}
 
 
-def r2_count_pages(identifier, vol):
-    # Actual-state check used for the shard ledger's "R2 count" field (independent of
-    # what this run itself uploaded/skipped -- a true recount via list_objects_v2, scoped
-    # to this one small volume prefix only, never the whole bucket).
-    vol_str = f"{vol:04d}" if vol is not None else "0000"
-    prefix = f"ia/{identifier}-v{vol_str}/"
-    n = 0
-    token = None
-    while True:
-        kw = {"Bucket": BUCKET, "Prefix": prefix, "MaxKeys": 1000}
-        if token:
-            kw["ContinuationToken"] = token
-        resp = s3.list_objects_v2(**kw)
-        n += resp.get("KeyCount", 0)
-        if not resp.get("IsTruncated"):
-            break
-        token = resp.get("NextContinuationToken")
-    return n
+def r2_actual_page_count(result):
+    # Zero-LIST fix (2026-07-22, resolves the guard-no-list-objects red build): the old
+    # implementation paged through list_objects_v2 over the ia/{identifier}-v{vol}/ prefix
+    # to get an "independent of this run's own upload/skip bookkeeping" recount. That was
+    # scoped to one small per-volume prefix (never a full-bucket scan), but the CI guard
+    # is a repo-wide, scope-blind hard gate -- any list_objects_v2/get_paginator call trips
+    # it, so it has to go with zero exceptions rather than relying on "this one's scope is
+    # small, should be fine".
+    # Replacement: render_and_upload() already classifies every page in range(n_pages) this
+    # run -- either just put_object'd successfully (uploaded), already recognized via the
+    # _DONE ledger as present in R2 (skipped), or errored (never landed, correctly excluded).
+    # uploaded+skipped matches the old list-based count exactly, with zero extra R2 calls.
+    # Trade-off: this is no longer a recount independent of the local ledger -- it now
+    # trusts the same _DONE ledger that already gates the upload-skip decision. That is not
+    # a new trust surface; it is the same trust model accepted on 2026-07-19 when per-page
+    # head_object verification was replaced with the _DONE ledger.
+    return result["uploaded"] + result["skipped"]
 
 
 def process_volume(identifier, vinfo, title, license_note):
@@ -211,7 +210,7 @@ def process_volume(identifier, vinfo, title, license_note):
         # runner disk is ~14GB and a multi-hundred-GB item cannot all land on disk at once.
         if os.path.exists(pdf_path):
             os.remove(pdf_path)
-    r2_actual = r2_count_pages(identifier, vol)
+    r2_actual = r2_actual_page_count(result)
     entry = {
         "identifier": identifier, "vol": vol, "vol_str": vol_str,
         "title": title, "license": license_note,
