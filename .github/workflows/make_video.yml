@@ -7,7 +7,7 @@ on:
     inputs:
       book:
         description: R2 book id
-        default: "ylgc_2"
+        default: "yxf07"  # 2026-07-23: ylgc_2图掉进R2→123迁移空档会失败,换已验证可用的yxf07
       pages:
         description: comma page numbers (pages are fetched straight from 123 pan, not the public reader API)
         default: "1,2,3,4,5"
