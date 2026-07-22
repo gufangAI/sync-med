@@ -323,12 +323,55 @@ def gh_api_put(path: str) -> None:
         resp.read()
 
 
+SELF_HEAL_PAUSE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "self_heal_pause.json")
+
+
+def _load_self_heal_pause() -> set[str]:
+    """
+    2026-07-22 \u65b0\u589e(\u8865\u81ea\u6108\u8bef\u91cd\u5f00\u6d1e): \u8bfb\u672c\u5730\u6682\u505c\u540d\u5355。
+    \u4eba\u4e3a\u8981\u4e34\u65f6\u505c\u7528 WORKFLOWS \u91cc\u67d0\u4e2a\u53d7\u76d1\u63a7 workflow \u524d, \u628a file_name \u5199\u8fdb
+    self_heal_pause.json \u7684 paused \u6570\u7ec4\u91cc, self_heal_disabled() \u89c1\u5230\u5c31\u8df3\u8fc7,
+    \u7edd\u4e0d\u81ea\u52a8\u91cd\u65b0\u542f\u7528, \u5373\u4f7f GitHub API \u67e5\u5230 state != active。
+    \u6587\u4ef6\u4e0d\u5b58\u5728\u6216\u8bfb\u53d6\u89e3\u6790\u5931\u8d25, \u4e00\u5f8b\u5f53\u7a7a\u540d\u5355\u5904\u7406(\u7b49\u4e8e\u672c\u6b21\u6539\u52a8\u524d\u7684\u8001\u884c\u4e3a: \u7167\u5e38\u81ea\u6108),
+    \u4f46\u4f1a\u5728 stderr \u7559\u4e00\u6761\u8b66\u544a, \u65b9\u4fbf\u5de1\u67e5\u8005\u53d1\u73b0\u6587\u4ef6\u5199\u574f\u4e86。
+    """
+    if not os.path.exists(SELF_HEAL_PAUSE_FILE):
+        return set()
+    try:
+        with open(SELF_HEAL_PAUSE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        paused = data.get("paused", [])
+        if not isinstance(paused, list):
+            raise ValueError("paused \u5b57\u6bb5\u5fc5\u987b\u662f list")
+        return {str(x) for x in paused}
+    except Exception as e:
+        print(f"  [self_heal] \u8b66\u544a: \u8bfb {SELF_HEAL_PAUSE_FILE} \u5931\u8d25({e}), \u672c\u8f6e\u5f53\u7a7a\u540d\u5355\u5904\u7406(\u7167\u5e38\u81ea\u6108)", file=sys.stderr)
+        return set()
+
+
 def self_heal_disabled(file_name: str, cfg: dict) -> str | None:
-    '\n    2026-07-01 \u65b0\u589e(\u6cbb\u6839):\u53d1\u73b0\u88ab\u76d1\u63a7\u7684 workflow \u5904\u4e8e disabled \u72b6\u6001(\u624b\u52a8\u6216\u81ea\u52a8\u7981\u7528)\n    \u2192 \u7acb\u5373\u81ea\u52a8\u91cd\u65b0\u542f\u7528\uff0c\u4e0d\u7b49\u4eba\u6765\u770b Issue\u3001\u4e0d\u4f9d\u8d56\u4efb\u4f55\u5916\u90e8\u901a\u77e5/\u5524\u9192\u670d\u52a1\u3002\n    \u8fd9\u662f\u7eaf GitHub Actions \u5185\u81ea\u6108\uff0c\u6bcf\u5c0f\u65f6\u5de1\u67e5\u4e00\u6b21\u81ea\u52a8\u89e6\u53d1\uff0c\u6700\u574f\u60c5\u51b5 1 \u5c0f\u65f6\u5185\u81ea\u6108\u3002\n    \u8fd4\u56de:\u81ea\u6108\u52a8\u4f5c\u8bf4\u660e(str)\u6216 None(\u65e0\u9700\u81ea\u6108)\u3002\n    '
+    """
+    2026-07-01 \u65b0\u589e(\u6cbb\u6839): \u53d1\u73b0\u88ab\u76d1\u63a7\u7684 workflow \u5904\u4e8e disabled \u72b6\u6001(\u624b\u52a8\u6216\u81ea\u52a8\u7981\u7528),
+    \u7acb\u5373\u81ea\u52a8\u91cd\u65b0\u542f\u7528, \u4e0d\u7b49\u4eba\u6765\u770b Issue, \u4e0d\u4f9d\u8d56\u4efb\u4f55\u5916\u90e8\u901a\u77e5/\u5524\u9192\u670d\u52a1。
+    \u8fd9\u662f\u7eaf GitHub Actions \u5185\u81ea\u6108, \u6bcf\u5c0f\u65f6\u5de1\u67e5\u4e00\u6b21\u81ea\u52a8\u89e6\u53d1, \u6700\u574f\u60c5\u51b5 1 \u5c0f\u65f6\u5185\u81ea\u6108。
+
+    2026-07-22 \u8865\u4e01(\u9632\u81ea\u6108\u628a\u4eba\u4e3a\u6b62\u8840\u7684 workflow \u8bef\u91cd\u5f00): \u52a8\u624b\u524d\u5148\u67e5\u6682\u505c\u540d\u5355
+    self_heal_pause.json, file_name \u5728\u91cc\u9762\u5c31\u76f4\u63a5\u8df3\u8fc7, \u65e0\u8bba API state \u662f\u4ec0\u4e48\u90fd
+    \u4e0d\u89e6\u78b0、\u4e0d\u81ea\u52a8\u542f\u7528。\u4eba\u4e3a\u8981\u505c\u67d0\u4e2a workflow \u524d, \u9996\u9009\u505a\u6cd5\u4ecd\u662f\u6ce8\u91ca\u6389 yml \u91cc\u7684
+    schedule \u89e6\u53d1\u5668(\u90a3\u6837 state \u4f1a\u4fdd\u6301 active, \u672c\u51fd\u6570\u5929\u7136\u4e0d\u4f1a\u78b0\u5b83); \u82e5\u6539\u7528\u4e86
+    \u7f51\u9875\u6216 API \u7684 disable \u6309\u94ae(state \u4f1a\u53d8\u6210 disabled_manually), \u5c31\u5fc5\u987b\u540c\u65f6\u628a
+    file_name \u5199\u8fdb self_heal_pause.json, \u5426\u5219 1 \u5c0f\u65f6\u5185\u4f1a\u88ab\u8fd9\u91cc\u9759\u9ed8\u91cd\u65b0\u542f\u7528。
+
+    \u8fd4\u56de: \u81ea\u6108\u52a8\u4f5c\u8bf4\u660e(str), \u6216 None(\u65e0\u9700\u81ea\u6108; \u547d\u4e2d\u6682\u505c\u540d\u5355\u4e5f\u4f1a\u8fd4\u56de\u8bf4\u660e\u4f9b\u62a5\u544a\u5c55\u793a)。
+    """
+    paused = _load_self_heal_pause()
+    if file_name in paused:
+        return f"⏸️ \u81ea\u6108\u8df3\u8fc7: {cfg['name']} \u5728\u6682\u505c\u540d\u5355(self_heal_pause.json)\u5185, \u4eba\u4e3a\u4fdd\u6301\u5f53\u524d\u72b6\u6001, \u4e0d\u81ea\u52a8\u91cd\u65b0\u542f\u7528"
+
     try:
         wf = gh_api(f"repos/{REPO}/actions/workflows/{file_name}")
     except RuntimeError as e:
-        return None  
+        return None
 
     state = wf.get("state", "")
     if state == "active":
@@ -336,9 +379,9 @@ def self_heal_disabled(file_name: str, cfg: dict) -> str | None:
 
     try:
         gh_api_put(f"repos/{REPO}/actions/workflows/{file_name}/enable")
-        return f"🔧 \u81ea\u6108: {cfg['name']} \u539f\u72b6\u6001={state}，\u5df2\u81ea\u52a8\u91cd\u65b0\u542f\u7528"
+        return f"🔧 \u81ea\u6108: {cfg['name']} \u539f\u72b6\u6001={state}\uff0c\u5df2\u81ea\u52a8\u91cd\u65b0\u542f\u7528"
     except Exception as e:
-        return f"⚠️ \u81ea\u6108\u5931\u8d25: {cfg['name']} \u539f\u72b6\u6001={state}，\u91cd\u65b0\u542f\u7528\u51fa\u9519: {str(e)[:100]}"
+        return f"⚠️ \u81ea\u6108\u5931\u8d25: {cfg['name']} \u539f\u72b6\u6001={state}\uff0c\u91cd\u65b0\u542f\u7528\u51fa\u9519: {str(e)[:100]}"
 
 
 def check_workflow(file_name: str, cfg: dict, now: datetime) -> dict:
