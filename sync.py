@@ -209,6 +209,17 @@ def handle(gid, keys):
     if not need_zip and not need_pdf:
         return ("skip-done", "skip-done")                      # already in 123 -> skip BEFORE any R2 GET / 123 call -> no waste, no dup error
     import io, zipfile
+    # 2026-07-22 止血: book/ 影像已于 2026-07-17 迁 123、R2 里已删空,直读会全部 NoSuchKey。
+    # 进逐页 GET 循环前先 HEAD 探测首页,首页不在(=整本 R2 图已空)则一次 HEAD 即 skip,
+    # 把"每本每轮 N 次失败 GET(烧 Class B, 2026-07-21 单日 566万次≈$2.08)"降为"每本 1 次 HEAD"。
+    # 只影响 R2 图已空的书;仍有 R2 图的书 HEAD 命中后照常逐页取,行为不变。
+    if keys:
+        try:
+            s3.head_object(Bucket=SRC, Key=keys[0])
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") in ("NoSuchKey", "404", "NotFound"):
+                return ("skip-r2empty", "skip-r2empty")            # R2 图已空(已迁123)-> 一次 HEAD 即跳,不再逐页全 404 烧钱
+            raise
     # Fetch each page once, tolerating missing keys: D1 page_count may exceed the actual webp
     # pages in R2 for incomplete downloads, so a constructed key can 404 -> skip it, don't crash.
     blobs = []
