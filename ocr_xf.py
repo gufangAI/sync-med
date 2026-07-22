@@ -3,8 +3,9 @@
 # Replaces the RapidOCR line: R2 med-book images (book/{id}/page_NNNN.webp) -> HunyuanOCR
 # -> text -> R2 _ocr/{id}/page_NNNN.txt (SueAI fuel). Higher quality than RapidOCR, free.
 # Each shard binds one account key from the pool (per-account concurrency ~20), threaded within.
-import os, io, re, json, base64, threading, requests, boto3
+import os, io, re, json, base64, sys, threading, requests, boto3
 from concurrent.futures import ThreadPoolExecutor
+from botocore.exceptions import ClientError
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKET = os.environ["S_BUCKET"]
 SHARD = int(os.environ.get("SHARD", "0")); TOTAL = int(os.environ.get("TOTAL", "1"))
@@ -153,6 +154,21 @@ def work(k):
         with lock: cnt["err"] += 1
         print("ERR", k, str(e)[:50], flush=True)
 
+
+# 2026-07-22 灭雷:book/ 影像已于 2026-07-17 迁 123、R2 里已删空,直读全 NoSuchKey。
+# 本 ocr_xf.py 无 cron 不自动跑,但一旦有人手动触发就会逐页 GET 全 404 烧 Class B
+# (与 ocr.py/sync.py 同一类漏网)。进线程池前先 HEAD 探测本 shard 首个 key,R2 已空则整
+# shard 跳过(同 ocr.py 已验证的止血法)。若要真正启用本讯飞高质量 OCR 线,改走 123 取图
+# (参照 ocr_ndl.py 的 fetch_page_from_123),而非从 R2 直读。
+if mine:
+    try:
+        s3.head_object(Bucket=BUCKET, Key=mine[0])
+    except ClientError as _he:
+        if _he.response.get("Error", {}).get("Code") in ("NoSuchKey", "404", "NotFound"):
+            print(f"=== shard {SHARD} R2 book/ 已空(已迁123),整 shard 跳过,不烧 Class B ===", flush=True)
+            json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
+            sys.exit(0)
+        raise
 
 with ThreadPoolExecutor(max_workers=WORKERS) as ex:
     list(ex.map(work, mine))
