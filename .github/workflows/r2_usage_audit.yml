@@ -11,6 +11,21 @@ name: r2-usage-audit
 
 on:
   workflow_dispatch: {}
+  # 2026-07-22: 加 cron 每日自动跑。血泪:此前只有 workflow_dispatch、7-16后没人手动点,
+  # sync.py/ocr.py 直读已迁123的R2图全404、Class B 天天烧了~一个月没人发现(靠创始人偶然看账单截图才发现)。
+  # 建了审计却不自动跑=等于没建。现每天 08:20(北京)自动查+超阈值发 Issue 告警到手机。
+  schedule:
+    - cron: '20 0 * * *'
+
+permissions:
+  issues: write
+  contents: read
+
+# 2026-07-22 补(execution-watchdog 纪律:真活 workflow 必加 cron+concurrency):
+# 防两次 run 重叠时去重逻辑重复建 Issue(多告警)。
+concurrency:
+  group: r2-usage-audit
+  cancel-in-progress: false
 
 jobs:
   audit:
@@ -141,3 +156,120 @@ jobs:
           CF_API_TOKEN_SCOPED: ${{ secrets.CF_API_TOKEN_SCOPED }}
           CF_GLOBAL_EMAIL:   ${{ secrets.CF_GLOBAL_EMAIL }}
           CF_GLOBAL_API_KEY: ${{ secrets.CF_GLOBAL_API_KEY }}
+
+      - name: 最近24h Class B 阈值告警(超阈值发Issue标红到手机)
+        run: |
+          set -euo pipefail
+          # 2026-07-22 血泪补防线:上一 step 只打印数字、无阈值判定;且此前整个 workflow 没 cron。
+          # sync/ocr 直读已迁123的 R2 book/(全404)烧 Class B ~一个月没人发现。此 step 每天自动判定
+          # "最近24小时"Class B 是否异常(取24h而非31天累计:累计含历史事故噪声、无法反映当下是否还在烧),
+          # 超阈值即发 Issue 标红到创始人手机。THRESHOLD=100万:事故日单日566万,正常前台流量应远低于此。
+          END=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          START=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          echo "=== 告警判定窗口:最近24小时 ==="
+          echo "start=${START}  end=${END}"
+
+          QUERY='query R2B($accountTag: String!, $startDate: Time!, $endDate: Time!) {
+            viewer { accounts(filter: { accountTag: $accountTag }) {
+              r2OperationsAdaptiveGroups(limit: 10000, filter: { datetime_geq: $startDate, datetime_leq: $endDate }) {
+                sum { requests } dimensions { bucketName actionType }
+              } } } }'
+          BODY=$(jq -n --arg query "$QUERY" --arg accountTag "$CF_ACCOUNT_ID" \
+            --arg startDate "$START" --arg endDate "$END" \
+            '{query: $query, variables: {accountTag: $accountTag, startDate: $startDate, endDate: $endDate}}')
+
+          if [ -n "${CF_API_TOKEN_SCOPED:-}" ]; then
+            AUTH_ARGS=(-H "Authorization: Bearer ${CF_API_TOKEN_SCOPED}")
+          else
+            AUTH_ARGS=(-H "X-Auth-Email: ${CF_GLOBAL_EMAIL}" -H "X-Auth-Key: ${CF_GLOBAL_API_KEY}")
+          fi
+          # --max-time/--connect-timeout:CF 接口挂起不响应时,不拖到 GitHub 默认 job 超时(360分钟)才现形。
+          curl -s --max-time 60 --connect-timeout 20 -o r24.json \
+            https://api.cloudflare.com/client/v4/graphql \
+            "${AUTH_ARGS[@]}" -H "Content-Type: application/json" --data "$BODY"
+
+          # 防"失败静默":CF查询挂了会返回空/错误,若吞掉就永远CLASSB=0永不告警=又没人发现。
+          # ① 先独立拦 .errors:CF 可能"data 与 errors 并存"(部分降级/限流仍返200,目标字段=空数组[]),
+          #    只查字段非空会被空数组骗过(jq -e 判 [] 为真),故必须先查 errors、命中即失败。
+          if jq -e '(.errors // []) | length > 0' r24.json >/dev/null 2>&1; then
+            echo "!!! CF 返回 errors(可能部分降级/限流),告警判定不可信,标记 run 失败 !!!"
+            jq -c '.errors' r24.json
+            exit 1
+          fi
+          # ② 再查目标字段存在(挡空响应/HTTP错误页/账号ID错)。查不到就 exit 1(run失败可见),绝不当"0次"放过。
+          if ! jq -e '.data.viewer.accounts[0].r2OperationsAdaptiveGroups' r24.json >/dev/null 2>&1; then
+            echo "!!! CF 查询失败或无数据,告警判定不可用,标记 run 失败 !!!"
+            cat r24.json
+            exit 1
+          fi
+
+          # ⚠️ 下面 classOf 的 ClassB 动作清单,与本文件上方展示 step、及 DETAIL 计算,共 4 处硬编码。
+          #    CF 若新增/调整 actionType 分类,必须 4 处同步改,否则"告警计算"与"报告展示"两本账不一致会漏报。
+          CLASSB=$(jq -r '
+            def classOf(a):
+              if (a | IN("HeadBucket","HeadObject","GetObject","UsageSummary","GetBucketEncryption",
+                         "GetBucketLocation","GetBucketCors","GetBucketLifecycleConfiguration"))
+              then "ClassB" else "other" end;
+            [.data.viewer.accounts[0].r2OperationsAdaptiveGroups[]?
+             | select(classOf(.dimensions.actionType)=="ClassB") | .sum.requests] | add // 0
+          ' r24.json)
+          CLASSB=${CLASSB%.*}
+          THRESHOLD=1000000
+          echo "=== 最近24h Class B 总操作数=${CLASSB}(阈值=${THRESHOLD}) ==="
+          # 纯数字校验:CLASSB 非纯整数时,下面 [ -gt ] 会 bash 报错;但它是 if 条件、set -e 对其不生效,
+          # if 会把"报错"静默当"假"→走 else 打印"正常"→step 仍 exit 0=又静默漏报。故先显式拦、非数字即失败。
+          if ! printf '%s' "$CLASSB" | grep -Eq '^[0-9]+$'; then
+            echo "!!! CLASSB 非纯数字(=${CLASSB}),查询/解析异常,标记 run 失败 !!!"; exit 1
+          fi
+
+          if [ "$CLASSB" -gt "$THRESHOLD" ]; then
+            DETAIL=$(jq -r '
+              def classOf(a):
+                if (a | IN("HeadBucket","HeadObject","GetObject","UsageSummary","GetBucketEncryption",
+                           "GetBucketLocation","GetBucketCors","GetBucketLifecycleConfiguration"))
+                then "ClassB" else "other" end;
+              [.data.viewer.accounts[0].r2OperationsAdaptiveGroups[]?
+               | select(classOf(.dimensions.actionType)=="ClassB")
+               | {b: .dimensions.bucketName, r: .sum.requests}]
+              | group_by(.b) | map({bucket: .[0].b, total: (map(.r)|add)})
+              | sort_by(-.total) | .[]
+              | "- \(.bucket): \((.total|floor)) 次"
+            ' r24.json)
+            COST=$(awk "BEGIN{printf \"%.2f\", ${CLASSB}/1000000*0.36}")
+
+            cat > alert.md <<EOF
+          ## 🚨 R2 Class B 操作异常(自动告警)
+
+          最近24小时 Class B(读类:GET/HEAD/List)= **${CLASSB} 次**,超过阈值 ${THRESHOLD}。
+          约合费用 ~${COST} 美元(Class B 单价 0.36 美元/百万次)。
+
+          ### 按桶明细
+          ${DETAIL}
+
+          ### 排查方向(照 2026-07-22 血案)
+          1. 有没有脚本直读已迁123的 R2 book/ 影像(全404仍烧 Class B)?查 sync.py / ocr.py 及任何 boto3 get_object / head_object。
+          2. 有没有 list_objects 全桶扫描(违反 zero-LIST 铁律)?
+          3. 前台 page.js / cover.js 是否又退回读 R2?
+
+          — r2-usage-audit 自动告警(每日北京08:20自动跑)
+          EOF
+
+            EXIST=$(gh issue list --label r2-cost-alert --state open --json number --jq 'length' 2>/dev/null || echo 0)
+            if [ "${EXIST:-0}" -gt 0 ]; then
+              N=$(gh issue list --label r2-cost-alert --state open --json number --jq '.[0].number')
+              gh issue comment "$N" --body-file alert.md
+              echo "已在既有告警 Issue #$N 追加评论(不重复建·防刷屏)"
+            else
+              gh label create r2-cost-alert --color B60205 --description "R2 Class B 成本异常告警" 2>/dev/null || true
+              gh issue create --title "🚨 R2 Class B 异常:最近24h ${CLASSB} 次(超阈值)" --label r2-cost-alert --body-file alert.md
+              echo "已新建告警 Issue"
+            fi
+          else
+            echo "=== Class B 正常(未超阈值),不告警 ==="
+          fi
+        env:
+          CF_ACCOUNT_ID:       ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN_SCOPED: ${{ secrets.CF_API_TOKEN_SCOPED }}
+          CF_GLOBAL_EMAIL:   ${{ secrets.CF_GLOBAL_EMAIL }}
+          CF_GLOBAL_API_KEY: ${{ secrets.CF_GLOBAL_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
