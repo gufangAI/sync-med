@@ -229,12 +229,18 @@ def list_groups():
     # the old version cost ~200 x full scans of a 3.26M-object bucket = ~600K+ Class A LIST/run.
     # Keys are deterministic (book/{id}/page_{NNNN}.webp), so no R2 listing is needed at all.
     pk = os.environ.get("PAGES_KEY", "_cc/med_pages.json")
+    pages = None
     try:
         pages = json.loads(s3.get_object(Bucket=SRC, Key=pk)["Body"].read().decode("utf-8"))
     except Exception as e:
-        
-        
         print(f"WARNING: PAGES_KEY {pk} unreadable ({e}) -> rebuilding from D1...", flush=True)
+    # 2026-07-22: 缓存格式过渡——新格式 value 必须是 {"pc","pdid"} dict。若读到的是旧格式
+    # (value=页数int,无 pan_dir_id),不能用它凑合(会全 skip-nopdid 大面积空转),强制从 D1 重建带 pdid 的新格式并覆写缓存。
+    def _is_new_fmt(p):
+        return bool(isinstance(p, dict) and p and isinstance(next(iter(p.values())), dict))
+    if not _is_new_fmt(pages):
+        if pages is not None:
+            print("PAGES 缓存是旧格式(无 pan_dir_id)-> 强制从 D1 重建新格式", flush=True)
         pages = _rebuild_pages_from_d1()
         print(f"D1 rebuild ok: {len(pages)} books", flush=True)
         try:
@@ -247,11 +253,9 @@ def list_groups():
     global GID_PDID
     GID_PDID = {}
     for bid, v in pages.items():
-        # 兼容:新格式 v={"pc":页数,"pdid":123文件夹id};旧缓存 v=页数(int)则 pdid=None(缺 pan_dir_id 的书会走空->skip)
-        if isinstance(v, dict):
-            pc = v.get("pc"); pdid = v.get("pdid")
-        else:
-            pc = v; pdid = None
+        pc = v.get("pc"); pdid = v.get("pdid")   # 此处 pages 已保证是新格式 dict
+        if not pc:
+            continue                              # page_count 异常(None/0)-> 跳,不构造空 key、不 int(None) 崩
         gid = pre + "/" + bid
         groups[gid] = [f"{gid}/page_{n:04d}.webp" for n in range(1, int(pc) + 1)]
         GID_PDID[gid] = pdid
