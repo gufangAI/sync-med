@@ -2,8 +2,9 @@
 # CC-down: OCR worker - GitHub Actions + RapidOCR (onnxruntime PP-OCR, free cloud concurrency).
 # R2 med-book images (book/{id}/page_NNNN.webp) -> RapidOCR -> text -> R2 _ocr/{id}/page_NNNN.txt (SueAI fuel).
 # RapidOCR(onnxruntime) avoids paddle's AVX512 SIGILL on runners + ships models in the wheel (no baidu CDN).
-import os, io, re, json, boto3, requests, numpy as np
+import os, io, re, json, sys, boto3, requests, numpy as np
 from PIL import Image
+from botocore.exceptions import ClientError
 from rapidocr_onnxruntime import RapidOCR
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKET = os.environ["S_BUCKET"]
@@ -84,6 +85,19 @@ if os.path.exists(LEDGER):
 print(f"ledger已有 {len(ledger)} 条记录", flush=True)
 
 done = 0; skipped = 0
+# 2026-07-22 止血: book/ 影像已于 2026-07-17 迁 123、R2 里已删空,直读会全部 NoSuchKey。
+# 进逐页 OCR 循环前先 HEAD 探测本 shard 首个 key,不在(=R2 book/ 已空)则整 shard 跳过,
+# 避免逐个 GET 全 404 烧 Class B(2026-07-21 sync+ocr 共刷 566万次≈$2.08)。
+# 参照姊妹脚本 ocr_ndl.py 的做法:R2 直读已废弃,该改走 123,此处先止血跳过。
+if mine:
+    try:
+        s3.head_object(Bucket=BUCKET, Key=mine[0])
+    except ClientError as _he:
+        if _he.response.get("Error", {}).get("Code") in ("NoSuchKey", "404", "NotFound"):
+            print(f"=== shard {SHARD} R2 book/ 已空(已迁123),整 shard 跳过,不烧 Class B ===", flush=True)
+            json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
+            sys.exit(0)
+        raise
 for k in mine:
     txtkey = "_ocr/" + k[len("book/"):].rsplit(".", 1)[0] + ".txt"
     if txtkey in ledger:
