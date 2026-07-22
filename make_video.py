@@ -368,6 +368,21 @@ def build_plain_ass(word_timings, out_path="subs_plain.ass", w=1080, h=1920, off
 # have pan_dir_id set -- the R2-to-123 migration is real but not total, and this script's own
 # default test book, ylgc_2, happens to be one of the ~6,000 not-yet-migrated ones). Mirroring both
 # branches instead of assuming one keeps this correct for either kind of book.
+#
+# 2026-07-22 reverification (re-ran the same D1 query 2 days later, not a guess): migration crept
+# from 88.5% to ~88.9% (46,595/52,402 upload_status='done' rows now have pan_dir_id; 5,807 still
+# don't) -- "real but not total" above still holds, it did NOT flip to 100% in the interim. Breaking
+# that gap down by top-level R2 prefix (books_assets_v2.webp_prefix) matters here because ylgc_2
+# (this script's default BOOK) lives under gufang/ (domestic classics library), NOT book/ (the
+# overseas-medical-books folder that other parts of this project describe as "already fully migrated
+# off R2, bucket emptied 2026-07-17"): book/ 1,388/22,109 still NULL, gufang/ 917/946 still NULL
+# (ylgc_2's own folder is barely migrated at all), naj/ 3,402/29,096 still NULL. So "the guyaofang-lib
+# R2 bucket is already emptied" is not accurate as a blanket statement for any of these three folders
+# yet, book/ included. Live proof, not just the D1 count: the 2026-07-22 07:44 UTC scheduled run of
+# this very script (run 29901193285) read gufang/ylgc_2/page_000{1..5}.webp straight off R2 with zero
+# "img miss" lines and produced a passing-quality-gate video -- those R2 objects are still there and
+# still readable in production right now. Do not "clean up" the R2-fallback branch below on the
+# assumption the bucket is empty; re-check books_assets_v2 pan_dir_id coverage before ever doing that.
 PAN_BASE = "https://open-api.123pan.com"
 _pan_tok = {"v": None}
 
@@ -429,10 +444,13 @@ def _lookup_book_source(book_id):
     """Mirrors page.js's own two-branch source logic exactly, rather than assuming every book is
     already migrated to 123: 2026-07-20 diagnostics (a real dispatch run's D1 query, not a guess)
     found only 46,361 of 52,402 upload_status='done' books_assets_v2 rows (~88.5%) have pan_dir_id
-    set -- the migration is real but not total, and ylgc_2 (this script's own default/test book)
-    happens to be one of the ~6,000 not-yet-migrated ones, still correctly served from R2 in
-    production. page.js's rule: pan_dir_id set -> 123; otherwise -> R2 at {webp_prefix}page_NNNN.webp.
-    Mirror both branches so this keeps working regardless of which side any given book is on."""
+    set -- the migration is real but not total, and ylgc_2 (this script's own default/test book,
+    under the gufang/ folder specifically) happens to be one of the ~6,000 not-yet-migrated ones,
+    still correctly served from R2 in production (reverified 2026-07-22: still not migrated, still
+    served fine by a real cron run -- see the longer fetch_images() comment above for the current
+    numbers, incl. the book/ vs. gufang/ vs. naj/ folder breakdown). page.js's rule: pan_dir_id set
+    -> 123; otherwise -> R2 at {webp_prefix}page_NNNN.webp. Mirror both branches so this keeps
+    working regardless of which side any given book is on."""
     rows = _d1_query(
         "SELECT pan_dir_id, webp_prefix, upload_status FROM books_assets_v2 WHERE book_id = ? LIMIT 1",
         [book_id])
