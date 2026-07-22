@@ -19,7 +19,57 @@ ZIP_ONLY = os.environ.get("ZIP_ONLY") == "1"
 
 s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK,
                   aws_secret_access_key=SK, region_name="auto",
-                  config=Config(connect_timeout=15, read_timeout=60, retries={"max_attempts": 3}))  
+                  config=Config(connect_timeout=15, read_timeout=60, retries={"max_attempts": 3}))
+
+# 2026-07-22: book/ 影像已于 2026-07-17 迁 123、R2 已删空。取图改从 123(照 ocr_ndl.py 已验证的
+# fetch_page_from_123,与生产 functions/api/_lib/pan123.js 同逻辑)。用 PAN_CLIENT_ID/SECRET 凭据
+# (open_platform,与推 zip/pdf 的 PAN_CID/PSEC 是不同凭据对,workflow secret 已存在于仓库)。
+PAN_CLIENT_ID = os.environ.get("PAN_CLIENT_ID"); PAN_CLIENT_SECRET = os.environ.get("PAN_CLIENT_SECRET")
+GID_PDID = {}          # gid -> pan_dir_id,由 list_groups 填充
+_PAN_TOK = {"v": None}
+
+def pan_token():
+    if _PAN_TOK["v"]:
+        return _PAN_TOK["v"]
+    r = requests.post(PAN + "/api/v1/access_token",
+                      headers={"Platform": "open_platform", "Content-Type": "application/json"},
+                      json={"clientID": PAN_CLIENT_ID, "clientSecret": PAN_CLIENT_SECRET}, timeout=30)
+    tok = (r.json().get("data") or {}).get("accessToken")
+    if not tok:
+        raise SystemExit("123 token 获取失败: " + r.text[:200])
+    _PAN_TOK["v"] = tok
+    return tok
+
+def fetch_page_from_123(pan_dir_id, page_str):
+    # 与 ocr_ndl.py / 生产 pan123.js 的 fetchPageFrom123 同一逻辑
+    if not pan_dir_id:
+        return None
+    h = {"Platform": "open_platform", "Authorization": "Bearer " + pan_token()}
+    filename = f"page_{page_str}.webp"
+    last_id, file_id = 0, None
+    for _ in range(20):
+        r = requests.get(f"{PAN}/api/v2/file/list",
+                         params={"parentFileId": pan_dir_id, "limit": 100, "lastFileId": last_id},
+                         headers=h, timeout=30)
+        d = r.json().get("data") or {}
+        fl = d.get("fileList") or []
+        hit = next((f for f in fl if f.get("filename") == filename), None)
+        if hit:
+            file_id = hit.get("fileId") or hit.get("fileID")
+            break
+        last_id = d.get("lastFileId")
+        if last_id in (None, -1) or not fl:
+            break
+    if not file_id:
+        return None
+    r = requests.get(f"{PAN}/api/v1/file/download_info", params={"fileId": file_id}, headers=h, timeout=30)
+    url = (r.json().get("data") or {}).get("downloadUrl")
+    if not url:
+        return None
+    r = requests.get(url, timeout=60)
+    return r.content if r.status_code == 200 else None
+
+
 def _key_of(book_id):
     # normalize book_id -> lookup key: strip non-digit prefix, de-zero-pad trailing volume no.
     # shared by handle() and _rebuild_names_from_d1() so the two can never drift apart.
@@ -159,14 +209,17 @@ def _rebuild_pages_from_d1():
         raise RuntimeError('PAGES_KEY \u8bfb\u4e0d\u5230 + \u7f3a CF_ACCOUNT_ID/D1_DATABASE_ID/D1_API_TOKEN,\u65e0\u6cd5\u4ece D1 \u515c\u5e95')
     url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/d1/database/{db}/query"
     
-    sql = ("SELECT book_id, page_count FROM books_assets_v2 "
+    # 2026-07-22: \u591a\u53d6 pan_dir_id(123 \u6587\u4ef6\u5939id)\u2014\u2014\u56fe\u5df2\u8fc1 123,\u53d6\u56fe\u8d70 fetch_page_from_123 \u800c\u975e R2\u3002
+    sql = ("SELECT book_id, page_count, pan_dir_id FROM books_assets_v2 "
            "WHERE frontend_visible=1 AND upload_status='done' AND page_count > 0")
     r = requests.post(url, headers={"Authorization": "Bearer "+tok}, json={"sql": sql}, timeout=120)
     r.raise_for_status()
     j = r.json()
     if not j.get("success"): raise RuntimeError(f"D1 \u67e5\u8be2\u5931\u8d25: {str(j.get('errors',''))[:200]}")
     rows = (j.get("result") or [{}])[0].get("results") or []
-    pages = {row["book_id"]: int(row["page_count"]) for row in rows if row.get("book_id") and row.get("page_count")}
+    # pages: book_id -> {"pc": \u9875\u6570, "pdid": 123\u6587\u4ef6\u5939id}
+    pages = {row["book_id"]: {"pc": int(row["page_count"]), "pdid": row.get("pan_dir_id")}
+             for row in rows if row.get("book_id") and row.get("page_count")}
     return pages
 
 
@@ -191,9 +244,17 @@ def list_groups():
             print(f"WARNING: cache-back failed ({e2}) -> next run will rebuild again, not fatal", flush=True)
     pre = (PFX.strip("/") if PFX else "book")
     groups = {}
-    for bid, pc in pages.items():
+    global GID_PDID
+    GID_PDID = {}
+    for bid, v in pages.items():
+        # 兼容:新格式 v={"pc":页数,"pdid":123文件夹id};旧缓存 v=页数(int)则 pdid=None(缺 pan_dir_id 的书会走空->skip)
+        if isinstance(v, dict):
+            pc = v.get("pc"); pdid = v.get("pdid")
+        else:
+            pc = v; pdid = None
         gid = pre + "/" + bid
         groups[gid] = [f"{gid}/page_{n:04d}.webp" for n in range(1, int(pc) + 1)]
+        GID_PDID[gid] = pdid
     return groups
 
 
@@ -209,30 +270,22 @@ def handle(gid, keys):
     if not need_zip and not need_pdf:
         return ("skip-done", "skip-done")                      # already in 123 -> skip BEFORE any R2 GET / 123 call -> no waste, no dup error
     import io, zipfile
-    # 2026-07-22 止血: book/ 影像已于 2026-07-17 迁 123、R2 里已删空,直读会全部 NoSuchKey。
-    # 进逐页 GET 循环前先 HEAD 探测首页,首页不在(=整本 R2 图已空)则一次 HEAD 即 skip,
-    # 把"每本每轮 N 次失败 GET(烧 Class B, 2026-07-21 单日 566万次≈$2.08)"降为"每本 1 次 HEAD"。
-    # 只影响 R2 图已空的书;仍有 R2 图的书 HEAD 命中后照常逐页取,行为不变。
-    if keys:
-        try:
-            s3.head_object(Bucket=SRC, Key=keys[0])
-        except ClientError as e:
-            if e.response.get("Error", {}).get("Code") in ("NoSuchKey", "404", "NotFound"):
-                return ("skip-r2empty", "skip-r2empty")            # R2 图已空(已迁123)-> 一次 HEAD 即跳,不再逐页全 404 烧钱
-            raise
-    # Fetch each page once, tolerating missing keys: D1 page_count may exceed the actual webp
-    # pages in R2 for incomplete downloads, so a constructed key can 404 -> skip it, don't crash.
+    # 2026-07-22 根治: 图已于 2026-07-17 迁 123、R2 book/ 已删空。取图从 123(fetch_page_from_123),
+    # 不再直读 R2(那会全 404、烧 Class B: 2026-07-21 单日 sync+ocr 共刷 566万次≈$2.08)。
+    pdid = GID_PDID.get(gid)
+    if not pdid:
+        return ("skip-nopdid", "skip-nopdid")                  # 无 pan_dir_id(未迁123/合规待批)-> 跳,不取图
     blobs = []
     for k in keys:
-        try:
-            b = s3.get_object(Bucket=SRC, Key=k)["Body"].read()
-        except ClientError as e:
-            if e.response.get("Error", {}).get("Code") in ("NoSuchKey", "404", "NotFound"):
-                continue
-            raise
+        m = re.search(r"page_(\d+)\.webp$", k)
+        if not m:
+            continue
+        b = fetch_page_from_123(pdid, m.group(1))              # 从 123 取该页 webp
+        if b is None:
+            continue                                            # 该页 123 里也没有 -> 跳(D1 页数可能多于实际)
         blobs.append((k.split("/")[-1], b))
     if not blobs:
-        return ("skip-empty", "skip-empty")                    # no pages actually in R2 -> skip, never upload empty
+        return ("skip-empty", "skip-empty")                    # 123 里一页都没取到 -> 跳,不上传空包
     st_a = "have"
     if need_zip:
         zp = os.path.join(TMP, gid_tail + ".zip")
