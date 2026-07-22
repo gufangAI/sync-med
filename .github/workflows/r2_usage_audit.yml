@@ -205,16 +205,19 @@ jobs:
 
           # ⚠️ 下面 classOf 的 ClassB 动作清单,与本文件上方展示 step、及 DETAIL 计算,共 4 处硬编码。
           #    CF 若新增/调整 actionType 分类,必须 4 处同步改,否则"告警计算"与"报告展示"两本账不一致会漏报。
+          # 2026-07-22 创始人钦定:判定专盯 guyaofang-lib 桶——该桶图已全迁123、前台读取应为0,
+          #   任何读取都是"又有代码读空桶"的烧钱事故;阈值压到 0.01 美金(≈27778次 Class B),一飙升立即抓。
+          #   其他桶(guji-sea 古籍/assets 静态)有正常读取,不纳入此判定以免误报。
           CLASSB=$(jq -r '
             def classOf(a):
               if (a | IN("HeadBucket","HeadObject","GetObject","UsageSummary","GetBucketEncryption",
                          "GetBucketLocation","GetBucketCors","GetBucketLifecycleConfiguration"))
               then "ClassB" else "other" end;
             [.data.viewer.accounts[0].r2OperationsAdaptiveGroups[]?
-             | select(classOf(.dimensions.actionType)=="ClassB") | .sum.requests] | add // 0
+             | select(.dimensions.bucketName=="guyaofang-lib" and classOf(.dimensions.actionType)=="ClassB") | .sum.requests] | add // 0
           ' r24.json)
           CLASSB=${CLASSB%.*}
-          THRESHOLD=1000000
+          THRESHOLD=27778
           echo "=== 最近24h Class B 总操作数=${CLASSB}(阈值=${THRESHOLD}) ==="
           # 纯数字校验:CLASSB 非纯整数时,下面 [ -gt ] 会 bash 报错;但它是 if 条件、set -e 对其不生效,
           # if 会把"报错"静默当"假"→走 else 打印"正常"→step 仍 exit 0=又静默漏报。故先显式拦、非数字即失败。
@@ -238,9 +241,10 @@ jobs:
             COST=$(awk "BEGIN{printf \"%.2f\", ${CLASSB}/1000000*0.36}")
 
             cat > alert.md <<EOF
-          ## 🚨 R2 Class B 操作异常(自动告警)
+          ## 🚨 R2 guyaofang-lib 桶异常读取(自动告警)
 
-          最近24小时 Class B(读类:GET/HEAD/List)= **${CLASSB} 次**,超过阈值 ${THRESHOLD}。
+          guyaofang-lib 桶最近24小时 Class B(读:GET/HEAD/List)= **${CLASSB} 次**,超过阈值 ${THRESHOLD}。
+          **该桶图已全迁123、前台读取本应为0**——出现大量读取 = 又有代码在读已删空的桶烧钱。
           约合费用 ~${COST} 美元(Class B 单价 0.36 美元/百万次)。
 
           ### 按桶明细
