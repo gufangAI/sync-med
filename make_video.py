@@ -51,6 +51,23 @@ VOICE = os.environ.get("VOICE", "zh-CN-XiaoxiaoNeural")
 # and why this is always safe against the seg=max(2.4, ...) per-clip floor below.
 TRANS_DUR = float(os.environ.get("TRANS_DUR", "0.5"))
 
+# ---- platform / aspect adaptation (2026-07-23) ------------------------------------------------
+# RATIO lets one narration be published to different social platforms without re-recording:
+#   "vertical"   -> 9:16  1080x1920  (Douyin / Kuaishou / WeChat Channels -- the primary battlefield;
+#                                     byte-for-byte the pipeline's original hard-coded shape)
+#   "horizontal" -> 16:9  1920x1080  (Bilibili)
+# Everything downstream (Ken-Burns canvas, ASS PlayRes, the R2 output key) is now derived from
+# VID_W/VID_H instead of the old literal 1080/1920, so adding a ratio never alters the vertical
+# path's output. BURN_SUB toggles whether the karaoke subtitles are burned into the pixels
+# (default on; a "clean master" with no burned subs is sometimes wanted so a creator can add their
+# own per-platform captions).
+RATIO = os.environ.get("RATIO", "vertical").strip().lower()
+if RATIO in ("horizontal", "landscape", "h", "16:9", "169"):
+    RATIO = "horizontal"; VID_W, VID_H = 1920, 1080
+else:
+    RATIO = "vertical"; VID_W, VID_H = 1080, 1920
+BURN_SUB = os.environ.get("BURN_SUB", "true").strip().lower() not in ("false", "0", "no", "off")
+
 # Curated rotation so the cron'd (unattended) runs don't produce the same clip every day.
 # Each tuple is (expert_key matching /api/ai/expert's EXPERTS map, display name, a symptom/pulse
 # -pattern CASE phrasing — /api/ai/expert's prompt contract wants something diagnosable, not a bare
@@ -505,7 +522,7 @@ def dur(f):
 
 # varied Ken-Burns: cycle through distinct motion presets so clips are NOT identical (2026-07-20,
 # founder feedback: don't template every image the same way).
-def kb_expr(preset_i, d, fps):
+def kb_expr(preset_i, d, fps, w=1080, h=1920):
     if preset_i % 4 == 0:      # center push-in
         z = f"1.0+0.16*on/{d}"; x = "iw/2-(iw/zoom/2)"; y = "ih/2-(ih/zoom/2)"
     elif preset_i % 4 == 1:    # top-left corner push-in
@@ -514,7 +531,9 @@ def kb_expr(preset_i, d, fps):
         z = f"1.0+0.14*on/{d}"; x = "iw-iw/zoom"; y = "ih-ih/zoom"
     else:                      # fixed zoom, slow pan left -> right
         z = "1.12"; x = f"(iw-iw/zoom)*on/{d}"; y = "ih/2-(ih/zoom/2)"
-    return f"zoompan=z='{z}':x='{x}':y='{y}':d={d}:s=1080x1920:fps={fps}"
+    # x/y expressions are all relative to iw/ih/zoom, so they are dimension-agnostic; only the
+    # output canvas s=WxH changes per ratio.
+    return f"zoompan=z='{z}':x='{x}':y='{y}':d={d}:s={w}x{h}:fps={fps}"
 
 
 # tasteful, restrained cross-fade rotation to match the "classical text lecture" tone (2026-07-21) --
@@ -546,15 +565,43 @@ def render_body_clips(imgs, total_audio_s):
     clips = []
     for i, im in enumerate(imgs):
         c = f"clip{i}.mp4"
-        vf = ("scale=1350:2400:force_original_aspect_ratio=increase,crop=1350:2400," + kb_expr(i, d, fps) + ",setsar=1")
         # IMPORTANT: no "-t" on the input here. "-loop 1 -t X -i img" makes the input itself emit
         # ~X seconds of frames (at the default 25fps), and zoompan's own d= then holds/expands EACH
         # of those input frames for d more frames -- a real double-multiplication bug that was
         # caught locally on 2026-07-20 (a 5-clip run was on track to render tens of thousands of
         # frames per clip and never finish inside the job timeout). Fix: infinite -loop 1 input +
         # -frames:v {d} as an OUTPUT cap gives exactly d output frames, i.e. exactly d/fps seconds.
-        sh(["ffmpeg", "-y", "-loop", "1", "-i", im,
-            "-vf", vf, "-frames:v", str(d), "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "veryfast", c])
+        # This frame-count discipline is identical for both ratios below (the horizontal branch just
+        # composites a blurred-pillarbox before the same zoompan+cap).
+        if RATIO == "horizontal":
+            # Portrait book pages -> 16:9 via a blurred-pillarbox composite: the whole page is fit
+            # and centred over a blurred+darkened enlarged copy of itself, NOT centre-cropped --
+            # cropping a tall leaf to 16:9 would slice it to a thin horizontal band and throw most of
+            # the page away. Ken-Burns push-in is then applied to the finished 1920x1080 composite.
+            # force_original_aspect_ratio=decrease on the foreground also safely handles the odd
+            # landscape double-page scan (fits inside the box either way, never overflows the frame).
+            fg_w = int(VID_W * 0.97) // 2 * 2
+            fg_h = int(VID_H * 0.91) // 2 * 2
+            fc = (
+                "[0:v]split=2[bg][fg];"
+                "[bg]scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d,"
+                "gblur=sigma=18,eq=brightness=-0.10:saturation=0.90,setsar=1[bgb];"
+                "[fg]scale=%d:%d:force_original_aspect_ratio=decrease,setsar=1[fgs];"
+                "[bgb][fgs]overlay=(W-w)/2:(H-h)/2,%s,setsar=1[vout]"
+            ) % (VID_W, VID_H, VID_W, VID_H, fg_w, fg_h, kb_expr(i, d, fps, VID_W, VID_H))
+            sh(["ffmpeg", "-y", "-loop", "1", "-i", im,
+                "-filter_complex", fc, "-map", "[vout]", "-frames:v", str(d),
+                "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "veryfast", c])
+        else:
+            # vertical 9:16 -- byte-for-byte the pipeline's original behaviour (portrait page into a
+            # portrait frame; a light centre crop reads as full-bleed and right). The oversized
+            # canvas (1.25x = 1350x2400) gives zoompan sharpness headroom for the push-in.
+            cw = int(VID_W * 1.25) // 2 * 2
+            ch = int(VID_H * 1.25) // 2 * 2
+            vf = ("scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d," % (cw, ch, cw, ch)
+                  + kb_expr(i, d, fps, VID_W, VID_H) + ",setsar=1")
+            sh(["ffmpeg", "-y", "-loop", "1", "-i", im,
+                "-vf", vf, "-frames:v", str(d), "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "veryfast", c])
         clips.append(c)
 
     if n == 1:
@@ -590,7 +637,15 @@ def render_body_clips(imgs, total_audio_s):
 
 
 # ---------- 5. burn karaoke subs + mux voice (with plain-subtitle fallback if karaoke burn errors) ----------
-def burn_and_mux(ass_path, plain_ass_path, voice_path="voice.mp3", out_path="out.mp4"):
+def burn_and_mux(ass_path, plain_ass_path, voice_path="voice.mp3", out_path="out.mp4", burn=True):
+    if not burn:
+        # clean master: mux narration only, no burned-in captions (creator adds per-platform subs).
+        sh(["ffmpeg", "-y", "-i", "slide.mp4", "-i", voice_path,
+            "-map", "0:v", "-map", "1:a", "-shortest",
+            "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac",
+            "-pix_fmt", "yuv420p", out_path])
+        print("[burn] burn_sub disabled -> muxed clean master with no burned subtitles", flush=True)
+        return "no_burn"
     r = subprocess.run(["ffmpeg", "-y", "-i", "slide.mp4", "-i", voice_path,
                          "-vf", f"subtitles={ass_path}",
                          "-map", "0:v", "-map", "1:a", "-shortest",
@@ -639,7 +694,8 @@ def upload(path, key):
 
 
 if __name__ == "__main__":
-    print(f"[run] book={BOOK} pages={PAGES} expert={EXPERT_KEY}/{EXPERT_NAME}", flush=True)
+    print(f"[run] book={BOOK} pages={PAGES} expert={EXPERT_KEY}/{EXPERT_NAME} "
+          f"ratio={RATIO} {VID_W}x{VID_H} burn_sub={BURN_SUB}", flush=True)
 
     analysis = call_expert(TOPIC)
     script_text = gen_script_from_expert(analysis, EXPERT_NAME)
@@ -648,8 +704,8 @@ if __name__ == "__main__":
         f.write(script_text)
 
     words = tts_with_word_timestamps(script_text)
-    n_lines = build_ass(words, "subs.ass")
-    build_plain_ass(words, "subs_plain.ass")
+    n_lines = build_ass(words, "subs.ass", w=VID_W, h=VID_H)
+    build_plain_ass(words, "subs_plain.ass", w=VID_W, h=VID_H)
 
     imgs = fetch_images()
     if not imgs:
@@ -657,7 +713,7 @@ if __name__ == "__main__":
 
     audio_s = dur("voice.mp3")
     render_body_clips(imgs, audio_s)
-    burn_mode = burn_and_mux("subs.ass", "subs_plain.ass")
+    burn_mode = burn_and_mux("subs.ass", "subs_plain.ass", burn=BURN_SUB)
 
     # debug thumbnails so a human (or the agent driving this pipeline) can visually confirm
     # subtitle sync/quality from the GH Actions artifact without needing to play the full mp4.
@@ -670,16 +726,17 @@ if __name__ == "__main__":
 
     if not ok:
         # keep the reject visible for debugging but never let it land in the real _video/ namespace
-        key = f"_video/_rejected/{BOOK}_{EXPERT_KEY}_{int(time.time())}.mp4"
+        key = f"_video/_rejected/{BOOK}_{EXPERT_KEY}_{RATIO}_{int(time.time())}.mp4"
         try:
             upload("out.mp4", key)
         except Exception as e:
             print("reject-upload also failed:", e, flush=True)
         raise SystemExit(f"QUALITY GATE FAILED: {reasons}")
 
-    key = f"_video/{BOOK}_{EXPERT_KEY}_{int(time.time())}.mp4"
+    key = f"_video/{BOOK}_{EXPERT_KEY}_{RATIO}_{int(time.time())}.mp4"
     upload("out.mp4", key)
     print("MANIFEST", json.dumps({
         "key": key, "book": BOOK, "expert": EXPERT_KEY, "engine": analysis.get("engine"),
+        "ratio": RATIO, "width": VID_W, "height": VID_H, "burn_sub": BURN_SUB,
         "duration_s": round(audio_s, 1), "subtitle_lines": n_lines, "burn_mode": burn_mode,
     }, ensure_ascii=False), flush=True)

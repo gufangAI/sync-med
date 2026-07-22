@@ -20,6 +20,20 @@ on:
       topic:
         description: 'case/symptom phrasing fed to /api/ai/expert (only used when expert_key != auto)'
         default: ""
+      ratio:
+        description: 'output aspect / platform: vertical = 9:16 1080x1920 (Douyin/Kuaishou/Channels), horizontal = 16:9 1920x1080 (Bilibili)'
+        type: choice
+        options:
+          - vertical
+          - horizontal
+        default: vertical
+      burn_sub:
+        description: 'burn karaoke subtitles into the picture (true) or output a clean master with no burned subs (false)'
+        type: choice
+        options:
+          - "true"
+          - "false"
+        default: "true"
   schedule:
     # 05:17 UTC = 13:17 Beijing — offset from the top of the hour to avoid piling onto this repo's
     # many other :00/:15/:30 crons. Daily cadence keeps this experimental line producing without
@@ -60,6 +74,10 @@ jobs:
           EXPERT_KEY: ${{ github.event.inputs.expert_key || 'auto' }}
           EXPERT_NAME: ${{ github.event.inputs.expert_name || '张仲景' }}
           TOPIC: ${{ github.event.inputs.topic || '' }}
+          # platform adaptation (2026-07-23): schedule/cron carries no inputs, so both fall back to
+          # the vertical + burn defaults -- the daily cron's output is unchanged.
+          RATIO: ${{ github.event.inputs.ratio || 'vertical' }}
+          BURN_SUB: ${{ github.event.inputs.burn_sub || 'true' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
