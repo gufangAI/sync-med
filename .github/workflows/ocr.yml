@@ -9,8 +9,11 @@ on:
       pilot:
         description: pilot page cap per shard (empty = full run)
         default: ""
-  schedule:
-    - cron: '0 */6 * * *'
+  # 2026-07-22 退休旧版:本 ocr.py 直读已迁走(2026-07-17→123)的 R2 book/ 影像,全 404 烧 Class B。
+  # 正确版 ocr_ndl.py(从123取图)已在跑(cron 半点)、OCR 同一批书、落同一 _ocr/ 位置——是新旧两版,
+  # 团队改新版时漏停旧版导致并行烧钱。此处停掉旧版自动 cron,保留 workflow_dispatch 手动兜底。
+  # schedule:
+  #   - cron: '0 */6 * * *'
 
 concurrency:
   group: ocr-run
