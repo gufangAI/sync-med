@@ -273,3 +273,6 @@ jobs:
           CF_GLOBAL_EMAIL:   ${{ secrets.CF_GLOBAL_EMAIL }}
           CF_GLOBAL_API_KEY: ${{ secrets.CF_GLOBAL_API_KEY }}
           GH_TOKEN: ${{ github.token }}
+          # 本 workflow 无 actions/checkout(不需要),runner 工作目录不是 git 仓库,
+          # gh issue/label 命令会因推断不出目标 repo 报 "not a git repository"。GH_REPO 显式指定即可。
+          GH_REPO: ${{ github.repository }}
