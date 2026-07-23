@@ -1,0 +1,52 @@
+name: ocr-quality-audit
+
+# OCR 质量闸 · 抽样审计(蓝图数据飞轮第一组件)。
+# 只读 _ocr/ 抽样打质量分,产出报告 + reject 清单,不改任何已入库文本。单 job、无矩阵。
+on:
+  workflow_dispatch:
+    inputs:
+      sample:
+        description: 抽样页数(目标)
+        default: "400"
+      pages_per_book:
+        description: 每本抽样页数
+        default: "6"
+      max_books_scan:
+        description: 最多探测多少本书
+        default: "400"
+  schedule:
+    - cron: '15 3 * * 1'   # 每周一 03:15 UTC 轻量抽检,不与 OCR 产线抢并发
+
+concurrency:
+  group: ocr-quality-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet boto3 requests
+      - name: run OCR quality audit
+        run: python ocr_quality_check.py
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          SAMPLE: ${{ github.event.inputs.sample || '400' }}
+          PAGES_PER_BOOK: ${{ github.event.inputs.pages_per_book || '6' }}
+          MAX_BOOKS_SCAN: ${{ github.event.inputs.max_books_scan || '400' }}
+      - name: upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-quality-report
+          path: ocr_quality_report.md
+          if-no-files-found: ignore

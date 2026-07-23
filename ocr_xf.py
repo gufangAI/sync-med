@@ -6,6 +6,7 @@
 import os, io, re, json, base64, sys, threading, requests, boto3
 from concurrent.futures import ThreadPoolExecutor
 from botocore.exceptions import ClientError
+import ocr_quality   # OCR 质量闸:LLM 视觉 OCR 幻觉/乱码检测(纯规则,治讯飞幻觉静默入库)
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKET = os.environ["S_BUCKET"]
 SHARD = int(os.environ.get("SHARD", "0")); TOTAL = int(os.environ.get("TOTAL", "1"))
@@ -118,7 +119,7 @@ if _pilot:
     mine = mine[:int(_pilot)]   # small first-batch trial before full run
 print(f"shard {SHARD}/{TOTAL} key#{SHARD % len(KEYS)} imgs {len(mine)}/{len(imgs)} pilot={_pilot or 'no'}", flush=True)
 
-lock = threading.Lock(); cnt = {"done": 0, "skip": 0, "err": 0}
+lock = threading.Lock(); cnt = {"done": 0, "skip": 0, "err": 0, "rej": 0}
 
 # 2026-07-19修复:原每页一次s3.head_object()查重,改GitHub缓存本地ledger.json记账
 # (同ocr_ndl.py/ocr.py方法),避免每次跑对全量候选重复敲R2。线程安全:复用现成lock。
@@ -143,6 +144,17 @@ def work(k):
         txt = ocr_page(base64.b64encode(b).decode())
         if txt is None:
             with lock: cnt["err"] += 1
+            return
+        # OCR 质量闸:讯飞 LLM 视觉 OCR 在空白/密排页会幻觉出短语刷屏/整行复读/乱码。
+        # reject 的不进 _ocr/ 燃料池,改落 _ocr_rejected/ 标记(供换引擎退回重跑),记账避免每轮重烧。
+        if ocr_quality.verdict(txt) == "reject":
+            rejkey = "_ocr_rejected/" + k[len("book/"):].rsplit(".", 1)[0] + ".txt"
+            try:
+                s3.put_object(Bucket=BUCKET, Key=rejkey, Body=txt.encode("utf-8"))
+            except Exception:
+                pass
+            with lock:
+                ledger.add(txtkey); cnt["rej"] += 1
             return
         s3.put_object(Bucket=BUCKET, Key=txtkey, Body=txt.encode("utf-8"))
         with lock:
@@ -176,5 +188,7 @@ with ThreadPoolExecutor(max_workers=WORKERS) as ex:
 json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocrxf_{SHARD}.json",
               Body=json.dumps({"shard": SHARD, "total": len(mine),
-                               "ocrd": cnt["skip"] + cnt["done"], "new": cnt["done"], "err": cnt["err"]}).encode())
-print(f"=== shard {SHARD} XF-OCR {cnt['done']} new, {cnt['skip']+cnt['done']}/{len(mine)} done, err {cnt['err']} ===", flush=True)
+                               "ocrd": cnt["skip"] + cnt["done"], "new": cnt["done"],
+                               "err": cnt["err"], "rej": cnt["rej"]}).encode())
+print(f"=== shard {SHARD} XF-OCR {cnt['done']} new, {cnt['skip']+cnt['done']}/{len(mine)} done, "
+      f"err {cnt['err']}, 质量闸拦截 {cnt['rej']} ===", flush=True)

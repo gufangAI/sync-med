@@ -6,6 +6,7 @@ import os, io, re, json, sys, boto3, requests, numpy as np
 from PIL import Image
 from botocore.exceptions import ClientError
 from rapidocr_onnxruntime import RapidOCR
+import ocr_quality   # OCR 质量闸:重复短语/整行复读/乱码率检测(纯规则),不合格标记不入库
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKET = os.environ["S_BUCKET"]
 SHARD = int(os.environ.get("SHARD", "0")); TOTAL = int(os.environ.get("TOTAL", "1"))
@@ -84,7 +85,7 @@ if os.path.exists(LEDGER):
         ledger = set()
 print(f"ledger已有 {len(ledger)} 条记录", flush=True)
 
-done = 0; skipped = 0
+done = 0; skipped = 0; rejected = 0
 # 2026-07-22 止血: book/ 影像已于 2026-07-17 迁 123、R2 里已删空,直读会全部 NoSuchKey。
 # 进逐页 OCR 循环前先 HEAD 探测本 shard 首个 key,不在(=R2 book/ 已空)则整 shard 跳过,
 # 避免逐个 GET 全 404 烧 Class B(2026-07-21 sync+ocr 共刷 566万次≈$2.08)。
@@ -107,6 +108,15 @@ for k in mine:
         im = np.array(Image.open(io.BytesIO(b)).convert("RGB"))[:, :, ::-1]  # PIL decodes webp->RGB; RapidOCR wants BGR (cv2)
         res, _ = engine(im)
         txt = "\n".join(l[1] for l in (res or []))   # res = [[box, text, score], ...]
+        # OCR 质量闸:reject(短语刷屏/整行复读/乱码)不进 _ocr/ 燃料池,落 _ocr_rejected/ 标记
+        if ocr_quality.verdict(txt) == "reject":
+            try:
+                s3.put_object(Bucket=BUCKET, Key="_ocr_rejected/" + k[len("book/"):].rsplit(".", 1)[0] + ".txt",
+                              Body=txt.encode("utf-8"))
+            except Exception:
+                pass
+            ledger.add(txtkey); rejected += 1
+            continue
         s3.put_object(Bucket=BUCKET, Key=txtkey, Body=txt.encode("utf-8"))
         done += 1
         ledger.add(txtkey)
@@ -117,5 +127,6 @@ for k in mine:
 
 json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocr_{SHARD}.json",
-              Body=json.dumps({"shard": SHARD, "total": len(mine), "ocrd": skipped + done, "new": done}).encode())
-print(f"=== shard {SHARD} OCR {done} new, {skipped + done}/{len(mine)} done ===", flush=True)
+              Body=json.dumps({"shard": SHARD, "total": len(mine), "ocrd": skipped + done,
+                               "new": done, "rej": rejected}).encode())
+print(f"=== shard {SHARD} OCR {done} new, {skipped + done}/{len(mine)} done, 质量闸拦截 {rejected} ===", flush=True)
