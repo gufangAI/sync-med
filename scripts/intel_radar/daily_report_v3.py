@@ -1167,8 +1167,9 @@ def score_blindspot(cands: list, use_gateway: bool, models: list) -> list:
 
 def generate_blindspot_section(scored: list, max_show: int = 15) -> str:
     """生成「🆕补盲区新发现」板块 (video/tts/ocr/kg/tcm 整类)。这是把「人肉发现 OpenCut」
-    升级成「cron 自动扫外部 AI 世界」的落地体现。如实标注边界: 不做本地军火库总台账去重
-    (台账在本地 F 盘/CJK 正文, 不宜进 public 仓, 云端与本地无同步), 是否已收录请人工对照。"""
+    升级成「cron 自动扫外部 AI 世界」的落地体现。已按 committed 的 arsenal_repos.txt
+    (台账 ASCII 快照) 在抓取阶段去重: 短名命中的已收录项被剔除, 不再重复标为新发现;
+    但该快照是人工同步、非与本地台账实时联动, 快照外的新增项仍需人工对照。"""
     if not scored:
         return (
             "## 🆕 补盲区新发现\n\n"
@@ -1184,9 +1185,9 @@ def generate_blindspot_section(scored: list, max_show: int = 15) -> str:
         "> 主扫描的 topic 写死在 ai-agent/llm/rag 类, 漏掉了 video/剪辑/tts/ocr 整类 "
         "(今晚 OpenCut 盲区的根因)。本雷达按 topic 簇专捞这些方向的高星 (stars> 门槛) + 活跃项目, "
         "并用免费 glm-4-flash 判它对我们哪个子系统 (OCR/RAG/视频/判断/KG) 有价值。",
-        "> **边界 (如实标注)**: 这里不比对本地军火库总台账.md 是否已收录 "
-        "(台账在本地 F 盘/中文正文, 不宜进 public 仓, 云端脚本与本地无同步机制); "
-        "展示的是高星活跃候选 + 价值判断, 是否已入库请人工对照。",
+        "> **边界 (如实标注)**: 已按 committed 的 arsenal_repos.txt (台账 ASCII 快照) "
+        "在抓取阶段去重 —— 短名命中的已收录项被剔除, 不再重复展示; 但该快照是人工同步、"
+        "非与本地台账实时联动, 所以下面列的都是快照外的高星活跃候选 + 价值判断, 是否已入库仍请人工对照。",
         "",
     ]
     for cluster, items in by_cluster.items():
@@ -1218,6 +1219,95 @@ CATEGORY_EMOJI = {
     '\u672a\u5206\u7c7b':    "📌",
 }
 
+def _decision_advice(x: dict) -> str:
+    """按类别/核验状态给一句话行动建议(确定性规则, 不调 LLM, 不烧算力)。"""
+    cat = x.get("category", "") or ""
+    if x.get("verified") is True and int(x.get("score", 0) or 0) >= 4:
+        return "高分且已通过核验 —— 今日就派 agent 沙箱实测, 通过即纳入军火库。"
+    if "竞品" in cat:
+        return "竞品动向 —— 今日扫一眼对方在做什么, 判断要不要跟进防守。"
+    if "免费" in cat:
+        return "免费资源 —— 今日评估能否接入免费网关/舰队, 省掉付费或本地算力。"
+    if x.get("_kind") == "blindspot":
+        return "补盲区高星项 —— 今日人工对照军火库是否已收录, 未收录则评估补入。"
+    if cat in ("OCR文字化", "RAG"):
+        return "命中核心管线(OCR/RAG) —— 今日评估是否值得进一步沙箱验证再决定纳入。"
+    return "今日快速评估与 SueAI 的契合度, 决定纳入试用还是放弃。"
+
+
+def generate_top3_decision_section(top_items: list,
+                                   scored_blindspot: Optional[list] = None) -> str:
+    """置顶「今日 TOP3 决策就绪」板块: 从当日全部候选(主扫 top_items + 补盲区 scored_blindspot)
+    里, 按 (分值, 已核验, 采用广度=星数) 综合排序, 挑最该创始人当场拍板的 1-3 条, 每条一句话建议。
+    治「产出堆 Issue 没人看」: 一眼看到该决策的那几条, 而不是扫完全部 TOP15+补盲区才找得到。
+    纯确定性打包已有字段(score/verified/stars/reason), 不额外调 LLM。"""
+    pool = []
+    for it in (top_items or []):
+        pool.append({
+            "title": it.get("title", ""), "url": it.get("url", ""),
+            "score": int(it.get("score", 0) or 0),
+            "verified": it.get("verified"),
+            "stars": int(it.get("stars", 0) or 0),
+            "category": it.get("category", "未分类"),
+            "reason": it.get("reason", ""),
+            "source": it.get("source", "主扫描"),
+            "_kind": "main",
+        })
+    for c in (scored_blindspot or []):
+        pool.append({
+            "title": c.get("title", ""), "url": c.get("url", ""),
+            "score": int(c.get("score", 0) or 0),
+            "verified": None,
+            "stars": int(c.get("stars", 0) or 0),
+            "category": c.get("category", "未判定"),
+            "reason": c.get("reason", ""),
+            "source": c.get("source", "🆕补盲区雷达"),
+            "_kind": "blindspot",
+        })
+
+    # 综合"紧迫度": 分值优先; 同分已核验优先; 再按星数(采用广度大=更成熟可决策)
+    pool.sort(key=lambda x: (x["score"], 1 if x["verified"] is True else 0, x["stars"]),
+              reverse=True)
+
+    MIN_DECISION_SCORE = 3
+    picks = [x for x in pool if x["score"] >= MIN_DECISION_SCORE][:3]
+    total = len(pool)
+
+    if not picks:
+        return (
+            "## 🎯 今日 TOP3 决策就绪\n\n"
+            f"> 今日 {total} 条候选中, 无分值 ≥{MIN_DECISION_SCORE} 的高置信决策项。"
+            "不代表没有价值发现, 仅表示今日没有达到「该立即拍板」阈值的信号, 可照常浏览下方明细。\n\n"
+            "---\n"
+        )
+
+    lines = [
+        "## 🎯 今日 TOP3 决策就绪",
+        "",
+        f"> 从今日全部 {total} 条候选里, 按「分值 × 是否核验 × 采用广度」排出最该你拍板的 "
+        f"{len(picks)} 条, 附一句话建议。**先看这里、其余按需翻。**",
+        "",
+    ]
+    for i, x in enumerate(picks, 1):
+        stars_m = "⭐" * max(1, x["score"])
+        head = f"[{x['title']}]({x['url']})" if x["url"] else x["title"]
+        vmark = ""
+        if x["verified"] is True:
+            vmark = " · ✅已核验"
+        elif x["verified"] is False:
+            vmark = " · ⚠️待核验"
+        gh_stars = f" · GitHub⭐{x['stars']}" if x["stars"] else ""
+        lines.append(f"### {i}. {head}")
+        lines.append(f"- {stars_m} 分值{x['score']}/5 · [{x['category']}]{vmark}{gh_stars} · 来源:{x['source']}")
+        if x["reason"]:
+            lines.append(f"- 为什么值得决策: {x['reason']}")
+        lines.append(f"- 👉 **建议**: {_decision_advice(x)}")
+        lines.append("")
+    lines.append("---")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def generate_report_v3(
     date_str: str,
     raw_counts: dict,
@@ -1230,6 +1320,7 @@ def generate_report_v3(
     synthesis_md: Optional[str] = None,
     action_flags_md: Optional[str] = None,
     blindspot_md: Optional[str] = None,
+    top3_md: Optional[str] = None,
 ) -> str:
     '\u751f\u6210 Markdown \u62a5\u544a (\u5934\u90e8\u591a\u5b66\u79d1\u7814\u5224 + \u7cbe\u534e\u60c5\u62a5)'
     total_top = len(top_items)
@@ -1252,6 +1343,9 @@ def generate_report_v3(
         "",
     ]
 
+    # 置顶: 今日 TOP3 决策就绪 (治「产出堆着没人看」, 一眼看该拍板的)
+    if top3_md:
+        lines.append(top3_md)
 
     if synthesis_md:
         lines.append(synthesis_md)
@@ -1481,6 +1575,7 @@ def main():
     # 补盲区雷达: 复用打分链给候选打价值分 + 生成「🆕补盲区新发现」板块
     # (隔离于主管线, 任何异常都不阻断主日报的生成与推送)
     blindspot_md = ""
+    scored_blindspot: list = []
     try:
         if use_gateway:
             bs_models = GATEWAY_MODELS
@@ -1495,6 +1590,14 @@ def main():
     except Exception as e:
         print(f"  [补盲区雷达] 打分/板块生成异常 (已捕获,不阻断): {e}", flush=True)
 
+    # 置顶「今日 TOP3 决策就绪」: 从主扫 + 补盲区全部候选里挑最该拍板的 1-3 条
+    # (隔离于主管线, 任何异常都不阻断主日报的生成与推送)
+    top3_md = ""
+    try:
+        top3_md = generate_top3_decision_section(top_items, scored_blindspot)
+    except Exception as e:
+        print(f"  [TOP3决策板块] 生成异常 (已捕获,不阻断): {e}", flush=True)
+
     elapsed   = time.time() - t0
     synthesis_md = generate_synthesis_section(synthesis_data)
     action_flags_md = generate_action_flags_section(flagged_items)
@@ -1504,6 +1607,7 @@ def main():
         synthesis_md=synthesis_md,
         action_flags_md=action_flags_md,
         blindspot_md=blindspot_md,
+        top3_md=top3_md,
     )
 
     out_path = REPORTS_DIR / f"{today}_v3.md"
@@ -1543,7 +1647,8 @@ def main():
     if args.cloud:
         _push_issue(today, top_items, raw_counts, total_raw, total_analyzed,
                     elapsed, models_used, synthesis_md=synthesis_md,
-                    action_flags_md=action_flags_md, blindspot_md=blindspot_md)
+                    action_flags_md=action_flags_md, blindspot_md=blindspot_md,
+                    top3_md=top3_md)
 
     
     push_wechat(today, top_items, raw_counts, total_raw, total_analyzed,
@@ -1703,7 +1808,8 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
                 elapsed: float, models_used: list,
                 synthesis_md: Optional[str] = None,
                 action_flags_md: Optional[str] = None,
-                blindspot_md: Optional[str] = None):
+                blindspot_md: Optional[str] = None,
+                top3_md: Optional[str] = None):
     '\n    \u7528 gh CLI \u521b\u5efa Issue \u5230 gufangAI/sync-med\u3002\n    GH_TOKEN \u7531 Actions \u81ea\u52a8\u6ce8\u5165,\u65e0\u9700\u989d\u5916\u914d\u7f6e\u3002\n    '
     import subprocess
 
@@ -1726,6 +1832,9 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
         f"> \u5206\u6790\u6a21\u578b: {', '.join(models_used)} | \u8017\u65f6: {elapsed:.0f}s",
         "",
     ]
+    # \u7f6e\u9876: \u4eca\u65e5 TOP3 \u51b3\u7b56\u5c31\u7eea (\u8ba9\u521b\u59cb\u4eba\u4e00\u773c\u770b\u5230\u8be5\u62cd\u677f\u7684, \u800c\u975e\u626b\u5168\u90e8)
+    if top3_md:
+        body_lines.append(top3_md)
     if synthesis_md:
 
         body_lines.append(synthesis_md)
