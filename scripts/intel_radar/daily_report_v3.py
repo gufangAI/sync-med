@@ -1341,8 +1341,6 @@ def generate_top3_decision_section(top_items: list,
 # 探测本平台各器官(寻脉/星图/导读/转化)真实健康度 → 生成"系统自身缺口"板块置顶日报。
 # 复用 push_d1_intel_report 的 CF_ACCOUNT_ID/D1_API_TOKEN/D1_DATABASE_ID(零新增 secret)。
 # 全程软失败:任一子探测异常只记"查询失败",绝不阻断主日报。
-_SELFCHECK_GOLD = ["桂枝汤的功效", "失眠多梦怎么调理", "小儿积食腹胀", "胸痹心痛的古方",
-                   "夏季暑湿困脾", "补中益气汤主治", "妇人带下病", "咳嗽痰多"]
 
 def _selfcheck_d1(sql: str):
     account_id  = os.environ.get("CF_ACCOUNT_ID", "").strip()
@@ -1366,25 +1364,26 @@ def _selfcheck_scalar(sql: str):
 
 def generate_selfcheck_section() -> str:
     rows = []   # [(器官, 实测值, is_gap)]
-    # 👄 寻脉:证据召回率 + 证据可跳原书率(POST 公开 API,无需凭据)
-    rec = jt = jok = 0
-    for q in _SELFCHECK_GOLD:
-        try:
-            body = json.dumps({"query": q}).encode("utf-8")
-            req = urllib.request.Request("https://gufangai.com/api/ai/search",
-                    data=body, headers={"Content-Type": "application/json"})
-            d = json.load(urllib.request.urlopen(req, timeout=45))
-            data = d.get("data", d); ev = data.get("public_evidence", []) or []
-            if ev: rec += 1
-            for e in ev:
-                jt += 1
-                if e.get("reader_url"): jok += 1
-        except Exception:
-            pass
-    rows.append(("👄 寻脉·证据召回率", f"{rec}/{len(_SELFCHECK_GOLD)}",
-                 rec < len(_SELFCHECK_GOLD) * 0.8))
-    rows.append(("👄 寻脉·证据可跳原书率", f"{jok}/{jt}" if jt else "0/0",
-                 (not jt) or jok < jt * 0.3))
+    # 👄 寻脉:从真实调用日志 sue_call_logs 看健康度(D1 内部查询·云端可靠;
+    #    不从云端 runner POST 外部 API—后者受超时/无 cookie 限制会假 0)。反映真实用户实际拿到的证据召回。
+    try:
+        r = _selfcheck_d1(
+            "SELECT COUNT(*) total, "
+            "SUM(CASE WHEN public_evidence_count>0 THEN 1 ELSE 0 END) with_ev, "
+            "SUM(CASE WHEN output_status='success' THEN 1 ELSE 0 END) ok "
+            "FROM sue_call_logs WHERE created_at >= strftime('%s','now','-7 days')")
+        row = (r[0] if r else {}) or {}
+        total   = row.get("total", 0) or 0
+        with_ev = row.get("with_ev", 0) or 0
+        ok      = row.get("ok", 0) or 0
+        if total == 0:
+            rows.append(("👄 寻脉·近7天调用量", "0(近期无人调用)", True))
+        else:
+            pct = with_ev * 100 // total
+            rows.append(("👄 寻脉·近7天证据召回率", f"{with_ev}/{total}({pct}%)", pct < 60))
+            rows.append(("👄 寻脉·近7天成功率", f"{ok}/{total}", ok < total * 0.7))
+    except Exception as e:
+        rows.append(("👄 寻脉·调用日志", f"查询失败({str(e)[:36]})", False))
     # 🧠 星图 / 🖼️ 导读 / 💰 转化(各自软失败,一个错不拖累其他)
     try:
         n = _selfcheck_scalar("SELECT COUNT(*) c FROM sue_graph_nodes")
