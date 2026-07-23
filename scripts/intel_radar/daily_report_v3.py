@@ -422,6 +422,98 @@ def fetch_github_freebies() -> list:
     return repos
 
 
+# ============================================================
+# \u8865\u76f2\u533a\u96f7\u8fbe (github_radar \u5e76\u5165): \u8986\u76d6\u88ab\u4e3b\u626b\u63cf topic \u5199\u6b7b\u6f0f\u6389\u7684\u6574\u7c7b
+#   \u2014\u2014 video / tts / ocr / knowledge-graph / tcm \u7b49
+# \u4e3b\u626b\u63cf fetch_github_trending \u53ea\u6293 created:>7\u5929 \u7684"\u65b0\u5efa"\u4ed3\u5e93,
+# \u6293\u4e0d\u5230 OpenCut / GPT-SoVITS / lossless-cut \u8fd9\u7c7b"\u5df2\u6210\u540d+\u4ecd\u6d3b\u8dc3"\u7684\u8001\u724c\u9ad8\u661f\u9879\u76ee\u3002
+# \u672c\u96f7\u8fbe\u7528 stars:>N + pushed:>date \u4e13\u635e\u8fd9\u7c7b, \u8865\u4e0a\u4eca\u665a\u66b4\u9732\u7684 OpenCut \u76f2\u533a\u3002
+# \u96f6\u672c\u5730\u7b97\u529b\u3001\u514d\u8d39 (GITHUB_TOKEN 5000/hr + \u514d\u8d39 glm-4-flash \u6253\u5206)\u3002
+# ============================================================
+
+BLINDSPOT_TOPIC_CLUSTERS = {
+    "OCR\u71c3\u6599":  ["ocr", "document-understanding", "table-recognition", "document-ai"],
+    "\u89c6\u9891\u5185\u5bb9": ["video-editor", "video-editing", "video-generation", "text-to-video"],
+    "\u8bed\u97f3\u914d\u97f3": ["text-to-speech", "tts", "speech-synthesis", "voice-cloning"],
+    "\u77e5\u8bc6\u56fe\u8c31": ["knowledge-graph", "graphrag", "graph-visualization"],
+    "\u4e2d\u533b\u5782\u76f4": ["tcm", "chinese-medicine"],
+}
+BLINDSPOT_MIN_STARS   = 2000     # \u8001\u724c\u9ad8\u661f\u95e8\u69db
+BLINDSPOT_ACTIVE_DAYS = 120      # pushed \u5728\u8fd1 N \u5929\u5185 = \u4ecd\u6d3b\u8dc3
+BLINDSPOT_PER_TOPIC   = 8
+
+
+def _load_arsenal_names() -> set:
+    """\u53ef\u9009: \u8bfb committed \u7684 arsenal_repos.txt (ASCII repo \u77ed\u540d, \u4e00\u884c\u4e00\u4e2a) \u505a\u53bb\u91cd\u3002
+    \u519b\u706b\u5e93\u603b\u53f0\u8d26.md \u5728\u672c\u5730 F \u76d8\u3001\u4e14\u662f CJK \u6b63\u6587, \u4e0d\u5b9c\u8fdb public \u4ed3, \u6240\u4ee5\u4e91\u7aef\u9ed8\u8ba4\u6ca1\u6709\u5b83\u3002
+    \u8fd9\u4e2a hook \u8ba9\u5c06\u6765\u80fd\u585e\u4e00\u4efd curated \u5df2\u77e5\u540d\u5355\u8fdb\u6765\u800c\u4e0d\u5fc5\u6539\u4ee3\u7801;
+    \u6ca1\u6709\u8be5\u6587\u4ef6\u65f6\u8df3\u8fc7\u53f0\u8d26\u53bb\u91cd, \u53ea\u505a run \u5185\u53bb\u91cd, \u5e76\u5728\u677f\u5757\u91cc\u5982\u5b9e\u6807\u6ce8\u8fd9\u5c42\u8fb9\u754c\u3002"""
+    p = SCRIPT_DIR / "arsenal_repos.txt"
+    names = set()
+    if p.exists():
+        for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+            s = line.strip().lower()
+            if s and not s.startswith("#"):
+                names.add(s.split("/")[-1])   # \u53ea\u7559 repo \u77ed\u540d
+    return names
+
+
+def fetch_blindspot_radar() -> list:
+    """\u8865\u76f2\u533a\u96f7\u8fbe: \u6309 topic \u7c07\u626b GitHub \u9ad8\u661f(stars:>N)+\u6d3b\u8dc3(pushed:>date)\u7684\u8001\u724c\u9879\u76ee,
+    \u8865\u4e3b\u626b\u63cf topic \u6f0f\u6389\u7684 video/tts/ocr/kg/tcm \u6574\u7c7b\u3002\u8fd4\u56de\u7edf\u4e00 dict \u5217\u8868(\u540c\u5176\u5b83 fetcher)\u3002"""
+    print(f"[\u6293\u53d6] \u8865\u76f2\u533a\u96f7\u8fbe (video/tts/ocr/kg/tcm, stars>{BLINDSPOT_MIN_STARS}) ...", flush=True)
+    cutoff = (datetime.date.today() - datetime.timedelta(days=BLINDSPOT_ACTIVE_DAYS)).isoformat()
+    arsenal = _load_arsenal_names()
+    gh_token = os.environ.get("GH_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    if gh_token:
+        headers["Authorization"] = f"Bearer {gh_token}"   # 5000/hr, \u907f\u514d\u533f\u540d\u9650\u6d41
+
+    seen_ids, cands = set(), []
+    for cluster, topics in BLINDSPOT_TOPIC_CLUSTERS.items():
+        for topic in topics:
+            q = f"topic:{topic} stars:>{BLINDSPOT_MIN_STARS} pushed:>{cutoff}"
+            url = (f"https://api.github.com/search/repositories"
+                   f"?q={urllib.parse.quote(q)}&sort=stars&order=desc&per_page={BLINDSPOT_PER_TOPIC}")
+            try:
+                data = json.loads(fetch_url(url, timeout=30, headers=headers))
+            except (RuntimeError, json.JSONDecodeError) as e:
+                print(f"    [\u8865\u76f2\u533a] topic={topic} \u67e5\u8be2\u5931\u8d25: {e}", flush=True)
+                time.sleep(2)
+                continue
+            new = 0
+            for item in data.get("items", []):
+                rid = item.get("id")
+                full = item.get("full_name", "")
+                if not full or rid in seen_ids:
+                    continue
+                seen_ids.add(rid)
+                short = full.split("/")[-1].lower()
+                if short in arsenal:          # \u519b\u706b\u5e93\u5df2\u6536\u5f55(\u82e5\u6709\u540d\u5355) \u2192 \u8df3\u8fc7, \u53ea\u7559\u6f0f\u7f51
+                    continue
+                desc = (item.get("description") or "").replace("\n", " ").strip()
+                gh_topics = ", ".join(item.get("topics", [])[:6])
+                cands.append({
+                    "id": str(rid),
+                    "title": full,
+                    "abstract": f"{desc} | \u8bdd\u9898: {gh_topics} | \u2b50{item.get('stargazers_count', 0)}",
+                    "url": item.get("html_url", ""),
+                    "source": "\ud83c\udd95\u8865\u76f2\u533a\u96f7\u8fbe",
+                    "stars": item.get("stargazers_count", 0),
+                    "lang": item.get("language", ""),
+                    "_cluster": cluster,
+                })
+                new += 1
+            print(f"    [\u8865\u76f2\u533a] topic={topic:<22} +{new}", flush=True)
+            time.sleep(1.2)
+    cands.sort(key=lambda x: -x.get("stars", 0))
+    print(f"  \u8865\u76f2\u533a\u96f7\u8fbe\u5408\u8ba1: {len(cands)} \u4e2a\u9ad8\u661f\u6d3b\u8dc3\u5019\u9009 (arsenal\u540d\u5355={len(arsenal)}\u6761)", flush=True)
+    return cands
+
+
 def fetch_hf_papers() -> list:
     '\u6293\u53d6 HuggingFace Daily Papers'
     print('[\u6293\u53d6] HuggingFace Daily Papers ...', end=" ", flush=True)
@@ -1039,6 +1131,82 @@ def generate_action_flags_section(flagged_items: list) -> str:
     return "\n".join(lines)
 
 
+def score_blindspot(cands: list, use_gateway: bool, models: list) -> list:
+    """复用主打分链 (analyze_all_parallel + glm-4-flash) 给补盲区候选打价值分。
+    左连接: 保留全部候选 (哪怕 LLM 判为低相关也照列, 因为「这类高星项目存在」本身
+    就是要被看见的盲区信号), 有分的补上 score/category/reason。返回按 (score, stars) 排序。"""
+    if not cands:
+        return []
+    if not models or not (use_gateway or ZHIPU_KEY or NVIDIA_KEY):
+        print("  [补盲区打分] 无可用 LLM, 仅列原始候选 (不打分)", flush=True)
+        for c in cands:
+            c["score"], c["category"], c["reason"] = 0, "未判定", ""
+        return sorted(cands, key=lambda x: -x.get("stars", 0))
+    print(f"\n[补盲区打分] {len(cands)} 个候选走 glm-4-flash 价值判断 ...", flush=True)
+    try:
+        picks = asyncio.run(analyze_all_parallel(cands, use_gateway, models))
+    except Exception as e:
+        print(f"  [补盲区打分] 打分失败 (不阻断): {e}", flush=True)
+        picks = []
+    score_map = {}
+    for p in picks:
+        try:
+            idx = int(str(p.get("index", 0)).strip().strip('"').strip("'"))
+        except (ValueError, TypeError):
+            continue
+        if 1 <= idx <= len(cands):
+            if idx not in score_map or p.get("score", 0) > score_map[idx].get("score", 0):
+                score_map[idx] = p
+    for i, c in enumerate(cands, 1):
+        p = score_map.get(i)
+        c["score"]    = p.get("score", 0) if p else 0
+        c["category"] = p.get("category", "未判定") if p else "未判定"
+        c["reason"]   = p.get("reason", "") if p else ""
+    return sorted(cands, key=lambda x: (-x.get("score", 0), -x.get("stars", 0)))
+
+
+def generate_blindspot_section(scored: list, max_show: int = 15) -> str:
+    """生成「🆕补盲区新发现」板块 (video/tts/ocr/kg/tcm 整类)。这是把「人肉发现 OpenCut」
+    升级成「cron 自动扫外部 AI 世界」的落地体现。如实标注边界: 不做本地军火库总台账去重
+    (台账在本地 F 盘/CJK 正文, 不宜进 public 仓, 云端与本地无同步), 是否已收录请人工对照。"""
+    if not scored:
+        return (
+            "## 🆕 补盲区新发现\n\n"
+            "> 本轮补盲区雷达未捞到候选 (video/tts/ocr/kg/tcm 整类, stars> 门槛 + 近期活跃)。\n\n"
+            "---\n"
+        )
+    by_cluster = {}
+    for c in scored:
+        by_cluster.setdefault(c.get("_cluster", "其它"), []).append(c)
+    lines = [
+        "## 🆕 补盲区新发现 (video / tts / ocr / kg / tcm 整类)",
+        "",
+        "> 主扫描的 topic 写死在 ai-agent/llm/rag 类, 漏掉了 video/剪辑/tts/ocr 整类 "
+        "(今晚 OpenCut 盲区的根因)。本雷达按 topic 簇专捞这些方向的高星 (stars> 门槛) + 活跃项目, "
+        "并用免费 glm-4-flash 判它对我们哪个子系统 (OCR/RAG/视频/判断/KG) 有价值。",
+        "> **边界 (如实标注)**: 这里不比对本地军火库总台账.md 是否已收录 "
+        "(台账在本地 F 盘/中文正文, 不宜进 public 仓, 云端脚本与本地无同步机制); "
+        "展示的是高星活跃候选 + 价值判断, 是否已入库请人工对照。",
+        "",
+    ]
+    for cluster, items in by_cluster.items():
+        lines.append(f"### {cluster} ({len(items)})")
+        lines.append("")
+        for c in items[:max_show]:
+            stars = c.get("stars", 0)
+            sc = c.get("score", 0)
+            val = f"价值{sc}/5·{c.get('category','')}" if sc else "价值未判定/低相关"
+            reason = f" — {c.get('reason','')}" if c.get("reason") else ""
+            url = c.get("url", "")
+            title = c.get("title", "")
+            head = f"[{title}]({url})" if url else title
+            lines.append(f"- **{head}** ⭐{stars} · {val}{reason}")
+        lines.append("")
+    lines.append("---")
+    lines.append("")
+    return "\n".join(lines)
+
+
 CATEGORY_EMOJI = {
     "RAG":       "🔍",
     '\u5224\u65ad\u5f15\u64ce':  "🧠",
@@ -1061,6 +1229,7 @@ def generate_report_v3(
     total_analyzed: int,
     synthesis_md: Optional[str] = None,
     action_flags_md: Optional[str] = None,
+    blindspot_md: Optional[str] = None,
 ) -> str:
     '\u751f\u6210 Markdown \u62a5\u544a (\u5934\u90e8\u591a\u5b66\u79d1\u7814\u5224 + \u7cbe\u534e\u60c5\u62a5)'
     total_top = len(top_items)
@@ -1089,6 +1258,9 @@ def generate_report_v3(
 
     if action_flags_md:
         lines.append(action_flags_md)
+
+    if blindspot_md:
+        lines.append(blindspot_md)
 
     lines += [
         '## \u7cbe\u534e\u60c5\u62a5 (\u6309\u5206\u503c\u6392\u5e8f)',
@@ -1217,11 +1389,17 @@ def main():
 
     github_repos  = []
     freebies      = []
+    blindspot_cands = []
     if not args.no_github:
         github_repos = fetch_github_trending()
         raw_counts["GitHub Trending"] = len(github_repos)
         freebies = fetch_github_freebies()
         raw_counts['GitHub \u514d\u8d39\u519b\u706b'] = len(freebies)
+        try:
+            blindspot_cands = fetch_blindspot_radar()
+        except Exception as e:
+            print(f"  [\u8865\u76f2\u533a\u96f7\u8fbe] \u6293\u53d6\u672a\u9884\u671f\u5f02\u5e38 (\u5df2\u6355\u83b7,\u4e0d\u963b\u65ad): {e}", flush=True)
+        raw_counts["\u8865\u76f2\u533a\u96f7\u8fbe"] = len(blindspot_cands)
 
     
     cn_items = fetch_cn_intel()
@@ -1300,6 +1478,23 @@ def main():
         print('\n[\u591a\u5b66\u79d1\u7814\u5224] \u65e0 LLM \u53ef\u7528\uff0c\u8df3\u8fc7')
 
 
+    # 补盲区雷达: 复用打分链给候选打价值分 + 生成「🆕补盲区新发现」板块
+    # (隔离于主管线, 任何异常都不阻断主日报的生成与推送)
+    blindspot_md = ""
+    try:
+        if use_gateway:
+            bs_models = GATEWAY_MODELS
+        elif ZHIPU_KEY:
+            bs_models = [ZHIPU_MODEL]
+        elif NVIDIA_KEY:
+            bs_models = [NVIDIA_MODEL]
+        else:
+            bs_models = []
+        scored_blindspot = score_blindspot(blindspot_cands, use_gateway, bs_models)
+        blindspot_md = generate_blindspot_section(scored_blindspot)
+    except Exception as e:
+        print(f"  [补盲区雷达] 打分/板块生成异常 (已捕获,不阻断): {e}", flush=True)
+
     elapsed   = time.time() - t0
     synthesis_md = generate_synthesis_section(synthesis_data)
     action_flags_md = generate_action_flags_section(flagged_items)
@@ -1308,6 +1503,7 @@ def main():
         gateway_alive, total_raw, total_analyzed,
         synthesis_md=synthesis_md,
         action_flags_md=action_flags_md,
+        blindspot_md=blindspot_md,
     )
 
     out_path = REPORTS_DIR / f"{today}_v3.md"
@@ -1347,7 +1543,7 @@ def main():
     if args.cloud:
         _push_issue(today, top_items, raw_counts, total_raw, total_analyzed,
                     elapsed, models_used, synthesis_md=synthesis_md,
-                    action_flags_md=action_flags_md)
+                    action_flags_md=action_flags_md, blindspot_md=blindspot_md)
 
     
     push_wechat(today, top_items, raw_counts, total_raw, total_analyzed,
@@ -1506,7 +1702,8 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
                 total_raw: int, total_analyzed: int,
                 elapsed: float, models_used: list,
                 synthesis_md: Optional[str] = None,
-                action_flags_md: Optional[str] = None):
+                action_flags_md: Optional[str] = None,
+                blindspot_md: Optional[str] = None):
     '\n    \u7528 gh CLI \u521b\u5efa Issue \u5230 gufangAI/sync-med\u3002\n    GH_TOKEN \u7531 Actions \u81ea\u52a8\u6ce8\u5165,\u65e0\u9700\u989d\u5916\u914d\u7f6e\u3002\n    '
     import subprocess
 
@@ -1536,6 +1733,8 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
         body_lines += ["---", ""]
     if action_flags_md:
         body_lines.append(action_flags_md)
+    if blindspot_md:
+        body_lines.append(blindspot_md)
     body_lines += [
         '### \u7cbe\u534e TOP 15',
         "",
