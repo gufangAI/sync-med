@@ -501,7 +501,7 @@ def fetch_blindspot_radar() -> list:
                     "title": full,
                     "abstract": f"{desc} | \u8bdd\u9898: {gh_topics} | \u2b50{item.get('stargazers_count', 0)}",
                     "url": item.get("html_url", ""),
-                    "source": "\ud83c\udd95\u8865\u76f2\u533a\u96f7\u8fbe",
+                    "source": "\U0001f195\u8865\u76f2\u533a\u96f7\u8fbe",
                     "stars": item.get("stargazers_count", 0),
                     "lang": item.get("language", ""),
                     "_cluster": cluster,
@@ -1637,6 +1637,11 @@ def main():
         blindspot_md=blindspot_md,
         top3_md=top3_md,
     )
+
+    # safety net: never let one stray lone-surrogate char (e.g. an emoji mistakenly written as a
+    # 🆕 UTF-16 surrogate pair in some source label) crash the ENTIRE daily report write /
+    # D1 upsert / Issue. Root cause is fixed at the source strings; this only degrades gracefully.
+    report_md = report_md.encode("utf-8", "replace").decode("utf-8")
 
     out_path = REPORTS_DIR / f"{today}_v3.md"
     out_path.write_text(report_md, encoding="utf-8")
