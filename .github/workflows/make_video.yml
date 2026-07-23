@@ -45,6 +45,17 @@ on:
           - edge
           - cosyvoice
         default: edge
+      cosyvoice_autoseed:
+        description: >-
+          only for tts_engine=cosyvoice with no COSYVOICE_REF_* secrets set: "true" bootstraps a
+          one-off edge-tts seed clip as the zero-shot voice prompt so cosyvoice actually produces
+          audio (one shared voice for all experts). "false" keeps the loud-fail-if-no-reference
+          behaviour. Ignored on the edge path and on the schedule cron (which never passes inputs).
+        type: choice
+        options:
+          - "false"
+          - "true"
+        default: "false"
   schedule:
     # 05:17 UTC = 13:17 Beijing — offset from the top of the hour to avoid piling onto this repo's
     # many other :00/:15/:30 crons. Daily cadence keeps this experimental line producing without
@@ -82,7 +93,10 @@ jobs:
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           PAN_CLIENT_ID: ${{ secrets.PAN_CLIENT_ID }}
           PAN_CLIENT_SECRET: ${{ secrets.PAN_CLIENT_SECRET }}
-          BOOK: ${{ github.event.inputs.book || 'ylgc_2' }}
+          # 2026-07-23: schedule cron carries no inputs -> this fallback is what the nightly run uses.
+          # Was 'ylgc_2' which fell into the R2->123 migration gap (GetObject NoSuchKey, whole run
+          # failed daily); switched to the verified-available yxf07 so the nightly edge line renders.
+          BOOK: ${{ github.event.inputs.book || 'yxf07' }}
           PAGES: ${{ github.event.inputs.pages || '1,2,3,4,5' }}
           EXPERT_KEY: ${{ github.event.inputs.expert_key || 'auto' }}
           EXPERT_NAME: ${{ github.event.inputs.expert_name || '张仲景' }}
@@ -97,6 +111,9 @@ jobs:
           # are just empty strings and the edge path (the only one the schedule cron ever uses,
           # since `schedule` triggers carry no workflow_dispatch inputs) is completely unaffected.
           TTS_ENGINE: ${{ github.event.inputs.tts_engine || 'edge' }}
+          # opt-in autoseed (2026-07-23): only meaningful when tts_engine=cosyvoice AND no
+          # COSYVOICE_REF_* secrets are set; empty on the schedule cron so the nightly path is edge.
+          COSYVOICE_AUTOSEED: ${{ github.event.inputs.cosyvoice_autoseed || 'false' }}
           COSYVOICE_SPACE: ${{ secrets.COSYVOICE_SPACE }}
           COSYVOICE_REF_WAV_URL: ${{ secrets.COSYVOICE_REF_WAV_URL }}
           COSYVOICE_REF_TEXT: ${{ secrets.COSYVOICE_REF_TEXT }}

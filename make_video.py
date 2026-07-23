@@ -305,14 +305,48 @@ def tts_with_word_timestamps(text, voice=VOICE):
 # WordBoundary-style events like edge-tts gives us, so real karaoke subtitles (build_ass) are not
 # possible off this path. main() below falls back to approximate, evenly-time-distributed captions
 # (_approx_word_timings + build_plain_ass) rather than faking word-level precision it doesn't have.
-# (3) a curated per-expert reference voice -- COSYVOICE_REF_WAV_URL/COSYVOICE_REF_TEXT must be
-# supplied (e.g. a short curated clip per expert_key, hosted in R2) before this path can actually run
-# in the pipeline; with neither set, tts_cosyvoice_zero_shot() fails loudly rather than silently
-# reusing some wrong/default voice for every expert.
+# (3) a curated per-expert reference voice -- COSYVOICE_REF_WAV_URL/COSYVOICE_REF_TEXT (a short
+# curated clip per expert_key, hosted in R2) is still the preferred input for a distinct per-expert
+# timbre. Without it there are now two behaviours: default = fail loudly (never silently reuse a
+# wrong voice); opt-in COSYVOICE_AUTOSEED=1 = bootstrap a one-off edge-tts seed clip as the zero-shot
+# prompt so the path can actually produce real cosyvoice audio (one shared voice for all experts)
+# without a founder-hosted asset -- see _cosyvoice_autoseed_reference() below.
 COSYVOICE_SPACE = os.environ.get("COSYVOICE_SPACE", "FunAudioLLM/Fun-CosyVoice3-0.5B")
 COSYVOICE_REF_WAV_URL = os.environ.get("COSYVOICE_REF_WAV_URL", "")
 COSYVOICE_REF_TEXT = os.environ.get("COSYVOICE_REF_TEXT", "")
 HF_TOKEN = os.environ.get("HF_TOKEN", "") or None  # optional: only helps once we have our own Space/quota
+# COSYVOICE_AUTOSEED (2026-07-23, opt-in): when no curated per-expert reference clip is configured,
+# bootstrap a one-off ~5s edge-tts seed clip and use IT as the zero-shot voice prompt -- exactly the
+# mechanism this path was real-tested with on 2026-07-23. It yields ONE shared voice for every expert
+# (not a curated per-expert timbre), so it stays behind this explicit flag and never fires on the
+# default loud-fail path; the nightly schedule cron (which passes no inputs -> edge) is unaffected.
+COSYVOICE_AUTOSEED = os.environ.get("COSYVOICE_AUTOSEED", "").strip().lower() in ("1", "true", "yes", "on")
+COSYVOICE_SEED_TEXT = os.environ.get(
+    "COSYVOICE_SEED_TEXT",
+    "岐黄之术，源远流长。古籍有云，辨证施治，方能药到病除。")
+
+
+def _cosyvoice_autoseed_reference(seed_text, out_wav="cosyvoice_seed.wav"):
+    """Generate a one-off edge-tts clip on the fly to serve as the zero-shot voice prompt when no
+    curated per-expert reference is configured (COSYVOICE_AUTOSEED opt-in only). edge-tts emits mp3;
+    CosyVoice resamples the prompt to 16k mono internally, so hand it a clean 16k wav to avoid any
+    mp3-decoder mismatch on the Space side. Returns the wav path; its exact transcript is seed_text."""
+    async def _run():
+        communicate = edge_tts.Communicate(seed_text, VOICE, rate="+0%")
+        audio = bytearray()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio.extend(chunk["data"])
+        return bytes(audio)
+    audio_bytes = asyncio.run(_run())
+    if not audio_bytes:
+        raise SystemExit("cosyvoice autoseed: edge-tts returned no audio for the seed clip")
+    open("cosyvoice_seed.mp3", "wb").write(audio_bytes)
+    r = subprocess.run(["ffmpeg", "-y", "-i", "cosyvoice_seed.mp3", "-ar", "16000", "-ac", "1", out_wav],
+                       capture_output=True, text=True)
+    if r.returncode != 0 or not os.path.exists(out_wav):
+        raise SystemExit(f"cosyvoice autoseed: ffmpeg mp3->wav failed: {r.stderr[-300:]}")
+    return out_wav
 
 
 def tts_cosyvoice_zero_shot(text, out_path="voice.wav"):
@@ -321,17 +355,29 @@ def tts_cosyvoice_zero_shot(text, out_path="voice.wav"):
     except ImportError:
         raise SystemExit("TTS_ENGINE=cosyvoice requires `pip install gradio_client` in the workflow "
                           "(lightweight HTTP client, no torch)")
-    if not (COSYVOICE_REF_WAV_URL and COSYVOICE_REF_TEXT):
+    if COSYVOICE_REF_WAV_URL and COSYVOICE_REF_TEXT:
+        # curated per-expert reference clip (preferred): a short hosted wav + its exact transcript
+        ref_bytes = http_bytes(COSYVOICE_REF_WAV_URL, timeout=60)
+        ref_ext = os.path.splitext(COSYVOICE_REF_WAV_URL.split("?")[0])[1] or ".wav"
+        ref_path = "cosyvoice_ref" + ref_ext
+        open(ref_path, "wb").write(ref_bytes)
+        ref_text = COSYVOICE_REF_TEXT
+    elif COSYVOICE_AUTOSEED:
+        # opt-in bootstrap: no curated reference set, self-generate an edge-tts seed clip (one shared
+        # voice for all experts). This is what actually lets the path produce real cosyvoice audio
+        # without a founder-hosted reference asset -- proven end-to-end, not per-expert curated yet.
+        ref_text = COSYVOICE_SEED_TEXT
+        ref_path = _cosyvoice_autoseed_reference(ref_text)
+        print("[tts] cosyvoice AUTOSEED: no curated reference set -> bootstrapping a one-off edge-tts "
+              "seed clip as the zero-shot prompt (one shared voice for all experts)", flush=True)
+    else:
         raise SystemExit("TTS_ENGINE=cosyvoice needs COSYVOICE_REF_WAV_URL + COSYVOICE_REF_TEXT "
-                          "(a curated persona reference clip + its exact transcript) -- neither is set")
-    ref_bytes = http_bytes(COSYVOICE_REF_WAV_URL, timeout=60)
-    ref_ext = os.path.splitext(COSYVOICE_REF_WAV_URL.split("?")[0])[1] or ".wav"
-    ref_path = "cosyvoice_ref" + ref_ext
-    open(ref_path, "wb").write(ref_bytes)
+                          "(a curated persona reference clip + its exact transcript), or set "
+                          "COSYVOICE_AUTOSEED=1 to bootstrap a one-off edge-tts seed clip instead")
 
     client = Client(COSYVOICE_SPACE, hf_token=HF_TOKEN)
     result = client.predict(
-        tts_text=text, mode_value="zero_shot", prompt_text=COSYVOICE_REF_TEXT,
+        tts_text=text, mode_value="zero_shot", prompt_text=ref_text,
         prompt_wav_upload=handle_file(ref_path), prompt_wav_record=None,
         instruct_text="You are a helpful assistant. 请用广东话表达。<|endofprompt|>",  # unused in zero_shot mode, but the endpoint still requires a valid literal from its dropdown
         seed=42, stream=False, ui_lang="Zh", api_name="/generate_audio",

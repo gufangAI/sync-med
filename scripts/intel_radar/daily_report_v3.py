@@ -668,7 +668,7 @@ def check_gateway_alive() -> bool:
 
 
 
-ANALYZE_PROMPT_TPL = '\u4f60\u662f SueAI \u60c5\u62a5\u96f7\u8fbe\u5206\u6790\u5927\u8111\u3002\n\n{context}\n\n\u4ee5\u4e0b\u662f\u4e00\u6279\u60c5\u62a5\u6761\u76ee (\u8bba\u6587/\u4ed3\u5e93/\u6a21\u578b)\u3002\u8bf7\u7b5b\u9009\u51fa\u5bf9 SueAI \u6709\u4ef7\u503c\u7684\u6761\u76ee,\u6bcf\u6761\u6253\u5206\u5e76\u5206\u7c7b\u3002\n\n\u6761\u76ee\u5217\u8868:\n{items}\n\n\u5bf9\u6bcf\u6761\u6761\u76ee:\n1. \u5224\u65ad\u662f\u5426\u4e0e SueAI \u6280\u672f\u65b9\u5411\u76f8\u5173 (RAG/\u5224\u65ad\u5f15\u64ce/OCR/\u4e2d\u533bNLP/\u65b9\u6cd5\u524d\u6cbf/\u7ade\u54c1\u60c5\u62a5/\u514d\u8d39\u8d44\u6e90)\n2. \u5982\u76f8\u5173: \u6253\u5206 1-5 (5=\u6781\u9ad8\u4ef7\u503c,1=\u5f31\u76f8\u5173),\u7ed9\u51fa\u5206\u7c7b\u6807\u7b7e + \u4e00\u53e5\u8bdd\u7406\u7531\n3. \u5982\u4e0d\u76f8\u5173: \u8df3\u8fc7\n\n\u53ea\u8f93\u51fa JSON \u6570\u7ec4 (\u65e0\u591a\u4f59\u6587\u5b57):\n[\n  {{\n    "index": <\u6761\u76ee\u7f16\u53f7>,\n    "score": <1-5>,\n    "category": "<RAG|\u5224\u65ad\u5f15\u64ce|OCR\u6587\u5b57\u5316|\u4e2d\u533bNLP|\u65b9\u6cd5\u524d\u6cbf|\u7ade\u54c1\u60c5\u62a5|\u514d\u8d39\u8d44\u6e90>",\n    "reason": "<\u4e00\u53e5\u8bdd: \u5bf9 SueAI \u54ea\u4e2a\u6a21\u5757\u6709\u4ef7\u503c>"\n  }},\n  ...\n]\n\u65e0\u76f8\u5173\u6761\u76ee\u65f6\u8f93\u51fa []\u3002'
+ANALYZE_PROMPT_TPL = '\u4f60\u662f SueAI \u60c5\u62a5\u96f7\u8fbe\u5206\u6790\u5927\u8111\u3002SueAI \u662f\u4e00\u4e2a\u300c\u4e2d\u533b\u53e4\u7c4d AI \u5e73\u53f0\u300d(AI\u5bfb\u8109/\u53e4\u7c4d\u5bfc\u8bfb/\u53e4\u7c4dOCR/\u77e5\u8bc6\u56fe\u8c31/RAG\u68c0\u7d22/\u53e4\u7c4d\u6570\u5b57\u5316)\u3002\n\n{context}\n\n\u4ee5\u4e0b\u662f\u4e00\u6279\u60c5\u62a5\u6761\u76ee (\u8bba\u6587/\u4ed3\u5e93/\u6a21\u578b)\u3002\u8bf7\u4e3a\u6bcf\u6761\u6253\u5206\u5e76\u5206\u7c7b\u3002\u6253\u5206\u7b2c\u4e00\u5224\u636e\u4e0d\u662f\u300c\u6280\u672f\u70ed\u4e0d\u70ed\u300d\uff0c\u800c\u662f\u300c\u5bf9\u672c\u4e2d\u533b\u53e4\u7c4d AI \u5e73\u53f0\u7684\u76f4\u63a5\u76f8\u5173\u6027\u300d\u3002\n\n\u6761\u76ee\u5217\u8868:\n{items}\n\n\u6253\u5206\u5224\u636e (\u5148\u5224\u76f8\u5173\u6027\u518d\u7ed9\u5206):\n- 5 = \u76f4\u63a5\u547d\u4e2d\u4e2d\u533b/\u53e4\u7c4d/\u6587\u8a00\u6587/\u4e2d\u533bNLP/\u53e4\u7c4dOCR/\u4e2d\u533b\u77e5\u8bc6\u56fe\u8c31/\u4e2d\u533b\u6216\u53e4\u7c4dRAG/\u53e4\u7c4d\u6570\u5b57\u5316\n- 4 = \u901a\u7528\u6280\u672f\u4f46\u80fd\u76f4\u63a5\u63a5\u5165\u6211\u4eec\u7684\u7ba1\u7ebf(RAG/\u68c0\u7d22/OCR/\u7248\u9762\u5206\u6790/Agent\u7f16\u6392/\u77e5\u8bc6\u56fe\u8c31/embedding/\u53ef\u89e3\u91caAI/\u6587\u732e\u6eaf\u6e90)\n- 3 = \u6709\u501f\u9274\u4ef7\u503c\u7684\u901a\u7528\u65b9\u6cd5\uff0c\u4f46\u9700\u6539\u9020\u624d\u80fd\u7528\u4e0a\n- 1-2 = \u7eaf\u901a\u7528AI\u786c\u4ef6(GPU\u670d\u52a1\u5668/\u8d85\u7b97/\u82af\u7247/\u7b97\u529b\u96c6\u7fa4)\u3001\u6216\u4e0e\u4e2d\u533b\u53e4\u7c4dAI\u65e0\u76f4\u63a5\u5173\u8054\u7684\u884c\u4e1a(\u94bb\u4e95/\u519b\u5de5/\u81ea\u52a8\u9a7e\u9a76/\u91d1\u878d\u91cf\u5316/\u6e38\u620f/\u5e7f\u544a\u7b49);\u5373\u4fbf\u6280\u672f\u70ed\u5ea6\u518d\u9ad8\uff0c\u5bf9\u672c\u5e73\u53f0\u4ef7\u503c\u4e5f\u4f4e\uff0c\u4e00\u5f8b 1-2\uff0c\u4e14\u4e0d\u5f97\u5f52\u5165\u300c\u65b9\u6cd5\u524d\u6cbf\u300d\u9ad8\u5206\n- \u4e0d\u76f8\u5173: \u8df3\u8fc7 (\u4e0d\u8f93\u51fa)\n\n\u5206\u7c7b\u6807\u7b7e\u53ea\u80fd\u53d6: RAG|\u5224\u65ad\u5f15\u64ce|OCR\u6587\u5b57\u5316|\u4e2d\u533bNLP|\u65b9\u6cd5\u524d\u6cbf|\u7ade\u54c1\u60c5\u62a5|\u514d\u8d39\u8d44\u6e90\n\u300c\u65b9\u6cd5\u524d\u6cbf\u300d\u4ec5\u9650\u300c\u65b0\u578b\u67b6\u6784/\u8bad\u7ec3/\u63a8\u7406\u65b9\u6cd5\u4e14\u6211\u4eec\u7ba1\u7ebf\u80fd\u76f4\u63a5\u501f\u9274\u300d\uff0c\u7eaf\u786c\u4ef6\u57fa\u5efa\u4e0e\u65e0\u5173\u884c\u4e1a\u4e0d\u5f97\u8fdb\u6b64\u7c7b\u3002\n\n\u53ea\u8f93\u51fa JSON \u6570\u7ec4 (\u65e0\u591a\u4f59\u6587\u5b57):\n[\n  {{\n    "index": <\u6761\u76ee\u7f16\u53f7>,\n    "score": <1-5>,\n    "category": "<RAG|\u5224\u65ad\u5f15\u64ce|OCR\u6587\u5b57\u5316|\u4e2d\u533bNLP|\u65b9\u6cd5\u524d\u6cbf|\u7ade\u54c1\u60c5\u62a5|\u514d\u8d39\u8d44\u6e90>",\n    "reason": "<\u4e00\u53e5\u8bdd: \u5bf9\u672c\u4e2d\u533b\u53e4\u7c4d\u5e73\u53f0\u54ea\u4e2a\u6a21\u5757\u6709\u4ef7\u503c;\u82e5\u901a\u7528/\u65e0\u5173\u987b\u70b9\u660e>"\n  }},\n  ...\n]\n\u65e0\u76f8\u5173\u6761\u76ee\u65f6\u8f93\u51fa []\u3002'
 
 
 
@@ -1235,6 +1235,31 @@ def _decision_advice(x: dict) -> str:
     return "今日快速评估与 SueAI 的契合度, 决定纳入试用还是放弃。"
 
 
+def _tcm_relevance_tier(x: dict) -> int:
+    """确定性「中医古籍平台相关性」分层(不调 LLM, 不烧算力): 让 TOP3 决策优先中医/古籍/OCR/
+    RAG/知识图谱等直接相关项, 把纯通用 AI 硬件(超算/AI服务器/显卡)与无关行业(钻井/军工/自动驾驶/
+    金融量化)项降权。+1=直接相关, 0=中性, -1=纯硬件/无关。
+    治「TOP3 被 AI 大类高分(阿里云超节点/英伟达AI服务器)霸榜、与中医平台关联弱」。"""
+    cat  = (x.get("category") or "")
+    blob = (str(x.get("title", "")) + " " + str(x.get("reason", ""))).lower()
+    # 命中核心管线分类 = 直接相关
+    if cat in ("中医NLP", "OCR文字化", "RAG", "判断引擎"):
+        return 1
+    TCM_CJK = ("中医", "古籍", "古文", "文言", "方剂", "医案", "本草", "针灸", "辨证", "中药",
+               "经方", "知识图谱", "溯源", "导读", "数字化", "古典", "中医药", "向量")
+    TCM_ASCII = (r"\b(tcm|ocr|rag|retrieval|knowledge graph|graphrag|embedding|"
+                 r"classical chinese|ancient chinese|chinese medicine)\b")
+    if any(k in blob for k in TCM_CJK) or re.search(TCM_ASCII, blob):
+        return 1
+    IRR_CJK = ("超算", "超节点", "芯片", "算力", "英伟达", "钻井", "军工", "自动驾驶", "量化交易",
+               "游戏", "广告", "挖矿", "无人机", "数据中心", "显卡", "服务器集群")
+    IRR_ASCII = (r"\b(gpu|nvidia|chip|cluster|drone|gaming|data ?center|"
+                 r"autonomous driving|mining rig)\b")
+    if any(k in blob for k in IRR_CJK) or re.search(IRR_ASCII, blob):
+        return -1
+    return 0
+
+
 def generate_top3_decision_section(top_items: list,
                                    scored_blindspot: Optional[list] = None) -> str:
     """置顶「今日 TOP3 决策就绪」板块: 从当日全部候选(主扫 top_items + 补盲区 scored_blindspot)
@@ -1265,8 +1290,10 @@ def generate_top3_decision_section(top_items: list,
             "_kind": "blindspot",
         })
 
-    # 综合"紧迫度": 分值优先; 同分已核验优先; 再按星数(采用广度大=更成熟可决策)
-    pool.sort(key=lambda x: (x["score"], 1 if x["verified"] is True else 0, x["stars"]),
+    # 综合"紧迫度": ①中医古籍平台相关性优先(纯硬件/无关行业降到相关项之后) ②分值 ③同分已核验优先
+    #             ④再按星数(采用广度大=更成熟可决策)。相关性置顶治「TOP3 被 AI 大类高分霸榜」。
+    pool.sort(key=lambda x: (_tcm_relevance_tier(x), x["score"],
+                             1 if x["verified"] is True else 0, x["stars"]),
               reverse=True)
 
     MIN_DECISION_SCORE = 3
@@ -1284,8 +1311,9 @@ def generate_top3_decision_section(top_items: list,
     lines = [
         "## 🎯 今日 TOP3 决策就绪",
         "",
-        f"> 从今日全部 {total} 条候选里, 按「分值 × 是否核验 × 采用广度」排出最该你拍板的 "
-        f"{len(picks)} 条, 附一句话建议。**先看这里、其余按需翻。**",
+        f"> 从今日全部 {total} 条候选里, 按「中医古籍平台相关性 × 分值 × 是否核验 × 采用广度」"
+        f"排出最该你拍板的 {len(picks)} 条(纯通用AI硬件/无关行业已降权), 附一句话建议。"
+        f"**先看这里、其余按需翻。**",
         "",
     ]
     for i, x in enumerate(picks, 1):
