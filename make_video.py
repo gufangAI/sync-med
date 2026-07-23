@@ -46,6 +46,11 @@ BOOK = os.environ.get("BOOK", "ylgc_2")
 # goes through the guest-metered public reader API -- see the 2026-07-20 note on fetch_images()).
 PAGES = [int(x) for x in os.environ.get("PAGES", "1,2,3,4,5").split(",")]
 VOICE = os.environ.get("VOICE", "zh-CN-XiaoxiaoNeural")
+# TTS engine switch (2026-07-23): "edge" (default, unchanged production behaviour) or "cosyvoice"
+# (opt-in real cloud voice-clone TTS -- see tts_cosyvoice_zero_shot() below for what this actually
+# does and does not do yet). Default MUST stay "edge" so the nightly cron and any dispatch that
+# doesn't pass tts_engine keeps working byte-for-byte as before.
+TTS_ENGINE = os.environ.get("TTS_ENGINE", "edge").strip().lower()
 # cross-fade duration between body clips (render_body_clips, 2026-07-21). Kept short/subtle on
 # purpose to suit solemn classical-text narration -- see render_body_clips() for the offset math
 # and why this is always safe against the seg=max(2.4, ...) per-clip floor below.
@@ -276,6 +281,81 @@ def tts_with_word_timestamps(text, voice=VOICE):
     print(f"[tts] {len(audio_bytes)} bytes, {len(words)} word-boundary events, "
           f"last word ends {words[-1][2]:.2f}s", flush=True)
     return words
+
+
+# ---------- 2b. optional CosyVoice cloud TTS path (real zero-shot voice-clone synthesis on HF
+# Spaces' ZeroGPU cloud compute -- this machine never loads torch or any model, it only makes a
+# lightweight gradio_client HTTP call and gets back a finished wav; the actual model inference runs
+# on HF's cloud GPU, same as edge-tts's audio already comes from Microsoft's cloud, not this box).
+#
+# Real-tested 2026-07-23 (not just "designed to work"): calling FunAudioLLM/Fun-CosyVoice3-0.5B --
+# the official HF Space running the exact codebase family this org's own fork,
+# github.com/hosonzuo8848/CosyVoice, is built from (same webui.py/cosyvoice/ structure, confirmed by
+# diffing the fork's requirements.txt: torch+CUDA GPU stack, i.e. genuinely cannot run on GH Actions'
+# CPU-only ubuntu-latest runners -- HF Spaces ZeroGPU is the free-tier GPU host this needs) -- with a
+# ~4.5s edge-tts-generated reference clip as the zero-shot voice prompt produced a real 22.2s /
+# 24kHz / mono wav narrating an actual 张仲景《伤寒论》桂枝汤 excerpt. That test file exists locally;
+# it was not committed here (a temp scratch artifact, not a repo asset).
+#
+# WHAT THIS IS NOT YET: (1) a Space deployed under our own HF account from our own fork -- that
+# needs an HF account + write token, which nobody has handed this pipeline yet; COSYVOICE_SPACE
+# below defaults to FunAudioLLM's own shared community Space specifically so this stays truthful
+# about that until a dedicated one exists (swap the env var once it does, zero other code changes
+# needed). (2) per-word timestamps -- this Gradio API returns only the finished audio, no
+# WordBoundary-style events like edge-tts gives us, so real karaoke subtitles (build_ass) are not
+# possible off this path. main() below falls back to approximate, evenly-time-distributed captions
+# (_approx_word_timings + build_plain_ass) rather than faking word-level precision it doesn't have.
+# (3) a curated per-expert reference voice -- COSYVOICE_REF_WAV_URL/COSYVOICE_REF_TEXT must be
+# supplied (e.g. a short curated clip per expert_key, hosted in R2) before this path can actually run
+# in the pipeline; with neither set, tts_cosyvoice_zero_shot() fails loudly rather than silently
+# reusing some wrong/default voice for every expert.
+COSYVOICE_SPACE = os.environ.get("COSYVOICE_SPACE", "FunAudioLLM/Fun-CosyVoice3-0.5B")
+COSYVOICE_REF_WAV_URL = os.environ.get("COSYVOICE_REF_WAV_URL", "")
+COSYVOICE_REF_TEXT = os.environ.get("COSYVOICE_REF_TEXT", "")
+HF_TOKEN = os.environ.get("HF_TOKEN", "") or None  # optional: only helps once we have our own Space/quota
+
+
+def tts_cosyvoice_zero_shot(text, out_path="voice.wav"):
+    try:
+        from gradio_client import Client, handle_file
+    except ImportError:
+        raise SystemExit("TTS_ENGINE=cosyvoice requires `pip install gradio_client` in the workflow "
+                          "(lightweight HTTP client, no torch)")
+    if not (COSYVOICE_REF_WAV_URL and COSYVOICE_REF_TEXT):
+        raise SystemExit("TTS_ENGINE=cosyvoice needs COSYVOICE_REF_WAV_URL + COSYVOICE_REF_TEXT "
+                          "(a curated persona reference clip + its exact transcript) -- neither is set")
+    ref_bytes = http_bytes(COSYVOICE_REF_WAV_URL, timeout=60)
+    ref_ext = os.path.splitext(COSYVOICE_REF_WAV_URL.split("?")[0])[1] or ".wav"
+    ref_path = "cosyvoice_ref" + ref_ext
+    open(ref_path, "wb").write(ref_bytes)
+
+    client = Client(COSYVOICE_SPACE, hf_token=HF_TOKEN)
+    result = client.predict(
+        tts_text=text, mode_value="zero_shot", prompt_text=COSYVOICE_REF_TEXT,
+        prompt_wav_upload=handle_file(ref_path), prompt_wav_record=None,
+        instruct_text="You are a helpful assistant. 请用广东话表达。<|endofprompt|>",  # unused in zero_shot mode, but the endpoint still requires a valid literal from its dropdown
+        seed=42, stream=False, ui_lang="Zh", api_name="/generate_audio",
+    )
+    src = result if isinstance(result, str) else (result or {}).get("path")
+    if not src or not os.path.exists(src):
+        raise SystemExit(f"cosyvoice space returned no usable audio file: {result!r}")
+    with open(src, "rb") as f_in, open(out_path, "wb") as f_out:
+        f_out.write(f_in.read())
+    print(f"[tts] cosyvoice zero-shot via {COSYVOICE_SPACE}: {os.path.getsize(out_path)} bytes -> {out_path}",
+          flush=True)
+    return out_path
+
+
+def _approx_word_timings(text, total_s):
+    """No real per-word timestamps off the cosyvoice path (see the gap note above) -- spread
+    characters evenly across the measured audio duration so captions stay roughly in sync instead of
+    guessing nothing. Feeds build_plain_ass only (never build_ass/karaoke): evenly-spaced timing
+    isn't real enough to sell as karaoke-precise word highlighting."""
+    chars = [c for c in text if c.strip()]
+    if not chars or total_s <= 0:
+        return []
+    step = total_s / len(chars)
+    return [(c, i * step, (i + 1) * step) for i, c in enumerate(chars)]
 
 
 # ---------- 3. ASS karaoke subtitles built from the REAL timestamps above ----------
@@ -695,7 +775,7 @@ def upload(path, key):
 
 if __name__ == "__main__":
     print(f"[run] book={BOOK} pages={PAGES} expert={EXPERT_KEY}/{EXPERT_NAME} "
-          f"ratio={RATIO} {VID_W}x{VID_H} burn_sub={BURN_SUB}", flush=True)
+          f"ratio={RATIO} {VID_W}x{VID_H} burn_sub={BURN_SUB} tts_engine={TTS_ENGINE}", flush=True)
 
     analysis = call_expert(TOPIC)
     script_text = gen_script_from_expert(analysis, EXPERT_NAME)
@@ -703,17 +783,29 @@ if __name__ == "__main__":
     with open("script.txt", "w", encoding="utf-8") as f:
         f.write(script_text)
 
-    words = tts_with_word_timestamps(script_text)
-    n_lines = build_ass(words, "subs.ass", w=VID_W, h=VID_H)
-    build_plain_ass(words, "subs_plain.ass", w=VID_W, h=VID_H)
+    if TTS_ENGINE == "cosyvoice":
+        # opt-in cloud voice-clone path (see tts_cosyvoice_zero_shot() for what is/isn't real yet).
+        # No per-word timestamps off this path -> plain, evenly-time-distributed captions only,
+        # written into BOTH subs.ass and subs_plain.ass slots so burn_and_mux needs no branching
+        # and never mislabels approximate timing as real karaoke.
+        voice_path = tts_cosyvoice_zero_shot(script_text, out_path="voice.wav")
+        audio_s = dur(voice_path)
+        approx_words = _approx_word_timings(script_text, audio_s)
+        n_lines = build_plain_ass(approx_words, "subs_plain.ass", w=VID_W, h=VID_H)
+        build_plain_ass(approx_words, "subs.ass", w=VID_W, h=VID_H)
+    else:
+        words = tts_with_word_timestamps(script_text)
+        voice_path = "voice.mp3"
+        n_lines = build_ass(words, "subs.ass", w=VID_W, h=VID_H)
+        build_plain_ass(words, "subs_plain.ass", w=VID_W, h=VID_H)
+        audio_s = dur(voice_path)
 
     imgs = fetch_images()
     if not imgs:
         raise SystemExit("no images fetched from R2 — aborting (no visual asset to render)")
 
-    audio_s = dur("voice.mp3")
     render_body_clips(imgs, audio_s)
-    burn_mode = burn_and_mux("subs.ass", "subs_plain.ass", burn=BURN_SUB)
+    burn_mode = burn_and_mux("subs.ass", "subs_plain.ass", voice_path=voice_path, burn=BURN_SUB)
 
     # debug thumbnails so a human (or the agent driving this pipeline) can visually confirm
     # subtitle sync/quality from the GH Actions artifact without needing to play the full mp4.
@@ -737,6 +829,7 @@ if __name__ == "__main__":
     upload("out.mp4", key)
     print("MANIFEST", json.dumps({
         "key": key, "book": BOOK, "expert": EXPERT_KEY, "engine": analysis.get("engine"),
+        "tts_engine": TTS_ENGINE,
         "ratio": RATIO, "width": VID_W, "height": VID_H, "burn_sub": BURN_SUB,
         "duration_s": round(audio_s, 1), "subtitle_lines": n_lines, "burn_mode": burn_mode,
     }, ensure_ascii=False), flush=True)

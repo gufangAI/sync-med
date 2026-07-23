@@ -34,6 +34,17 @@ on:
           - "true"
           - "false"
         default: "true"
+      tts_engine:
+        description: >-
+          "edge" (default, unchanged production voice) or "cosyvoice" (opt-in real cloud
+          voice-clone TTS -- see make_video.py's tts_cosyvoice_zero_shot() header for what this
+          is/isn't yet; needs the COSYVOICE_REF_WAV_URL/COSYVOICE_REF_TEXT repo secrets set, or it
+          fails loudly rather than silently falling back)
+        type: choice
+        options:
+          - edge
+          - cosyvoice
+        default: edge
   schedule:
     # 05:17 UTC = 13:17 Beijing — offset from the top of the hour to avoid piling onto this repo's
     # many other :00/:15/:30 crons. Daily cadence keeps this experimental line producing without
@@ -54,7 +65,9 @@ jobs:
         with:
           python-version: "3.11"
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-noto-cjk
-      - run: pip install --quiet boto3 edge-tts
+      # gradio_client (2026-07-23): lightweight HTTP client for the opt-in cosyvoice TTS path
+      # below -- no torch, no local model, just calls a Gradio Space's API over the network.
+      - run: pip install --quiet boto3 edge-tts gradio_client
       - run: python make_video.py
         env:
           NOVA_KEY: ${{ secrets.NOVA_KEY }}
@@ -78,6 +91,16 @@ jobs:
           # the vertical + burn defaults -- the daily cron's output is unchanged.
           RATIO: ${{ github.event.inputs.ratio || 'vertical' }}
           BURN_SUB: ${{ github.event.inputs.burn_sub || 'true' }}
+          # opt-in cosyvoice cloud TTS path (2026-07-23, default stays "edge" -- see
+          # tts_cosyvoice_zero_shot() in make_video.py). COSYVOICE_REF_WAV_URL/COSYVOICE_REF_TEXT/
+          # HF_TOKEN are read as repo secrets ONLY IF someone has set them; if unset these env vars
+          # are just empty strings and the edge path (the only one the schedule cron ever uses,
+          # since `schedule` triggers carry no workflow_dispatch inputs) is completely unaffected.
+          TTS_ENGINE: ${{ github.event.inputs.tts_engine || 'edge' }}
+          COSYVOICE_SPACE: ${{ secrets.COSYVOICE_SPACE }}
+          COSYVOICE_REF_WAV_URL: ${{ secrets.COSYVOICE_REF_WAV_URL }}
+          COSYVOICE_REF_TEXT: ${{ secrets.COSYVOICE_REF_TEXT }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
