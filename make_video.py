@@ -311,7 +311,10 @@ def tts_with_word_timestamps(text, voice=VOICE):
 # wrong voice); opt-in COSYVOICE_AUTOSEED=1 = bootstrap a one-off edge-tts seed clip as the zero-shot
 # prompt so the path can actually produce real cosyvoice audio (one shared voice for all experts)
 # without a founder-hosted asset -- see _cosyvoice_autoseed_reference() below.
-COSYVOICE_SPACE = os.environ.get("COSYVOICE_SPACE", "FunAudioLLM/Fun-CosyVoice3-0.5B")
+# .strip() or default: the workflow passes COSYVOICE_SPACE=${{ secrets.COSYVOICE_SPACE }}, which is an
+# empty string (not unset) when the secret isn't configured -- os.environ.get's default never kicks in
+# for an empty string, so coalesce it here to the community Space instead of handing Client("").
+COSYVOICE_SPACE = os.environ.get("COSYVOICE_SPACE", "").strip() or "FunAudioLLM/Fun-CosyVoice3-0.5B"
 COSYVOICE_REF_WAV_URL = os.environ.get("COSYVOICE_REF_WAV_URL", "")
 COSYVOICE_REF_TEXT = os.environ.get("COSYVOICE_REF_TEXT", "")
 HF_TOKEN = os.environ.get("HF_TOKEN", "") or None  # optional: only helps once we have our own Space/quota
@@ -375,7 +378,11 @@ def tts_cosyvoice_zero_shot(text, out_path="voice.wav"):
                           "(a curated persona reference clip + its exact transcript), or set "
                           "COSYVOICE_AUTOSEED=1 to bootstrap a one-off edge-tts seed clip instead")
 
-    client = Client(COSYVOICE_SPACE, hf_token=HF_TOKEN)
+    # gradio_client 6.x renamed the auth kwarg hf_token -> token; keep a fallback for older pins.
+    try:
+        client = Client(COSYVOICE_SPACE, token=HF_TOKEN)
+    except TypeError:
+        client = Client(COSYVOICE_SPACE, hf_token=HF_TOKEN)
     result = client.predict(
         tts_text=text, mode_value="zero_shot", prompt_text=ref_text,
         prompt_wav_upload=handle_file(ref_path), prompt_wav_record=None,
