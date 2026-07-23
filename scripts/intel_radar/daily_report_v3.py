@@ -1336,6 +1336,101 @@ def generate_top3_decision_section(top_items: list,
     return "\n".join(lines)
 
 
+# ── 内视眼:系统自省探针 ─────────────────────────────────────────────
+# 鹰眼从"只向外看AI新闻的死眼"进化为"能感知本平台自身缺口的活体"的关键一环:
+# 探测本平台各器官(寻脉/星图/导读/转化)真实健康度 → 生成"系统自身缺口"板块置顶日报。
+# 复用 push_d1_intel_report 的 CF_ACCOUNT_ID/D1_API_TOKEN/D1_DATABASE_ID(零新增 secret)。
+# 全程软失败:任一子探测异常只记"查询失败",绝不阻断主日报。
+_SELFCHECK_GOLD = ["桂枝汤的功效", "失眠多梦怎么调理", "小儿积食腹胀", "胸痹心痛的古方",
+                   "夏季暑湿困脾", "补中益气汤主治", "妇人带下病", "咳嗽痰多"]
+
+def _selfcheck_d1(sql: str):
+    account_id  = os.environ.get("CF_ACCOUNT_ID", "").strip()
+    api_token   = os.environ.get("D1_API_TOKEN", "").strip()
+    database_id = os.environ.get("D1_DATABASE_ID", "").strip()
+    if not (account_id and api_token and database_id):
+        raise RuntimeError("D1 env 三件套缺失")
+    url = (f"https://api.cloudflare.com/client/v4/accounts/{account_id}"
+           f"/d1/database/{database_id}/query")
+    body = json.dumps({"sql": sql}).encode("utf-8")
+    req = urllib.request.Request(url, data=body, headers={
+        "Authorization": "Bearer " + api_token, "Content-Type": "application/json"})
+    d = json.load(urllib.request.urlopen(req, timeout=30))
+    if not d.get("success"):
+        raise RuntimeError(str(d.get("errors"))[:100])
+    return d["result"][0]["results"]
+
+def _selfcheck_scalar(sql: str):
+    r = _selfcheck_d1(sql)
+    return list(r[0].values())[0] if r else 0
+
+def generate_selfcheck_section() -> str:
+    rows = []   # [(器官, 实测值, is_gap)]
+    # 👄 寻脉:证据召回率 + 证据可跳原书率(POST 公开 API,无需凭据)
+    rec = jt = jok = 0
+    for q in _SELFCHECK_GOLD:
+        try:
+            body = json.dumps({"query": q}).encode("utf-8")
+            req = urllib.request.Request("https://gufangai.com/api/ai/search",
+                    data=body, headers={"Content-Type": "application/json"})
+            d = json.load(urllib.request.urlopen(req, timeout=45))
+            data = d.get("data", d); ev = data.get("public_evidence", []) or []
+            if ev: rec += 1
+            for e in ev:
+                jt += 1
+                if e.get("reader_url"): jok += 1
+        except Exception:
+            pass
+    rows.append(("👄 寻脉·证据召回率", f"{rec}/{len(_SELFCHECK_GOLD)}",
+                 rec < len(_SELFCHECK_GOLD) * 0.8))
+    rows.append(("👄 寻脉·证据可跳原书率", f"{jok}/{jt}" if jt else "0/0",
+                 (not jt) or jok < jt * 0.3))
+    # 🧠 星图 / 🖼️ 导读 / 💰 转化(各自软失败,一个错不拖累其他)
+    try:
+        n = _selfcheck_scalar("SELECT COUNT(*) c FROM sue_graph_nodes")
+        # 总数不代表质量(大批量导入含大量贴牌),只显示不判健康;真缺口看下面"已提升真节点"
+        rows.append(("🧠 星图·节点总数(含贴牌)", str(n), False))
+    except Exception as e:
+        rows.append(("🧠 星图·节点总数(含贴牌)", f"查询失败({str(e)[:36]})", False))
+    try:
+        n = _selfcheck_scalar("SELECT COUNT(*) c FROM sue_graph_candidates WHERE review_status='approved'")
+        # 审核通过提升的才是真节点,少=真缺口(贴牌多、原文直证真节点少)
+        rows.append(("🧠 星图·已提升真节点(原文直证)", str(n), isinstance(n, int) and n < 300))
+    except Exception as e:
+        rows.append(("🧠 星图·已提升真节点(原文直证)", f"查询失败({str(e)[:36]})", False))
+    try:
+        n = _selfcheck_scalar("SELECT COUNT(*) c FROM sue_graph_candidates WHERE review_status='pending'")
+        rows.append(("🧠 星图·待审候选(积压)", str(n), isinstance(n, int) and n > 50))
+    except Exception as e:
+        rows.append(("🧠 星图·待审候选(积压)", f"查询失败({str(e)[:36]})", False))
+    try:
+        n = _selfcheck_scalar("SELECT COUNT(DISTINCT book_id) c FROM book_daodu_ai WHERE status='visible'")
+        rows.append(("🖼️ 导读·已生成本数", str(n), isinstance(n, int) and n < 200))
+    except Exception as e:
+        rows.append(("🖼️ 导读·已生成本数", f"查询失败({str(e)[:36]})", False))
+    try:
+        r = _selfcheck_d1("SELECT event_name k, COUNT(*) c FROM events GROUP BY event_name ORDER BY c DESC LIMIT 12")
+        funnel = ", ".join(f"{x['k']}={x['c']}" for x in r) or "无埋点数据"
+        rows.append(("💰 转化·漏斗埋点", funnel, "register" not in funnel))
+    except Exception as e:
+        rows.append(("💰 转化·漏斗埋点", f"查询失败({str(e)[:36]})", False))
+    # 渲染置顶板块
+    gaps = [x for x in rows if x[2]]
+    lines = [
+        "## 🔍 内视:系统自身缺口(自省 · 活体自进化)",
+        "",
+        f"> 鹰眼向内看本平台各器官真实健康度 —— 判定缺口 **{len(gaps)}** 个。"
+        f"这是该优先补的自身短板,比向外看的新技术更该先动手。",
+        "",
+        "| 器官 | 实测值 | 判定 |",
+        "|------|--------|------|",
+    ]
+    for label, val, is_gap in rows:
+        lines.append(f"| {label} | {val} | {'⚠️ 缺口' if is_gap else '✅ 健康'} |")
+    lines += ["", "---", ""]
+    return "\n".join(lines)
+
+
 def generate_report_v3(
     date_str: str,
     raw_counts: dict,
@@ -1349,6 +1444,7 @@ def generate_report_v3(
     action_flags_md: Optional[str] = None,
     blindspot_md: Optional[str] = None,
     top3_md: Optional[str] = None,
+    selfcheck_md: Optional[str] = None,
 ) -> str:
     '\u751f\u6210 Markdown \u62a5\u544a (\u5934\u90e8\u591a\u5b66\u79d1\u7814\u5224 + \u7cbe\u534e\u60c5\u62a5)'
     total_top = len(top_items)
@@ -1370,6 +1466,10 @@ def generate_report_v3(
         "---",
         "",
     ]
+
+    # 置顶最前:内视 —— 系统自身缺口(活体自省,比向外看的 TOP3 更该先看)
+    if selfcheck_md:
+        lines.append(selfcheck_md)
 
     # 置顶: 今日 TOP3 决策就绪 (治「产出堆着没人看」, 一眼看该拍板的)
     if top3_md:
@@ -1626,6 +1726,13 @@ def main():
     except Exception as e:
         print(f"  [TOP3决策板块] 生成异常 (已捕获,不阻断): {e}", flush=True)
 
+    # 内视眼:探测本平台各器官真实健康度(隔离软失败,绝不阻断主日报)
+    selfcheck_md = ""
+    try:
+        selfcheck_md = generate_selfcheck_section()
+    except Exception as e:
+        print(f"  [内视眼] 系统自省异常 (已捕获,不阻断): {e}", flush=True)
+
     elapsed   = time.time() - t0
     synthesis_md = generate_synthesis_section(synthesis_data)
     action_flags_md = generate_action_flags_section(flagged_items)
@@ -1636,6 +1743,7 @@ def main():
         action_flags_md=action_flags_md,
         blindspot_md=blindspot_md,
         top3_md=top3_md,
+        selfcheck_md=selfcheck_md,
     )
 
     # safety net: never let one stray lone-surrogate char (e.g. an emoji mistakenly written as a
@@ -1681,7 +1789,7 @@ def main():
         _push_issue(today, top_items, raw_counts, total_raw, total_analyzed,
                     elapsed, models_used, synthesis_md=synthesis_md,
                     action_flags_md=action_flags_md, blindspot_md=blindspot_md,
-                    top3_md=top3_md)
+                    top3_md=top3_md, selfcheck_md=selfcheck_md)
 
     
     push_wechat(today, top_items, raw_counts, total_raw, total_analyzed,
@@ -1842,7 +1950,8 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
                 synthesis_md: Optional[str] = None,
                 action_flags_md: Optional[str] = None,
                 blindspot_md: Optional[str] = None,
-                top3_md: Optional[str] = None):
+                top3_md: Optional[str] = None,
+                selfcheck_md: Optional[str] = None):
     '\n    \u7528 gh CLI \u521b\u5efa Issue \u5230 gufangAI/sync-med\u3002\n    GH_TOKEN \u7531 Actions \u81ea\u52a8\u6ce8\u5165,\u65e0\u9700\u989d\u5916\u914d\u7f6e\u3002\n    '
     import subprocess
 
@@ -1866,6 +1975,8 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
         "",
     ]
     # \u7f6e\u9876: \u4eca\u65e5 TOP3 \u51b3\u7b56\u5c31\u7eea (\u8ba9\u521b\u59cb\u4eba\u4e00\u773c\u770b\u5230\u8be5\u62cd\u677f\u7684, \u800c\u975e\u626b\u5168\u90e8)
+    if selfcheck_md:
+        body_lines.append(selfcheck_md)
     if top3_md:
         body_lines.append(top3_md)
     if synthesis_md:
