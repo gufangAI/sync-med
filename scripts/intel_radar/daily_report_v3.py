@@ -1398,10 +1398,12 @@ def generate_selfcheck_section() -> str:
     except Exception as e:
         rows.append(("🧠 星图·已提升真节点(原文直证)", f"查询失败({str(e)[:36]})", False))
     try:
-        n = _selfcheck_scalar("SELECT COUNT(*) c FROM sue_graph_candidates WHERE review_status='pending'")
-        rows.append(("🧠 星图·待审候选(积压)", str(n), isinstance(n, int) and n > 50))
+        # 真积压 = 未判(stage1) + LLM判过待人工终审;LLM已判拒的不算积压(留库仅作审计,曾虚高365)
+        n = _selfcheck_scalar("SELECT COUNT(*) c FROM sue_graph_candidates WHERE review_status='pending' "
+                              "AND (llm_verdict IS NULL OR llm_verdict='accept')")
+        rows.append(("🧠 星图·待审候选(真积压)", str(n), isinstance(n, int) and n > 50))
     except Exception as e:
-        rows.append(("🧠 星图·待审候选(积压)", f"查询失败({str(e)[:36]})", False))
+        rows.append(("🧠 星图·待审候选(真积压)", f"查询失败({str(e)[:36]})", False))
     try:
         n = _selfcheck_scalar("SELECT COUNT(DISTINCT book_id) c FROM book_daodu_ai WHERE status='visible'")
         rows.append(("🖼️ 导读·已生成本数", str(n), isinstance(n, int) and n < 200))
