@@ -344,7 +344,12 @@ def main():
         flush=True,
     )
 
-    OUT = "align_full_result.json"
+    # Filename MUST include the shard id: the workflow downloads every shard's
+    # artifact into one flat directory (merge-multiple:true) for the
+    # summarize step, and if every shard wrote the same filename they would
+    # overwrite each other there (caught by the limit=30 dry run: only the
+    # last-downloaded shard's 3-4 books survived instead of all ~30).
+    OUT = f"align_full_result_shard{SHARD}.json"
     json.dump(results, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"结果 -> {OUT}", flush=True)
 
