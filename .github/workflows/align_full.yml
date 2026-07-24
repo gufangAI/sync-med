@@ -1,0 +1,93 @@
+name: align-full
+
+# 逐页文-图对齐 · 全量产线化(GitHub Actions矩阵,免费)。
+# 复用 2026-07-25 小样本验证已跑通的算法(10本真实数据验证,见平台 docs/new 对齐验证报告),
+# 只读:D1 只 SELECT,R2 只 get_object 按构造key读,零 list_objects/get_paginator
+# (仓内 guard_no_list.yml 已 CI 强制拦截)。不写任何生产表/桶,产出 JSON artifact
+# (每册 book_id/text_id/页数/锚定%/单调%/tier A|B|C|no_ocr)。
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 只跑前N册(留空=全量,当前约889册分母)
+        default: ""
+      total:
+        description: 分片数(matrix路数,建议不超过8,别抢爆org并发池)
+        default: "8"
+
+concurrency:
+  group: align-full-run
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.g.outputs.shards }}
+    steps:
+      - id: g
+        run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
+        env:
+          T: ${{ github.event.inputs.total || '8' }}
+
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 8   # 沿用 ocr_ndl.yml 血泪教训:org整体Free-plan并发上限~20,和ocr.yml/ocr_ndl.yml共享同一并发池,别抢爆
+      matrix:
+        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet boto3 requests rapidfuzz==3.14.5 opencc==1.3.1
+      - run: python align_full.py
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.total || '8' }}
+          LIMIT: ${{ github.event.inputs.limit }}
+      - name: upload shard artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: align-full-shard-${{ matrix.shard }}
+          path: align_full_result.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  summarize:
+    needs: run
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: download all shard artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: align-full-shard-*
+          path: shards
+          merge-multiple: true
+      - run: python align_full.py --summarize shards
+      - name: upload merged artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: align-full-merged
+          path: align_full_all.json
+          if-no-files-found: warn
+          retention-days: 30
