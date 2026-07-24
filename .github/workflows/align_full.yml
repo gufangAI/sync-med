@@ -63,7 +63,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: align-full-shard-${{ matrix.shard }}
-          path: align_full_result.json
+          path: align_full_result_shard${{ matrix.shard }}.json
           if-no-files-found: warn
           retention-days: 30
 
