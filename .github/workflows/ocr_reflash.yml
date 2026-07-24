@@ -1,0 +1,57 @@
+name: ocr-reflash
+
+on:
+  workflow_dispatch:
+    inputs:
+      n_books:
+        description: books in this batch (pilot 30; full run needs founder approval)
+        default: "30"
+      total:
+        description: shard count
+        default: "6"
+
+concurrency:
+  group: ocr-reflash
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.g.outputs.shards }}
+    steps:
+      - id: g
+        run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
+        env:
+          T: ${{ github.event.inputs.total || '6' }}
+
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet boto3 requests
+      - run: python ocr_reflash.py
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          PAN_CLIENT_ID: ${{ secrets.PAN_CLIENT_ID }}
+          PAN_CLIENT_SECRET: ${{ secrets.PAN_CLIENT_SECRET }}
+          XF_KEYS: ${{ secrets.XF_KEYS }}
+          N_BOOKS: ${{ github.event.inputs.n_books || '30' }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.total || '6' }}
