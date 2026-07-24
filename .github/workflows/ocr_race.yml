@@ -1,0 +1,52 @@
+name: ocr-race
+
+on:
+  workflow_dispatch:
+    inputs:
+      books:
+        description: comma-separated book_ids
+        default: "zi021-0001-01,01-0022573,01-0022566"
+      n_pages:
+        description: pages per book
+        default: "6"
+      engines:
+        description: engines to race
+        default: "ndl,xf,glm,gemini,ppocr"
+
+concurrency:
+  group: ocr-race
+  cancel-in-progress: false
+
+jobs:
+  race:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: git clone --depth 1 https://github.com/ndl-lab/ndlocr-lite
+      - run: pip install --quiet -r ndlocr-lite/requirements.txt requests pillow
+      - run: pip install --quiet paddlepaddle paddleocr || echo "paddle install failed, engine will self-report unavailable"
+      - run: python compare_ocr_v2.py
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          PAN_CLIENT_ID: ${{ secrets.PAN_CLIENT_ID }}
+          PAN_CLIENT_SECRET: ${{ secrets.PAN_CLIENT_SECRET }}
+          XF_KEYS: ${{ secrets.XF_KEYS }}
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BOOKS: ${{ github.event.inputs.books }}
+          N_PAGES: ${{ github.event.inputs.n_pages }}
+          ENGINES: ${{ github.event.inputs.engines }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: race-report
+          path: |
+            compare_report_v2.md
+            raw_outputs.json
+          if-no-files-found: ignore
