@@ -262,6 +262,28 @@ def parse_critique(text, letters):
     return out
 
 
+def parse_ranking(text, letters):
+    """Read the mandatory trailing ordering line ("ranking: A > B > C").
+
+    Verdict words alone stopped discriminating once every critic vetoed every
+    plan, so this line is the part of a critique that still ranks something.
+    Accepts any of > / >= / -> / spaces between the letters."""
+    if not text:
+        return []
+    kw = t("kw_ranking")
+    m = None
+    for m2 in re.finditer(re.escape(kw) + r"\s*[:" + CJK_COLON + r"]?\s*([^\n]+)", text):
+        m = m2                      # keep the LAST one: it is the summary line
+    if not m:
+        return []
+    seq = re.findall(r"[A-Z]", m.group(1).upper())
+    out = []
+    for L in seq:
+        if L in letters and L not in out:
+            out.append(L)
+    return out
+
+
 def critique(topic, plans, racers):
     live = [p for p in plans if p["ok"]]
     letters = [p["letter"] for p in live]
@@ -281,9 +303,15 @@ def critique(topic, plans, racers):
                               stage="critique", tag=topic["organ"])
         except Exception as e:
             return {"critic": p_self["seat"], "letter": p_self["letter"], "text": "",
-                    "verdicts": {}, "err": "%s:%s" % (type(e).__name__, str(e)[:90])}
+                    "verdicts": {}, "ranking": [], "flat": False,
+                    "err": "%s:%s" % (type(e).__name__, str(e)[:90])}
+        vd = parse_critique(txt, letters)
         return {"critic": p_self["seat"], "letter": p_self["letter"], "text": txt,
-                "verdicts": parse_critique(txt, letters), "err": ""}
+                "verdicts": vd, "ranking": parse_ranking(txt, letters),
+                # a critic that gave every plan the same verdict ranked nothing;
+                # the report says so rather than presenting it as a signal
+                "flat": len({v["verdict"] for v in vd.values()}) <= 1 and len(vd) > 1,
+                "err": ""}
 
     with ThreadPoolExecutor(max_workers=max(1, len(live))) as ex:
         for r in ex.map(one, live):
@@ -321,6 +349,13 @@ def matrix_md(plans, critiques, matrix):
         for cid in critic_ids:
             cells.append(matrix.get(p["letter"], {}).get(cid, "-"))
         rows.append("| %s%s | %s |" % (t("plan_word"), p["letter"], " | ".join(cells)))
+    rank_cells = []
+    for c in critiques:
+        r = " > ".join(c.get("ranking") or []) or "-"
+        if c.get("flat"):
+            r += " " + t("lbl_no_discrimination")
+        rank_cells.append(r)
+    rows.append(t("rpt_rank_row", cells=" | ".join(rank_cells)))
     return "\n".join(rows)
 
 
@@ -431,7 +466,8 @@ def build_report(date_str, topics, results, metrics, skipped, bench_report,
                           body=p["text"][:4000]), ""]
         out += [t("rpt_h2_critique"), "",
                 t("rpt_critique_intro", n=max(0, len([p for p in r["plans"] if p["ok"]]) - 1)), "",
-                t("rpt_matrix_head"), "", r["matrix_md"], "", t("rpt_matrix_note"), ""]
+                t("rpt_matrix_head"), "", r["matrix_md"], "",
+                t("rpt_matrix_note"), "", t("rpt_rank_note"), ""]
         for c in r["critiques"]:
             if c["text"]:
                 out += [t("rpt_critique_full_h", critic=c["critic"]["id"],
