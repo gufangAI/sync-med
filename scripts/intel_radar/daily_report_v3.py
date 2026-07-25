@@ -222,6 +222,24 @@ def fetch_arxiv_all() -> list:
     return all_papers
 
 
+def _gh_api_headers() -> dict:
+    """GitHub API headers, authenticated when a token exists.
+
+    Why this exists: fetch_github_trending and fetch_github_freebies used to
+    send NO Authorization at all, which puts them in the 10-searches-per-minute
+    ANONYMOUS bucket -- and that bucket is keyed by IP, i.e. shared with every
+    other job on the same Actions runner. Nine anonymous searches fired ~1.5s
+    apart sat right on that ceiling, so the radar's GitHub half was one busy
+    runner away from silently returning nothing. `GH_TOKEN` is already injected
+    by the workflow; using it moves these to the 30/min authenticated bucket."""
+    h = {"Accept": "application/vnd.github+json",
+         "X-GitHub-Api-Version": "2022-11-28"}
+    tok = os.environ.get("GH_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
+    if tok:
+        h["Authorization"] = f"Bearer {tok}"
+    return h
+
+
 def fetch_github_trending() -> list:
     '\n    \u7528 GitHub Search API \u6293\u6700\u8fd1 7 \u5929\u65b0\u5efa\u7684 AI/ML \u76f8\u5173\u70ed\u95e8\u4ed3\u5e93\u3002\n    \u65e0\u9700 token (\u533f\u540d 60\u6b21/h,\u591f\u7528)\u3002\n    '
     print(f"[\u6293\u53d6] GitHub Trending AI/ML (7\u5929\u5185,≤{GITHUB_MAX}) ...", flush=True)
@@ -245,10 +263,7 @@ def fetch_github_trending() -> list:
             f"?q={encoded}&sort=stars&order=desc&per_page=50"
         )
         try:
-            raw = fetch_url(url, timeout=30, headers={
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            })
+            raw = fetch_url(url, timeout=30, headers=_gh_api_headers())
             data = json.loads(raw)
         except (RuntimeError, json.JSONDecodeError) as e:
             print(f"    [GitHub] \u67e5\u8be2\u5931\u8d25 ({q[:50]}...): {e}")
@@ -395,10 +410,7 @@ def fetch_github_freebies() -> list:
         url = (f"https://api.github.com/search/repositories"
                f"?q={encoded}&sort=stars&order=desc&per_page=30")
         try:
-            data = json.loads(fetch_url(url, timeout=30, headers={
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            }))
+            data = json.loads(fetch_url(url, timeout=30, headers=_gh_api_headers()))
         except (RuntimeError, json.JSONDecodeError) as e:
             print(f"    [Freebies] \u67e5\u8be2\u5931\u8d25: {e}")
             time.sleep(2)
@@ -1446,6 +1458,7 @@ def generate_report_v3(
     blindspot_md: Optional[str] = None,
     top3_md: Optional[str] = None,
     selfcheck_md: Optional[str] = None,
+    arsenal_md: Optional[str] = None,
 ) -> str:
     '\u751f\u6210 Markdown \u62a5\u544a (\u5934\u90e8\u591a\u5b66\u79d1\u7814\u5224 + \u7cbe\u534e\u60c5\u62a5)'
     total_top = len(top_items)
@@ -1481,6 +1494,11 @@ def generate_report_v3(
 
     if action_flags_md:
         lines.append(action_flags_md)
+
+    # arsenal candidates: a POINTER at the machine-readable council input. The
+    # deliverable is reports/arsenal/candidates.json, not this table.
+    if arsenal_md:
+        lines.append(arsenal_md)
 
     if blindspot_md:
         lines.append(blindspot_md)
@@ -1554,6 +1572,15 @@ def main():
     parser.add_argument("--dry-run", action="store_true",
                         help='\u53ea\u6293\u53d6\u4e0d\u5206\u6790(\u6d4b\u8bd5\u6293\u53d6\u91cf)')
     parser.add_argument("--top", type=int, default=50, help='\u7cbe\u534e TOP N (\u9ed8\u8ba4 50)')
+    # arsenal radar switches -- default ON (the whole point is that the radar
+    # stops being short-sighted), but every part has a kill switch so the CTO
+    # can shed it without a code change if a run misbehaves.
+    parser.add_argument("--no-arsenal", action="store_true",
+                        help="skip the deep arsenal radar entirely")
+    parser.add_argument("--no-arsenal-distill", action="store_true",
+                        help="scan and write the ledger, but run no LLM distillation")
+    parser.add_argument("--arsenal-top", type=int, default=60,
+                        help="how many candidates to hand the council (default 60)")
     args = parser.parse_args()
 
     t0    = time.time()
@@ -1734,6 +1761,23 @@ def main():
     except Exception as e:
         print(f"  [内视眼] 系统自省异常 (已捕获,不阻断): {e}", flush=True)
 
+    # Arsenal radar -- the deep GitHub scan whose real output is the MACHINE
+    # file reports/arsenal/candidates.json that the SueAI council eats. The
+    # markdown returned here is only a pointer for a human who wants to look.
+    # Isolated exactly like the blindspot radar: this must never be able to take
+    # the daily report down, and it must never be able to make the report claim
+    # something it did not measure.
+    arsenal_md = ""
+    if not args.no_arsenal:
+        try:
+            import arsenal_radar
+            _rows, arsenal_md, _meta = arsenal_radar.run(
+                limit=args.arsenal_top, do_distill=not args.no_arsenal_distill,
+                today=today)
+        except Exception as e:
+            print(f"  [军火雷达] 异常 (已捕获,不阻断): "
+                  f"{type(e).__name__}: {e}", flush=True)
+
     elapsed   = time.time() - t0
     synthesis_md = generate_synthesis_section(synthesis_data)
     action_flags_md = generate_action_flags_section(flagged_items)
@@ -1745,6 +1789,7 @@ def main():
         blindspot_md=blindspot_md,
         top3_md=top3_md,
         selfcheck_md=selfcheck_md,
+        arsenal_md=arsenal_md,
     )
 
     # safety net: never let one stray lone-surrogate char (e.g. an emoji mistakenly written as a
@@ -1790,7 +1835,8 @@ def main():
         _push_issue(today, top_items, raw_counts, total_raw, total_analyzed,
                     elapsed, models_used, synthesis_md=synthesis_md,
                     action_flags_md=action_flags_md, blindspot_md=blindspot_md,
-                    top3_md=top3_md, selfcheck_md=selfcheck_md)
+                    top3_md=top3_md, selfcheck_md=selfcheck_md,
+                    arsenal_md=arsenal_md)
 
     
     push_wechat(today, top_items, raw_counts, total_raw, total_analyzed,
@@ -1952,7 +1998,8 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
                 action_flags_md: Optional[str] = None,
                 blindspot_md: Optional[str] = None,
                 top3_md: Optional[str] = None,
-                selfcheck_md: Optional[str] = None):
+                selfcheck_md: Optional[str] = None,
+                arsenal_md: Optional[str] = None):
     '\n    \u7528 gh CLI \u521b\u5efa Issue \u5230 gufangAI/sync-med\u3002\n    GH_TOKEN \u7531 Actions \u81ea\u52a8\u6ce8\u5165,\u65e0\u9700\u989d\u5916\u914d\u7f6e\u3002\n    '
     import subprocess
 
@@ -1989,6 +2036,8 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
         body_lines.append(action_flags_md)
     if blindspot_md:
         body_lines.append(blindspot_md)
+    if arsenal_md:
+        body_lines.append(arsenal_md)
     body_lines += [
         '### \u7cbe\u534e TOP 15',
         "",

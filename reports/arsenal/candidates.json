@@ -1,0 +1,1381 @@
+{
+ "schema": 1,
+ "generated": "2026-07-26",
+ "producer": "scripts/intel_radar/arsenal_radar.py",
+ "consumer": "scripts/council (triage topic source)",
+ "contract": "objective description and candidate options only; no adoption judgement, no score, no ranking",
+ "enums": {
+  "line_candidates": [
+   "video",
+   "formula",
+   "image",
+   "modelpool",
+   "ocr",
+   "rag",
+   "unknown"
+  ],
+  "transfer_forms": [
+   "mcp",
+   "skill",
+   "architecture",
+   "deploy",
+   "dataset",
+   "library",
+   "unknown"
+  ],
+  "license_family": [
+   "permissive",
+   "copyleft",
+   "none",
+   "unknown"
+  ]
+ },
+ "scan": {
+  "queries": 26,
+  "search_calls": 26,
+  "search_budget": 34,
+  "errors": 0,
+  "authenticated": true,
+  "dead_queries": [],
+  "failed_queries": []
+ },
+ "distill": {
+  "seat": "zhipu",
+  "calls": 3,
+  "ok": 3
+ },
+ "count": 30,
+ "candidates": [
+  {
+   "repo": "tashfeenahmed/freellmapi",
+   "url": "https://github.com/tashfeenahmed/freellmapi",
+   "description": "OpenAI-compatible proxy that stacks the free tiers of 28 LLM providers (~4B tokens/month) behind one /v1 endpoint — plus any custom OpenAI-compatible endpoint. Smart routing, automatic failover, encrypted keys. Personal experimentation only.",
+   "stars": 16982,
+   "topics": [],
+   "lang": "TypeScript",
+   "created_at": "2026-04-21",
+   "pushed_at": "2026-07-20",
+   "age_days": 96,
+   "stars_per_day_lifetime": 176.9,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "openai-compatible proxy free in:name,description stars:>300",
+    "sort": "stars",
+    "query_breadth": 2,
+    "position": 0
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供28个LLM提供商的免费代理服务，支持自定义端点。",
+   "evidence": "OpenAI-compatible proxy that stacks the free tiers of 28 LLM providers",
+   "transfer_forms": [
+    "mcp",
+    "skill",
+    "deploy"
+   ],
+   "line_candidates": [
+    "modelpool"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "lyogavin/airllm",
+   "url": "https://github.com/lyogavin/airllm",
+   "description": "AirLLM 70B inference with single 4GB GPU",
+   "stars": 24020,
+   "topics": [
+    "chinese-llm",
+    "chinese-nlp",
+    "finetune",
+    "generative-ai",
+    "instruct-gpt",
+    "instruction-set",
+    "llama",
+    "llm",
+    "lora",
+    "open-models",
+    "open-source",
+    "open-source-models"
+   ],
+   "lang": "Jupyter Notebook",
+   "created_at": "2023-06-12",
+   "pushed_at": "2026-07-23",
+   "age_days": 1140,
+   "stars_per_day_lifetime": 21.07,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese-nlp stars:>200 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 8,
+    "position": 0
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供70B推理能力的AirLLM模型，适用于中文NLP和生成式AI。",
+   "evidence": "AirLLM 70B inference with single 4GB GPU",
+   "transfer_forms": [
+    "skill",
+    "architecture"
+   ],
+   "line_candidates": [
+    "modelpool"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "yikart/AiToEarn",
+   "url": "https://github.com/yikart/AiToEarn",
+   "description": "Let's use AI to Earn!",
+   "stars": 24232,
+   "topics": [
+    "auto-publish",
+    "douyin",
+    "douyin-api",
+    "electron-app",
+    "electron-react",
+    "kuaishou",
+    "kwai",
+    "published",
+    "shipinhao",
+    "tool",
+    "xiaohongshu"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2025-02-24",
+   "pushed_at": "2026-07-23",
+   "age_days": 517,
+   "stars_per_day_lifetime": 46.87,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:auto-publish stars:>200 pushed:>2026-01-27",
+    "sort": "stars",
+    "query_breadth": 1,
+    "position": 0
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "使用AI进行抖音、快手等平台的内容自动化发布。",
+   "evidence": "auto-publish, douyin, douyin-api, electron-app",
+   "transfer_forms": [
+    "skill",
+    "deploy"
+   ],
+   "line_candidates": [
+    "video"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "nilsherzig/LLocalSearch",
+   "url": "https://github.com/nilsherzig/LLocalSearch",
+   "description": "LLocalSearch is a completely locally running search aggregator using LLM Agents. The user can ask a question and the system will use a chain of LLMs to find the answer. The user can see the progress of the agents and the final answer. No OpenAI or Google API keys are needed.",
+   "stars": 5955,
+   "topics": [
+    "llm",
+    "search-engine"
+   ],
+   "lang": "Go",
+   "created_at": "2024-03-23",
+   "pushed_at": "2026-03-24",
+   "age_days": 855,
+   "stars_per_day_lifetime": 6.96,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "api aggregator llm in:name,description stars:>200",
+    "sort": "stars",
+    "query_breadth": 2,
+    "position": 0
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "本地运行的搜索聚合器，使用LLM代理进行问答。",
+   "evidence": "completely locally running search aggregator using LLM Agents",
+   "transfer_forms": [
+    "skill",
+    "architecture"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "esbatmop/MNBVC",
+   "url": "https://github.com/esbatmop/MNBVC",
+   "description": "MNBVC(Massive Never-ending BT Vast Chinese corpus)超大规模中文语料集。对标chatGPT训练的40T数据。MNBVC数据集不但包括主流文化，也包括各个小众文化甚至火星文的数据。MNBVC数据集包括新闻、作文、小说、书籍、杂志、论文、台词、帖子、wiki、古诗、歌词、商品介绍、笑话、糗事、聊天记录等一切形式的纯文本中文数据。",
+   "stars": 4246,
+   "topics": [
+    "chinese",
+    "chinese-language",
+    "chinese-nlp",
+    "chinese-simplified",
+    "corpus-data",
+    "nlp",
+    "nlp-machine-learning"
+   ],
+   "lang": "",
+   "created_at": "2022-12-31",
+   "pushed_at": "2026-07-13",
+   "age_days": 1303,
+   "stars_per_day_lifetime": 3.26,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese-nlp stars:>200 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 8,
+    "position": 1
+   },
+   "matched_by_n_queries": 3,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供超大规模中文语料集，包括多种文本形式的数据。",
+   "evidence": "Massive Never-ending BT Vast Chinese corpus",
+   "transfer_forms": [
+    "dataset"
+   ],
+   "line_candidates": [
+    "formula",
+    "image"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "vladkens/twscrape",
+   "url": "https://github.com/vladkens/twscrape",
+   "description": "Python library and CLI for X/Twitter scraping with multi-account rotation and built-in rate-limit handling.",
+   "stars": 2616,
+   "topics": [
+    "data-collection",
+    "data-mining",
+    "scraper",
+    "scraping",
+    "social-media-automation",
+    "social-network-analysis",
+    "tweets",
+    "twitter",
+    "twitter-api",
+    "twitter-automation",
+    "twitter-bot",
+    "twitter-client"
+   ],
+   "lang": "Python",
+   "created_at": "2023-05-05",
+   "pushed_at": "2026-07-21",
+   "age_days": 1178,
+   "stars_per_day_lifetime": 2.22,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:social-media-automation stars:>300 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 6,
+    "position": 0
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "Python库和CLI工具，用于X/Twitter的数据抓取。",
+   "evidence": "Python library and CLI for X/Twitter scraping",
+   "transfer_forms": [
+    "library",
+    "deploy"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "Quorinex/Freebuff2API",
+   "url": "https://github.com/Quorinex/Freebuff2API",
+   "description": "🚀 OpenAI-compatible Freebuff proxy with dynamic free-agent tracking, token rotation, and ready-to-use Docker deployment.",
+   "stars": 549,
+   "topics": [],
+   "lang": "Go",
+   "created_at": "2026-04-18",
+   "pushed_at": "2026-04-22",
+   "age_days": 99,
+   "stars_per_day_lifetime": 5.55,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "openai-compatible proxy free in:name,description stars:>300",
+    "sort": "stars",
+    "query_breadth": 2,
+    "position": 1
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供OpenAI兼容的Freebuff代理服务，支持动态代理跟踪和Docker部署。",
+   "evidence": "OpenAI-compatible Freebuff proxy with dynamic free-agent tracking",
+   "transfer_forms": [
+    "mcp",
+    "deploy"
+   ],
+   "line_candidates": [
+    "modelpool"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "IDEA-CCNL/Fengshenbang-LM",
+   "url": "https://github.com/IDEA-CCNL/Fengshenbang-LM",
+   "description": "Fengshenbang-LM(封神榜大模型)是IDEA研究院认知计算与自然语言研究中心主导的大模型开源体系，成为中文AIGC和认知智能的基础设施。",
+   "stars": 4125,
+   "topics": [
+    "aigc",
+    "chinese-nlp",
+    "distributed-training",
+    "multimodal",
+    "pretrained-models",
+    "pytorch",
+    "transformers"
+   ],
+   "lang": "Python",
+   "created_at": "2021-10-28",
+   "pushed_at": "2026-06-08",
+   "age_days": 1732,
+   "stars_per_day_lifetime": 2.38,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese-nlp stars:>200 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 8,
+    "position": 2
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供中文AIGC和认知智能的基础设施大模型。",
+   "evidence": "Fengshenbang-LM(封神榜大模型)是IDEA研究院认知计算与自然语言研究中心主导的大模型开源体系",
+   "transfer_forms": [
+    "skill",
+    "architecture"
+   ],
+   "line_candidates": [
+    "modelpool"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "darkzOGx/youtube-automation-agent",
+   "url": "https://github.com/darkzOGx/youtube-automation-agent",
+   "description": "🎬 Fully automated YouTube channel management with AI agents. Creates, optimizes & publishes videos 24/7. Works with FREE Gemini API or OpenAI. No coding required!",
+   "stars": 1687,
+   "topics": [
+    "ai-agents",
+    "ai-powered",
+    "automation",
+    "content-automation",
+    "content-creation",
+    "content-strategy",
+    "free-tool",
+    "google-gemini",
+    "javascript",
+    "nodejs",
+    "openai",
+    "seo-optimization"
+   ],
+   "lang": "JavaScript",
+   "created_at": "2025-08-14",
+   "pushed_at": "2026-07-16",
+   "age_days": 346,
+   "stars_per_day_lifetime": 4.88,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:social-media-automation stars:>300 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 6,
+    "position": 1
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "使用AI自动化YouTube频道管理，包括内容创建和SEO优化。",
+   "evidence": "Fully automated YouTube channel management with AI agents",
+   "transfer_forms": [
+    "skill",
+    "deploy"
+   ],
+   "line_candidates": [
+    "video"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "nirholas/cryptocurrency.cv",
+   "url": "https://github.com/nirholas/cryptocurrency.cv",
+   "description": "Free crypto news API - real-time aggregator for Bitcoin, Ethereum, DeFi, Solana & altcoins. No API key required. RSS/Atom feeds, JSON REST API, historical archive with market context, embeddable widgets, ChatGPT plugin, Claude MCP server, SDKs (Python, TypeScript, Go, React, PHP). AI/LLM ready. Vibe coding friendly. Open source.",
+   "stars": 265,
+   "topics": [
+    "ai-agent",
+    "api",
+    "bitcoin",
+    "chatgpt",
+    "claude",
+    "crypto",
+    "cryptocurrency",
+    "defi",
+    "ethereum",
+    "free-api",
+    "javascript",
+    "langchain"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2026-01-02",
+   "pushed_at": "2026-07-22",
+   "age_days": 205,
+   "stars_per_day_lifetime": 1.29,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "category",
+    "query": "api aggregator llm in:name,description stars:>200",
+    "sort": "stars",
+    "query_breadth": 2,
+    "position": 1
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供免费的加密货币新闻API，支持实时聚合和历史数据。",
+   "evidence": "Free crypto news API - real-time aggregator for Bitcoin, Ethereum, DeFi, Solana & altcoins",
+   "transfer_forms": [
+    "skill",
+    "library"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "weiwill88/Local_Pdf_Chat_RAG",
+   "url": "https://github.com/weiwill88/Local_Pdf_Chat_RAG",
+   "description": "🧠 纯原生 Python 实现的 RAG 框架 | FAISS + BM25 混合检索 | 支持 Ollama / SiliconFlow | 适合新手入门学习",
+   "stars": 939,
+   "topics": [
+    "bm25",
+    "chinese-nlp",
+    "deepseek",
+    "document-qa",
+    "faiss",
+    "gradio",
+    "rag",
+    "retrieval-augmented-generation"
+   ],
+   "lang": "Python",
+   "created_at": "2025-02-01",
+   "pushed_at": "2026-07-04",
+   "age_days": 540,
+   "stars_per_day_lifetime": 1.74,
+   "license": "NONE",
+   "license_family": "none",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese-nlp stars:>200 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 8,
+    "position": 3
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "纯原生 Python 实现的 RAG 框架，支持 FAISS + BM25 混合检索，适合新手入门学习",
+   "evidence": "纯原生 Python 实现的 RAG 框架",
+   "transfer_forms": [
+    "skill",
+    "architecture"
+   ],
+   "line_candidates": [
+    "rag"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "Anil-matcha/Free-AI-Social-Media-Scheduler",
+   "url": "https://github.com/Anil-matcha/Free-AI-Social-Media-Scheduler",
+   "description": "Free open-source AI social media scheduler — self-hostable alternative to Postiz, Buffer, and Hootsuite with built-in AI content generation.",
+   "stars": 470,
+   "topics": [
+    "ai",
+    "ai-content-generation",
+    "ai-scheduler",
+    "buffer-alternative",
+    "content-creator",
+    "content-scheduling",
+    "facebook",
+    "hootsuite-alternative",
+    "instagram",
+    "later-alternative",
+    "linkedin",
+    "nextjs"
+   ],
+   "lang": "JavaScript",
+   "created_at": "2024-01-23",
+   "pushed_at": "2026-07-21",
+   "age_days": 915,
+   "stars_per_day_lifetime": 0.51,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:social-media-automation stars:>300 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 6,
+    "position": 2
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "开源 AI 社交媒体调度器，具有内置 AI 内容生成功能，可作为 Postiz、Buffer 和 Hootsuite 的替代品",
+   "evidence": "Free open-source AI social media scheduler",
+   "transfer_forms": [
+    "skill",
+    "architecture"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "ericosiu/ai-marketing-skills",
+   "url": "https://github.com/ericosiu/ai-marketing-skills",
+   "description": "Open-source AI marketing skills — growth experiments, sales pipeline, content ops, outbound, SEO, and finance automation",
+   "stars": 3136,
+   "topics": [],
+   "lang": "Python",
+   "created_at": "2026-03-28",
+   "pushed_at": "2026-07-19",
+   "age_days": 120,
+   "stars_per_day_lifetime": 26.13,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "content automation in:name,description stars:>500 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 3,
+    "position": 0
+   },
+   "matched_by_n_queries": 3,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "开源 AI 营销技能，包括增长实验、销售管道、内容运营、外展、SEO 和财务自动化",
+   "evidence": "Open-source AI marketing skills",
+   "transfer_forms": [
+    "skill",
+    "architecture"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "amutu/zhparser",
+   "url": "https://github.com/amutu/zhparser",
+   "description": "zhparser is a PostgreSQL extension for full-text search of Chinese language",
+   "stars": 864,
+   "topics": [
+    "chinese",
+    "chinese-nlp",
+    "chinese-text-segmentation",
+    "extension",
+    "postgresql",
+    "scws",
+    "zhparser"
+   ],
+   "lang": "C",
+   "created_at": "2013-02-24",
+   "pushed_at": "2026-06-29",
+   "age_days": 4900,
+   "stars_per_day_lifetime": 0.18,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese-nlp stars:>200 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 8,
+    "position": 4
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "zhparser PostgreSQL 扩展，用于中文全文搜索",
+   "evidence": "zhparser is a PostgreSQL extension for full-text search of Chinese language",
+   "transfer_forms": [
+    "library"
+   ],
+   "line_candidates": [
+    "image"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "sergebulaev/linkedin-skills",
+   "url": "https://github.com/sergebulaev/linkedin-skills",
+   "description": "Claude Code and Codex skills for LinkedIn growth: write human-sounding posts, craft comments that get noticed, analyze your feed, and build a publishing cadence, all from your terminal. Plug-and-play skills for content creators, founders, and marketers.",
+   "stars": 436,
+   "topics": [
+    "agent-skill",
+    "agent-skills",
+    "ai-agents",
+    "ai-content",
+    "ai-marketing",
+    "anthropic",
+    "awesome-claude",
+    "claude-code",
+    "claude-skills",
+    "content-creation",
+    "linkedin",
+    "linkedin-automation"
+   ],
+   "lang": "Python",
+   "created_at": "2026-04-14",
+   "pushed_at": "2026-07-22",
+   "age_days": 103,
+   "stars_per_day_lifetime": 4.23,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:social-media-automation stars:>300 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 6,
+    "position": 3
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "Claude Code 和 Codex 技能，用于 LinkedIn 成长，包括撰写帖子、撰写评论、分析动态和建立发布节奏",
+   "evidence": "Claude Code and Codex skills for LinkedIn growth",
+   "transfer_forms": [
+    "skill",
+    "architecture"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "ComplianceAsCode/content",
+   "url": "https://github.com/ComplianceAsCode/content",
+   "description": "Security automation content in SCAP, Bash, Ansible, and other formats",
+   "stars": 2768,
+   "topics": [
+    "ansible",
+    "application-security",
+    "cce",
+    "compliance",
+    "cpe",
+    "cybersecurity",
+    "hardening",
+    "information-security",
+    "ospp",
+    "oval",
+    "pci-dss",
+    "scap"
+   ],
+   "lang": "Shell",
+   "created_at": "2014-04-29",
+   "pushed_at": "2026-07-25",
+   "age_days": 4471,
+   "stars_per_day_lifetime": 0.62,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "category",
+    "query": "content automation in:name,description stars:>500 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 3,
+    "position": 1
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "SCAP、Bash、Ansible 等格式的安全自动化内容",
+   "evidence": "Security automation content in SCAP, Bash, Ansible",
+   "transfer_forms": [
+    "library"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "rime/rime-cantonese",
+   "url": "https://github.com/rime/rime-cantonese",
+   "description": "Rime Cantonese input schema | 中州韻粵語拼音輸入方案",
+   "stars": 665,
+   "topics": [
+    "cantonese",
+    "cantonese-dictionary",
+    "cantonese-language",
+    "chinese",
+    "chinese-language",
+    "chinese-nlp",
+    "ime",
+    "input-method",
+    "jyutping",
+    "linguistics",
+    "rime",
+    "rime-schema"
+   ],
+   "lang": "Python",
+   "created_at": "2019-09-05",
+   "pushed_at": "2026-07-02",
+   "age_days": 2516,
+   "stars_per_day_lifetime": 0.26,
+   "license": "CC-BY-4.0",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese-nlp stars:>200 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 8,
+    "position": 5
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "Rime Cantonese 输入方案，中州韵粤语拼音输入方案",
+   "evidence": "Rime Cantonese input schema",
+   "transfer_forms": [
+    "library"
+   ],
+   "line_candidates": [
+    "image"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "Katzca/AutoSocial",
+   "url": "https://github.com/Katzca/AutoSocial",
+   "description": "Local social media automation dashboard for TikTok, Instagram, and YouTube.",
+   "stars": 391,
+   "topics": [
+    "marketing-automation",
+    "social-media-automation"
+   ],
+   "lang": "JavaScript",
+   "created_at": "2026-03-11",
+   "pushed_at": "2026-06-10",
+   "age_days": 137,
+   "stars_per_day_lifetime": 2.85,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:social-media-automation stars:>300 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 6,
+    "position": 4
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "本地社交媒体自动化仪表板，支持 TikTok、Instagram 和 YouTube",
+   "evidence": "Local social media automation dashboard for TikTok, Instagram, and YouTube",
+   "transfer_forms": [
+    "skill",
+    "architecture"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "naqashafzal/AI-Content-Studio",
+   "url": "https://github.com/naqashafzal/AI-Content-Studio",
+   "description": "A 100% free & open-source AI Content Automation Tool that writes scripts, generates voiceovers, creates videos, and uploads them automatically — hands-free YouTube growth powered by AI.",
+   "stars": 579,
+   "topics": [
+    "ai",
+    "ai-content-generation",
+    "caption-generation",
+    "facebook-automation",
+    "free-video-generator",
+    "youtube-automation"
+   ],
+   "lang": "Python",
+   "created_at": "2025-09-03",
+   "pushed_at": "2026-06-05",
+   "age_days": 326,
+   "stars_per_day_lifetime": 1.78,
+   "license": "NONE",
+   "license_family": "none",
+   "found_by": {
+    "dimension": "category",
+    "query": "content automation in:name,description stars:>500 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 3,
+    "position": 2
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "开源 AI 内容自动化工具，可编写脚本、生成配音、创建视频并自动上传，助力 YouTube 成长",
+   "evidence": "A 100% free & open-source AI Content Automation Tool",
+   "transfer_forms": [
+    "skill",
+    "architecture"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "aiworkskills/wechat-article-skills",
+   "url": "https://github.com/aiworkskills/wechat-article-skills",
+   "description": "微信公众号 AI 运营助手 | 选题、写稿、审稿、排版、配图、发布全流程 Skill，支持 OpenClaw / Claude Code / Cursor / Codex",
+   "stars": 438,
+   "topics": [
+    "agent-skills",
+    "ai-skills",
+    "ai-writing",
+    "chinese-nlp",
+    "codex",
+    "content-automation",
+    "content-creation",
+    "copywriting",
+    "llm",
+    "markdown-to-html",
+    "openclaw",
+    "wechat"
+   ],
+   "lang": "Python",
+   "created_at": "2026-03-18",
+   "pushed_at": "2026-06-20",
+   "age_days": 130,
+   "stars_per_day_lifetime": 3.37,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese-nlp stars:>200 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 8,
+    "position": 6
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "微信公众号 AI 运营助手，支持选题、写稿、审稿、排版、配图、发布全流程 Skill",
+   "evidence": "微信公众账号 AI 运营助手",
+   "transfer_forms": [
+    "skill",
+    "architecture"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "taisly/agent",
+   "url": "https://github.com/taisly/agent",
+   "description": "Taisly Agent Kit: MCP server, CLI, SDK, and agent docs for publishing videos to TikTok, Reels, Shorts, X, and Facebook.",
+   "stars": 302,
+   "topics": [
+    "agent-kit",
+    "agentic-workflows",
+    "ai-agent-tools",
+    "ai-agents",
+    "claude-code",
+    "codex",
+    "codex-cli",
+    "codex-plugin",
+    "codex-skills",
+    "cursor",
+    "instagram-reels",
+    "mcp"
+   ],
+   "lang": "JavaScript",
+   "created_at": "2026-06-11",
+   "pushed_at": "2026-07-06",
+   "age_days": 45,
+   "stars_per_day_lifetime": 6.71,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:social-media-automation stars:>300 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 6,
+    "position": 5
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供视频发布到多个平台的工具和文档",
+   "evidence": "publishing videos to TikTok, Reels, Shorts, X, and Facebook",
+   "transfer_forms": [
+    "mcp",
+    "deploy"
+   ],
+   "line_candidates": [
+    "video"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "cheahjs/free-llm-api-resources",
+   "url": "https://github.com/cheahjs/free-llm-api-resources",
+   "description": "A list of free LLM inference resources accessible via API.",
+   "stars": 28213,
+   "topics": [
+    "ai",
+    "claude",
+    "gemini",
+    "llama",
+    "llm",
+    "openai"
+   ],
+   "lang": "Python",
+   "created_at": "2024-07-04",
+   "pushed_at": "2026-07-25",
+   "age_days": 752,
+   "stars_per_day_lifetime": 37.52,
+   "license": "NONE",
+   "license_family": "none",
+   "found_by": {
+    "dimension": "category",
+    "query": "free llm api in:name,description stars:>200 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 11,
+    "position": 0
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "列出可访问的免费 LLM 推理资源",
+   "evidence": "list of free LLM inference resources",
+   "transfer_forms": [
+    "library"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "mouseart2025/AI-Reader-V2",
+   "url": "https://github.com/mouseart2025/AI-Reader-V2",
+   "description": "AI 小说分析可视化工具 — 角色关系图谱 · 地理地图 · 时间线 · 百科全书 | 支持 Ollama 本地 + 10 大云端 LLM | React + FastAPI + SQLite",
+   "stars": 210,
+   "topics": [
+    "chinese-literature",
+    "chinese-nlp",
+    "fastapi",
+    "information-extraction",
+    "knowledge-graph",
+    "literature",
+    "llm",
+    "narrative",
+    "nlp",
+    "novel-analysis",
+    "ollama",
+    "react"
+   ],
+   "lang": "Python",
+   "created_at": "2026-02-11",
+   "pushed_at": "2026-07-22",
+   "age_days": 165,
+   "stars_per_day_lifetime": 1.27,
+   "license": "AGPL-3.0",
+   "license_family": "copyleft",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese-nlp stars:>200 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 8,
+    "position": 7
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "AI 小说分析工具，支持多种 LLM",
+   "evidence": "AI 小说分析可视化工具",
+   "transfer_forms": [
+    "deploy"
+   ],
+   "line_candidates": [
+    "video",
+    "image",
+    "modelpool"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "public-api-lists/public-api-lists",
+   "url": "https://github.com/public-api-lists/public-api-lists",
+   "description": "A curated list of free public APIs — searchable, community-maintained, with a free JSON API.",
+   "stars": 15222,
+   "topics": [
+    "api",
+    "api-list",
+    "apis",
+    "awesome",
+    "awesome-list",
+    "beginner-friendly",
+    "collection",
+    "curated-list",
+    "developer-resources",
+    "developer-tools",
+    "free-api",
+    "hacktoberfest"
+   ],
+   "lang": "",
+   "created_at": "2020-01-05",
+   "pushed_at": "2026-07-08",
+   "age_days": 2394,
+   "stars_per_day_lifetime": 6.36,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:free-api stars:>300 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 9,
+    "position": 1
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供免费公共 API 列表",
+   "evidence": "curated list of free public APIs",
+   "transfer_forms": [
+    "library"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "mnfst/awesome-free-llm-apis",
+   "url": "https://github.com/mnfst/awesome-free-llm-apis",
+   "description": "List of Permanent Free LLM API  (API Keys)",
+   "stars": 5998,
+   "topics": [
+    "ai-agents",
+    "anthropic",
+    "awesome",
+    "awesome-list",
+    "gemini",
+    "llm",
+    "llm-router",
+    "llm-routing",
+    "ollama",
+    "openai",
+    "openclaw",
+    "openclaw-plugin"
+   ],
+   "lang": "JavaScript",
+   "created_at": "2026-03-21",
+   "pushed_at": "2026-06-16",
+   "age_days": 127,
+   "stars_per_day_lifetime": 47.23,
+   "license": "CC0-1.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "free llm api in:name,description stars:>200 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 11,
+    "position": 1
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "列出永久免费的 LLM API",
+   "evidence": "List of Permanent Free LLM API",
+   "transfer_forms": [
+    "library"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "Dujltqzv/Some-Many-Books",
+   "url": "https://github.com/Dujltqzv/Some-Many-Books",
+   "description": "个人收藏书籍列表　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 　 　 　 　 　 　 　 　 　 　 PDF下载 百度云 电子书下载 ==礠緢舝揽躋瑥玮獺捈遍縤湑玤怃顷橲誕鞀覄琤镾忺鬵",
+   "stars": 21581,
+   "topics": [],
+   "lang": "",
+   "created_at": "2021-09-05",
+   "pushed_at": "2026-06-18",
+   "age_days": 1785,
+   "stars_per_day_lifetime": 12.09,
+   "license": "NONE",
+   "license_family": "none",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "女娲 in:name,description stars:>100",
+    "sort": "stars",
+    "query_breadth": 19,
+    "position": 0
+   },
+   "matched_by_n_queries": 4,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "个人收藏书籍列表",
+   "evidence": "个人收藏书籍列表",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "romgX/openrelay",
+   "url": "https://github.com/romgX/openrelay",
+   "description": "几百个免费 AI 模型配额，一键接入本地项目。| Hundreds of free AI model quotas, one-click access to local projects.",
+   "stars": 2267,
+   "topics": [
+    "ai",
+    "ai-proxy",
+    "aider",
+    "cerebras",
+    "claude",
+    "claude-code",
+    "copilot",
+    "cursor",
+    "developer-tools",
+    "free-ai",
+    "free-api",
+    "groq"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2026-03-07",
+   "pushed_at": "2026-07-22",
+   "age_days": 141,
+   "stars_per_day_lifetime": 16.08,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:free-api stars:>300 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 9,
+    "position": 2
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供免费 AI 模型配额，一键接入本地项目",
+   "evidence": "Hundreds of free AI model quotas",
+   "transfer_forms": [
+    "deploy"
+   ],
+   "line_candidates": [
+    "modelpool"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "theJayTea/WritingTools",
+   "url": "https://github.com/theJayTea/WritingTools",
+   "description": "The world's smartest system-wide grammar assistant; a better version of the Apple Intelligence Writing Tools. Works on Windows, Linux, & macOS, with the free Gemini API, local LLMs, & more.",
+   "stars": 2376,
+   "topics": [
+    "ai",
+    "artificial-intelligence",
+    "gemini",
+    "grammar-checker",
+    "largelanguagemodel",
+    "llm",
+    "writing-tool"
+   ],
+   "lang": "Swift",
+   "created_at": "2024-10-13",
+   "pushed_at": "2026-06-14",
+   "age_days": 651,
+   "stars_per_day_lifetime": 3.65,
+   "license": "GPL-3.0",
+   "license_family": "copyleft",
+   "found_by": {
+    "dimension": "category",
+    "query": "free llm api in:name,description stars:>200 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 11,
+    "position": 2
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "智能语法助手，使用 Gemini API 和 LLM",
+   "evidence": "world's smartest system-wide grammar assistant",
+   "transfer_forms": [
+    "skill"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "alchaincyf/zhangxuefeng-skill",
+   "url": "https://github.com/alchaincyf/zhangxuefeng-skill",
+   "description": "张雪峰.skill — 张雪峰的认知操作系统。高考志愿/考研/职业规划的实战思维框架。由女娲.skill生成。",
+   "stars": 9992,
+   "topics": [],
+   "lang": "",
+   "created_at": "2026-04-05",
+   "pushed_at": "2026-05-28",
+   "age_days": 112,
+   "stars_per_day_lifetime": 89.21,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "女娲 in:name,description stars:>100",
+    "sort": "stars",
+    "query_breadth": 19,
+    "position": 1
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "张雪峰的认知操作系统，实战思维框架",
+   "evidence": "张雪峰的认知操作系统",
+   "transfer_forms": [
+    "skill"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "AgnesAI-Labs/AgnesAI-Models",
+   "url": "https://github.com/AgnesAI-Labs/AgnesAI-Models",
+   "description": "Official Agnes AI gateway and model catalog for OpenAI-compatible text, image, video, and agent workflows.",
+   "stars": 1683,
+   "topics": [
+    "agnes-ai",
+    "ai-api",
+    "free-api",
+    "multimodal-ai"
+   ],
+   "lang": "",
+   "created_at": "2026-04-30",
+   "pushed_at": "2026-06-29",
+   "age_days": 87,
+   "stars_per_day_lifetime": 19.34,
+   "license": "NONE",
+   "license_family": "none",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:free-api stars:>300 pushed:>2026-04-27",
+    "sort": "stars",
+    "query_breadth": 9,
+    "position": 3
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "Agnes AI 模型门户和目录，支持多模态 AI",
+   "evidence": "model catalog for OpenAI-compatible text, image, video, and agent workflows",
+   "transfer_forms": [
+    "library"
+   ],
+   "line_candidates": [
+    "modelpool"
+   ],
+   "distilled": true
+  }
+ ]
+}
