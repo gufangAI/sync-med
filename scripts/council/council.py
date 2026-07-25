@@ -68,10 +68,10 @@ CJK_COLON = "\uff1a"     # fullwidth colon
 ARROW_CHARS = "\u2192\u21d2"   # fullwidth -> and =>
 CJK_TO = "\u81f3"        # "to", as in "2% to 8%"
 
-# Cloudflare Workers AI free allocation, per DAY. Reporting the run's neuron
-# spend as a share of this is the honest form: a flat "cost 0" is what invites
-# the complacency that produced the 2026-07-09 burn.
-CF_FREE_DAILY_NEURONS = 10000.0
+# 2026-07-25: the CF neuron accounting that used to live here is gone with the
+# CF seats themselves (see llm_roster's docstring). `council_usage.json` still
+# carries a `neurons` field on purpose -- a machine-readable 0.0 every run is
+# the proof that no metered call happened, which a removed field could not give.
 T0 = time.time()
 
 
@@ -493,11 +493,7 @@ def build_report(date_str, topics, results, metrics, skipped, bench_report,
     out += ["", t("rpt_h2_seats"), "", seats_md(bench_report), "",
             t("rpt_h2_usage"), "",
             t("usage_tpl", calls=snap["calls"], cap=roster.MAX_CALLS, fails=snap["fails"],
-              dist=dist or "-", neurons=snap["neurons"], nbudget=int(roster.CF_NEURON_BUDGET),
-              # CF's free allocation is per DAY, so the honest figure is the
-              # share of that allocation this run consumed -- not a flat "0"
-              pct=snap["neurons"] * 100.0 / CF_FREE_DAILY_NEURONS,
-              elapsed=hhmmss(time.time() - T0)), "",
+              dist=dist or "-", elapsed=hhmmss(time.time() - T0)), "",
             t("rpt_footer")]
     return "\n".join(out)
 
@@ -564,6 +560,14 @@ def main():
 
     # --- seats -------------------------------------------------------------
     log("assembling seats ...")
+    # Say out loud which free pools have no credentials in this repo. Silence
+    # here is how the council ended up running on a metered fallback while half
+    # its own free fleet was simply never wired -- an absent secret must read as
+    # a missing seat in the log, not as "that vendor is down".
+    wired = {s["id"] for s in roster._bench()}
+    unwired = [i for i in roster.free_bench_ids() if i not in wired]
+    log("  free pools wired=%s | NO CREDENTIALS=%s"
+        % (sorted(wired), unwired or "none"))
     racers, judge, bench_report = roster.assemble(args.racers)
     if len(racers) < 2 or judge is None:
         log("FATAL: only %d live racer(s), judge=%s -- a council needs a real argument"

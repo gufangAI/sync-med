@@ -10,19 +10,36 @@ Why a roster and not a fixed list of 4:
   enforced is VENDOR DIVERSITY: no two racers may come from the same vendor,
   because 4 seats of the same house is groupthink wearing four hats.
 
-Cost posture (this repo has scar tissue here -- read before adding a provider):
-  - xunfei / zhipu / agnes are free-quota pools; they cost nothing.
-  - Cloudflare Workers AI is METERED. It burned ~$8 on 2026-07-09 when wired
-    into production request paths, and `code-self-audit.yml` now CI-bans
-    `env.AI.run` / `@cf/*` inside guyaofang-web for exactly that reason. That
-    redline is about the *production request path*; a once-a-day batch job is a
-    different animal, but "different animal" is not "free". So every CF call
-    here is metered against a hard neuron budget read from the response's own
-    `neurons` field, and CF is cut off mid-run the moment the budget is spent.
-    Measured 2026-07-25: 1644 in / 376 out on llama-3.3-70b-fp8-fast = 120.85
-    neurons, and the free allocation is 10,000 neurons/day -- so the default
-    6000-neuron budget keeps a full council run inside the free tier with room
-    to spare, and the report prints the number actually spent.
+Cost posture -- FOUNDER-SET REDLINE, 2026-07-25 (read before adding a provider):
+  EVERY seat here must come from an internal FREE pool. Not "cheap", not "inside
+  a free allocation" -- free, with the additional property that running out
+  STOPS SERVICE rather than silently billing us.
+
+  What changed on 2026-07-25 and why:
+    the roster used to carry four `@cf/*` Cloudflare Workers AI seats plus a CF
+    judge, metered against a neuron budget. The 2026-07-25 run proves why that
+    was wrong in practice, not just in principle: three of the four FREE seats
+    were dead that run (xunfei answered AppIdNoAuthError, agnes answered 429,
+    gemini was pointed at a retired model id) and CF quietly filled 4 of the 5
+    chairs. So the pipeline was not "using a metered source as a last resort",
+    it was running ON the metered source while our own free fleet sat broken.
+    The founder's ruling is exactly that distinction: the sin is not spending,
+    it is reaching for a billed source while the free ones are not even wired
+    up. Fix the free fleet; do not buy your way past a wiring bug.
+
+  Cloudflare Workers AI specifically: it is SILENTLY METERED -- past the free
+  10,000 neurons/day it keeps answering and bills the card. Every vendor on the
+  bench below is the other kind: quota out = HTTP 429/402 = service stops. That
+  difference in FAILURE MODE, not the price tag, is why CF is out and these are
+  in. It burned ~$8 on 2026-07-09, `code-self-audit.yml` CI-bans `env.AI.run` /
+  `@cf/*` inside guyaofang-web, and guyaofang-web's own gateway pulled all three
+  CF providers out of its fallback chain the same evening. This roster now
+  matches that posture.
+
+  The CF transport (`_cf_chat`) is deliberately KEPT but has no reachable call
+  path: `_bench()` never emits a cf seat and `call()` refuses kind=="cf". Same
+  handling as `_providers.js`: "keep the feature, remove the billing part".
+  Re-enabling is the founder's call, not the CTO's -- see CF_ENABLED below.
 
 Every call is logged (seat, stage, latency, tokens, ok/err) so the report can
 state real usage instead of an estimate.
@@ -41,7 +58,16 @@ from zh import t
 # budget
 # ---------------------------------------------------------------------------
 MAX_CALLS = int(os.environ.get("MAX_LLM_CALLS", "60"))
-CF_NEURON_BUDGET = float(os.environ.get("CF_NEURON_BUDGET", "6000"))
+
+# Cloudflare Workers AI: DISABLED BY THE FOUNDER, 2026-07-25. Two independent
+# locks, on purpose -- a single env var is too easy to flip by accident:
+#   1. CF_ENABLED is a source constant, not an env var. Restoring it is a code
+#      change that shows up in a diff and needs the founder's word.
+#   2. the budget defaults to 0 neurons, so even a hand-built cf seat spends
+#      nothing before BudgetExhausted stops it.
+# `CF_NEURON_BUDGET` stays a module attribute because council.py prints it.
+CF_ENABLED = False
+CF_NEURON_BUDGET = float(os.environ.get("CF_NEURON_BUDGET", "0"))
 
 _lock = threading.Lock()
 _state = {"calls": 0, "neurons": 0.0, "fails": 0}
@@ -96,12 +122,25 @@ def _post_json(url, payload, headers, timeout):
     return json.loads(resp.read().decode("utf-8")), resp.headers
 
 
-def _openai_chat(base, key, model, system, user, max_tokens, temperature, timeout):
-    """OpenAI-compatible /chat/completions -- xunfei, zhipu, agnes, gemini's
-    compat endpoint and nvidia all speak this."""
+def _openai_chat(base, key, model, system, user, max_tokens, temperature, timeout,
+                 extra=None):
+    """OpenAI-compatible /chat/completions -- every seat on the free bench
+    speaks this (zhipu, agnes, gemini's compat endpoint, nvidia NIM, modelscope,
+    sensenova, longcat, cerebras, siliconflow).
+
+    `extra` is merged into the request body at top level, mirroring
+    guyaofang-web `_providers.js` `extra_body`. Two seats need it and both were
+    learned the hard way in production, so do not "simplify" them away:
+      - modelscope: {"enable_thinking": false} or the answer arrives polluted
+        with chain-of-thought;
+      - gemini-2.5-flash: {"reasoning_effort": "low"} or thinking eats the
+        token budget and content comes back empty (the nested google:{} form
+        is a 400 on the OpenAI-compat endpoint)."""
     payload = {"model": model, "max_tokens": max_tokens, "temperature": temperature,
                "messages": [{"role": "system", "content": system},
                             {"role": "user", "content": user}]}
+    if extra:
+        payload.update(extra)
     d, _ = _post_json(base.rstrip("/") + "/chat/completions", payload,
                       {"Authorization": "Bearer " + key,
                        "Content-Type": "application/json"}, timeout)
@@ -115,8 +154,19 @@ def _openai_chat(base, key, model, system, user, max_tokens, temperature, timeou
     }
 
 
-def _cf_chat(base, key, model, system, user, max_tokens, temperature, timeout):
-    """Cloudflare Workers AI REST. `base` is the account id. Metered."""
+def _cf_chat(base, key, model, system, user, max_tokens, temperature, timeout,
+             extra=None):
+    """Cloudflare Workers AI REST. `base` is the account id. METERED.
+
+    DEAD CODE ON PURPOSE (2026-07-25): nothing calls this -- `_bench()` emits no
+    cf seat and `call()` refuses kind=="cf". Kept, not deleted, because the
+    founder's standing instruction for billed integrations is "keep the
+    feature, remove the billing part" -- so a future re-enable is a one-line
+    decision with the transport already proven, rather than a rewrite. Turning
+    it back on takes CF_ENABLED = True plus a real CF_NEURON_BUDGET, and that
+    is the founder's call."""
+    if not CF_ENABLED:
+        raise RuntimeError("cf transport disabled by founder's order 2026-07-25")
     left = _cf_budget_left()
     if left <= 200:                       # one call has never measured under ~120
         raise BudgetExhausted("CF neuron budget spent (%.0f/%.0f)"
@@ -154,69 +204,88 @@ def _cf_chat(base, key, model, system, user, max_tokens, temperature, timeout):
 # ---------------------------------------------------------------------------
 # vendor = the house that MADE the weights (not who hosts them): two seats that
 # both resolve to Qwen are not a real race even via two different hosts.
+#
+# EVERY entry below is a free pool of the "runs out = stops serving" kind, and
+# every base/model pair is copied from a config already proven in production
+# (guyaofang-web `functions/api/gateway/_providers.js`, cross-checked against the
+# internal free-vs-paid model ledger dated 2026-07-12). Do not invent endpoints
+# here: every one of these was picked by measurement, not by reading a docs page.
+#
+# NOT on this bench, deliberately:
+#   - any `@cf/*` seat -- see the module docstring.
+#   - xunfei MaaS chat (`xopqwen36v35b` et al). It reads free, and the council
+#     used to seat it, but the ledger classes the MaaS chat flagship as PAID
+#     (the founder topped that account up with 100 CNY on 2026-07-10) and
+#     `_providers.js` writes "never put it in the fallback chain (it bills!)".
+#     Swapping metered CF for metered xunfei would miss the point entirely. It
+#     also never actually answered: AppIdNoAuthError on both key pools, cloud
+#     2026-07-25 and local re-probe the same evening. Xunfei's FREE products
+#     (embeddings, OCR) are untouched and stay in use elsewhere in this repo.
+#
+# "house" = who trained the weights, not who hosts them. Two hosts serving the
+# same family is not a race. Note cerebras serves `zai-glm-4.7`, which is a GLM
+# model, i.e. the SAME house as zhipu -- labelled honestly so the diversity
+# invariant cannot be fooled by picking a different vendor's front door.
+_FREE_BENCH = [
+    # (id, zh vendor-label key, house, model, base, env var(s) with the key, extra, probe_tokens)
+    ("sensenova", "v_sensenova", "deepseek", "deepseek-v4-flash",
+     "https://token.sensenova.cn/v1", ("SENSENOVA_API_KEY",), None, 512),
+    ("longcat", "v_longcat", "longcat", "LongCat-2.0",
+     "https://api.longcat.chat/openai/v1", ("LONGCAT_API_KEY",), None, 512),
+    ("zhipu", "v_zhipu", "zhipu", "glm-4-flash",
+     "https://open.bigmodel.cn/api/paas/v4", ("ZHIPU_API_KEY",), None, 8),
+    ("agnes", "v_agnes", "agnes", "agnes-2.0-flash",
+     "https://apihub.agnes-ai.com/v1", ("AGNES_API_KEY",), None, 8),
+    ("gemini", "v_gemini", "google", "gemini-2.5-flash",
+     "https://generativelanguage.googleapis.com/v1beta/openai", ("GEMINI_API_KEY",),
+     {"reasoning_effort": "low"}, 512),
+    ("nvidia", "v_nvidia", "qwen", "qwen/qwen3-next-80b-a3b-instruct",
+     "https://integrate.api.nvidia.com/v1", ("NVIDIA_API_KEY",), None, 8),
+    ("modelscope", "v_modelscope", "qwen", "Qwen/Qwen3-8B",
+     "https://api-inference.modelscope.cn/v1", ("MODELSCOPE_API_KEY",),
+     {"enable_thinking": False}, 8),
+    ("cerebras", "v_cerebras", "zhipu", "zai-glm-4.7",
+     "https://api.cerebras.ai/v1", ("CEREBRAS_API_KEY",), None, 1024),
+    ("siliconflow", "v_siliconflow", "qwen", "Qwen/Qwen2.5-7B-Instruct",
+     "https://api.siliconflow.cn/v1", ("SILICONFLOW_KEY", "SILICONFLOW_API_KEY"), None, 8),
+]
+
+
 def _bench():
-    # XF_CHAT_KEYS is the chat-model-granted pool; XF_KEYS is the older pool
-    # and answers AppIdNoAuthError on chat models (measured 2026-07-25).
-    xf_raw = os.environ.get("XF_CHAT_KEYS", "") or os.environ.get("XF_KEYS", "")
-    xf_keys = [k.strip() for k in xf_raw.replace("\n", ",").split(",") if k.strip()]
-    cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
-    cf_tok = (os.environ.get("CLOUDFLARE_API_TOKEN", "")
-              or os.environ.get("CF_AI_TOKEN", "")).strip()
+    """Seats whose credentials are actually present, in priority order.
+
+    A vendor with no secret is simply absent -- no error, no placeholder. That
+    is what makes adding a pool a pure secrets operation: `gh secret set
+    LONGCAT_API_KEY` and the seat appears on the next run with no code change.
+    Per-seat model ids are overridable via <ID>_MODEL for ops tuning without a
+    deploy, same convention as the gateway's GW_<PROVIDER>_MODEL."""
     seats = []
-    if xf_keys:
-        seats.append({"id": "xf", "vendor": t("v_xf"), "house": "qwen",
-                      "model": os.environ.get("XF_MODEL", "xopqwen36v35b"),
-                      "kind": "openai", "keys": xf_keys,
-                      "base": "https://maas-api.cn-huabei-1.xf-yun.com/v2"})
-    if os.environ.get("ZHIPU_API_KEY", "").strip():
-        seats.append({"id": "zhipu", "vendor": t("v_zhipu"), "house": "zhipu",
-                      "model": os.environ.get("ZHIPU_MODEL", "glm-4-flash"),
-                      "kind": "openai", "keys": [os.environ["ZHIPU_API_KEY"].strip()],
-                      "base": "https://open.bigmodel.cn/api/paas/v4"})
-    if os.environ.get("AGNES_API_KEY", "").strip() and os.environ.get("AGNES_TEXT_MODEL", "").strip():
-        seats.append({"id": "agnes", "vendor": "agnes", "house": "agnes",
-                      "model": os.environ["AGNES_TEXT_MODEL"].strip(),
-                      "kind": "openai", "keys": [os.environ["AGNES_API_KEY"].strip()],
-                      "base": os.environ.get("AGNES_API_BASE", "https://apihub.agnes-ai.com/v1")})
-    if cf_acc and cf_tok:
-        seats.append({"id": "cf-llama70b", "vendor": "Meta Llama-3.3-70B (CF)", "house": "meta",
-                      "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-                      "kind": "cf", "keys": [cf_tok], "base": cf_acc})
-    if os.environ.get("GEMINI_API_KEY", "").strip():
-        seats.append({"id": "gemini", "vendor": "Google Gemini", "house": "google",
-                      "model": os.environ.get("GEMINI_MODEL", "gemini-2.0-flash"),
-                      "kind": "openai", "keys": [os.environ["GEMINI_API_KEY"].strip()],
-                      "base": "https://generativelanguage.googleapis.com/v1beta/openai"})
-    if cf_acc and cf_tok:
-        # Qwen stand-in. xunfei is this council's Qwen seat, but its keys
-        # answered AppIdNoAuthError on 2026-07-25 (an account-side grant
-        # problem, not a code one). Without this bench entry "xunfei is down"
-        # silently degrades to "no Qwen-family view in the room at all", which
-        # is a quieter and worse failure than a missing vendor.
-        seats.append({"id": "cf-qwen3", "vendor": "Qwen3-30B (CF)", "house": "qwen",
-                      "model": "@cf/qwen/qwen3-30b-a3b-fp8",
-                      "kind": "cf", "keys": [cf_tok], "base": cf_acc})
-        # different house (Mistral) so it can legally replace a dead seat
-        # without breaking the vendor-diversity invariant
-        seats.append({"id": "cf-mistral", "vendor": "Mistral-Small-24B (CF)", "house": "mistral",
-                      "model": "@cf/mistralai/mistral-small-3.1-24b-instruct",
-                      "kind": "cf", "keys": [cf_tok], "base": cf_acc})
-    if os.environ.get("NVIDIA_API_KEY", "").strip():
-        seats.append({"id": "nvidia", "vendor": "NVIDIA NIM", "house": "nvidia",
-                      "model": os.environ.get("NVIDIA_MODEL", "meta/llama-3.1-8b-instruct"),
-                      "kind": "openai", "keys": [os.environ["NVIDIA_API_KEY"].strip()],
-                      "base": "https://integrate.api.nvidia.com/v1"})
+    for sid, vkey, house, model, base, env_names, extra, ptok in _FREE_BENCH:
+        raw = ""
+        for name in env_names:
+            raw = os.environ.get(name, "").strip()
+            if raw:
+                break
+        if not raw:
+            continue
+        # comma/newline separated pools are supported everywhere: several of
+        # these vendors are two founder accounts sharing one secret slot, and
+        # one dead key must not sink a whole vendor (see probe()).
+        keys = [k.strip() for k in raw.replace("\n", ",").split(",") if k.strip()]
+        seats.append({
+            "id": sid, "vendor": t(vkey), "house": house,
+            "model": os.environ.get(sid.upper() + "_MODEL", "").strip() or model,
+            "kind": "openai", "keys": keys, "base": base,
+            "extra": extra, "probe_tokens": ptok,
+        })
     return seats
 
 
-# judge preference: a house that is NOT racing, so the referee is not grading
-# its own homework. Falls back down the list until one probes alive.
-JUDGE_PREF = [
-    {"id": "cf-gptoss120b", "vendor": "OpenAI gpt-oss-120b (CF)", "house": "openai",
-     "model": "@cf/openai/gpt-oss-120b", "kind": "cf"},
-    {"id": "cf-llama70b", "vendor": "Meta Llama-3.3-70B (CF)", "house": "meta",
-     "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "kind": "cf"},
-]
+def free_bench_ids():
+    """Every vendor this council knows how to seat, wired or not -- so the run
+    log can say which pools are missing credentials instead of leaving the
+    founder to guess why only three houses showed up."""
+    return [row[0] for row in _FREE_BENCH]
 
 _key_rr = {}
 
@@ -233,6 +302,11 @@ def _pick_key(seat):
 def call(seat, system, user, max_tokens=1200, temperature=0.6, timeout=150,
          stage="", tag="", retries=1):
     """One logged, budgeted LLM call. Raises on final failure."""
+    # belt to `_bench()`'s braces: even a hand-built cf seat stops here, so no
+    # future edit can reintroduce a metered call path by accident.
+    if seat.get("kind") == "cf" and not CF_ENABLED:
+        raise RuntimeError("cf seat %s refused: disabled by founder's order 2026-07-25"
+                           % seat.get("id"))
     last = None
     for attempt in range(retries + 1):
         n = _reserve_call()
@@ -241,7 +315,7 @@ def call(seat, system, user, max_tokens=1200, temperature=0.6, timeout=150,
         try:
             fn = _cf_chat if seat["kind"] == "cf" else _openai_chat
             txt, usage = fn(seat["base"], key, seat["model"], system, user,
-                            max_tokens, temperature, timeout)
+                            max_tokens, temperature, timeout, seat.get("extra"))
             dt = time.time() - t0
             if not txt.strip():
                 raise RuntimeError("empty response")
@@ -265,26 +339,41 @@ def call(seat, system, user, max_tokens=1200, temperature=0.6, timeout=150,
                              "sec": round(dt, 1), "ok": False, "err": detail,
                              "in": 0, "out": 0, "neurons": 0.0})
             if attempt < retries:
-                time.sleep(3 + attempt * 4)
+                # free pools rate-limit per MINUTE, so a 3s nap just buys a
+                # second 429. Measured 2026-07-25: agnes and zhipu both answer
+                # 429 under burst while the key itself is perfectly healthy.
+                is_429 = isinstance(e, urllib.error.HTTPError) and e.code == 429
+                time.sleep((20 if is_429 else 3) + attempt * 4)
     raise RuntimeError("seat %s failed: %s" % (seat["id"], last))
 
 
-def probe(seat, timeout=45, retries=1):
+def probe(seat, timeout=45, retries=2):
     """Liveness check. Costs real calls against the cap on purpose -- a probe
     that lies about the budget is worse than no probe.
 
     For a multi-key seat every key is probed and the seat is narrowed IN PLACE
-    to the keys that actually answered: xunfei ships several keys and they do
-    not all carry the same model grants, so one dead key must not sink a whole
-    vendor. `retries` covers the 429s that are a per-minute window rather than
-    a spent daily quota (agnes and gemini both hit exactly that)."""
+    to the keys that actually answered: several of these pools are two founder
+    accounts sharing one secret slot, so one dead key must not sink a whole
+    vendor.
+
+    Two things this got wrong before and must not get wrong again:
+      - `max_tokens=8` for everyone. Reasoning-family seats (sensenova's
+        deepseek, longcat, cerebras' GLM-4.7, gemini-2.5-flash) spend the whole
+        allowance inside the reasoning channel and return EMPTY content, which
+        `call()` correctly treats as failure -- so a perfectly healthy vendor
+        probed as dead. Hence per-seat `probe_tokens`. Probe tokens are free
+        here; a mis-benched vendor is not.
+      - one retry with a 6s nap. Free pools rate-limit per minute; 6s lands in
+        the same window. Now 2 retries with a widening wait.
+    """
     live = []
+    ptok = seat.get("probe_tokens") or 8
     for key in seat["keys"]:
         one = dict(seat)
         one["keys"] = [key]
         for attempt in range(retries + 1):
             try:
-                call(one, "reply with OK", "OK?", max_tokens=8, temperature=0.0,
+                call(one, "reply with OK", "OK?", max_tokens=ptok, temperature=0.0,
                      timeout=timeout, stage="probe", tag=seat["id"], retries=0)
                 live.append(key)
                 break
@@ -292,7 +381,7 @@ def probe(seat, timeout=45, retries=1):
                 return bool(live)
             except Exception:
                 if attempt < retries:
-                    time.sleep(6)
+                    time.sleep(12 + attempt * 12)
     if live:
         seat["keys"] = live
         return True
@@ -305,13 +394,14 @@ def assemble(n_racers=4):
 
     Returns (racers, judge, bench_report)."""
     bench = _bench()
-    report, racers, houses = [], [], set()
+    report, racers, houses, rest = [], [], set(), []
     for seat in bench:
         if len(racers) >= n_racers:
-            report.append({**seat, "alive": None, "role": "bench", "reason": "seats full"})
+            rest.append(seat)          # unprobed: may yet be needed as referee
             continue
         if seat["house"] in houses:
-            report.append({**seat, "alive": None, "role": "bench", "reason": "house already seated"})
+            report.append({**seat, "alive": None, "role": "bench",
+                           "reason": "house already seated"})
             continue
         alive = probe(seat)
         report.append({**seat, "alive": alive, "role": "racer" if alive else "bench",
@@ -320,18 +410,30 @@ def assemble(n_racers=4):
             racers.append(seat)
             houses.add(seat["house"])
 
+    # referee: a house that is NOT racing, so it is not grading its own homework.
     judge = None
-    cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
-    cf_tok = (os.environ.get("CLOUDFLARE_API_TOKEN", "") or os.environ.get("CF_AI_TOKEN", "")).strip()
-    for cand in JUDGE_PREF:
-        if not (cf_acc and cf_tok):
-            break
-        seat = {**cand, "keys": [cf_tok], "base": cf_acc}
+    for seat in rest:
+        if seat["house"] in houses:
+            report.append({**seat, "alive": None, "role": "bench",
+                           "reason": "house already seated"})
+            continue
         if probe(seat):
             judge = seat
             report.append({**seat, "alive": True, "role": "judge", "reason": ""})
             break
         report.append({**seat, "alive": False, "role": "bench", "reason": "probe failed"})
+    if judge is None and len(racers) >= 3:
+        # Only enough live houses to fill the grid. Trade the LOWEST-priority
+        # racer for a real referee rather than keep a full grid and let a
+        # contestant grade its own plan -- a race of 3 with an impartial judge
+        # beats a race of 4 whose winner is picked by one of the four. Never
+        # drops below 2 racers: below that there is no argument left to judge.
+        judge = racers.pop()
+        houses.discard(judge["house"])
+        for row in report:
+            if row.get("id") == judge["id"] and row.get("role") == "racer":
+                row["role"] = "judge"
+                row["reason"] = "moved off the grid to referee independently"
     if judge is None and racers:
         # last resort: the strongest racer also referees, and the report says so
         judge = dict(racers[0])

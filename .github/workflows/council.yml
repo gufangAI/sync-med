@@ -14,12 +14,14 @@ name: sueai-council
 #   * the ONLY repo write is reports/council/<date>.md, and the commit step
 #     below hard-fails if anything outside that directory is staged
 #
-# Cost: the free model pools (xunfei / zhipu / agnes) cost nothing. Cloudflare
-# Workers AI is metered, so scripts/council/llm_roster.py meters every CF call
-# against CF_NEURON_BUDGET using the neuron count Cloudflare returns, and stops
-# calling CF the moment the budget is spent. Measured 2026-07-25: ~121 neurons
-# per council-sized call, free allocation 10000/day, default budget 6000 -- a
-# full run lands well inside the free tier and the Issue prints what was spent.
+# Cost: ZERO, and structurally so as of 2026-07-25. Every seat comes from an
+# internal free pool of the "quota out = service stops" kind. Cloudflare
+# Workers AI is out by the founder's ruling: it is silently metered (past the
+# free daily neurons it keeps answering and bills the card), and the 2026-07-25
+# run showed the real failure mode -- three of four FREE seats were broken, so
+# CF quietly took 4 of 5 chairs. The rule is not "spend nothing"; it is "never
+# reach for a billed source while our own free fleet is not even wired up".
+# See scripts/council/llm_roster.py for the bench and the two CF locks.
 
 on:
   schedule:
@@ -77,21 +79,31 @@ jobs:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
-          # --- model pools (free-first) ---
-          # XF_CHAT_KEYS is the chat-model-granted xunfei pool and is preferred;
-          # XF_KEYS answers AppIdNoAuthError on chat models (measured 2026-07-25)
-          # and is kept only as a fallback.
-          XF_CHAT_KEYS:     ${{ secrets.XF_CHAT_KEYS }}
-          XF_KEYS:          ${{ secrets.XF_KEYS }}
+          # --- model pools: FREE ONLY (founder's ruling, 2026-07-25) ---
+          # A vendor with no secret here is simply absent from the bench -- no
+          # error, no fallback to anything metered. Wiring a new pool is a
+          # `gh secret set` away and needs no code change; the run log prints
+          # which of these came up empty.
+          # Already set in this repo:
           ZHIPU_API_KEY:    ${{ secrets.ZHIPU_API_KEY }}
-          AGNES_API_BASE:   ${{ secrets.AGNES_API_BASE }}
           AGNES_API_KEY:    ${{ secrets.AGNES_API_KEY }}
-          AGNES_TEXT_MODEL: ${{ secrets.AGNES_TEXT_MODEL }}
           GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
           NVIDIA_API_KEY:   ${{ secrets.NVIDIA_API_KEY }}
-          # --- Cloudflare Workers AI (metered, budget-capped in code) ---
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_NEURON_BUDGET: '6000'
+          # Free pools guyaofang-web already runs on but this repo has no secret
+          # for yet -- resolve to "" and stay off the bench until they are set.
+          # Each one restores a distinct model house, i.e. a better race.
+          SENSENOVA_API_KEY:  ${{ secrets.SENSENOVA_API_KEY }}
+          LONGCAT_API_KEY:    ${{ secrets.LONGCAT_API_KEY }}
+          CEREBRAS_API_KEY:   ${{ secrets.CEREBRAS_API_KEY }}
+          MODELSCOPE_API_KEY: ${{ secrets.MODELSCOPE_API_KEY }}
+          SILICONFLOW_KEY:    ${{ secrets.SILICONFLOW_KEY }}
+          # NOT passed any more, deliberately:
+          #   CLOUDFLARE_API_TOKEN -- was only ever the Workers AI credential.
+          #     D1 reads use D1_API_TOKEN above and are unaffected.
+          #   XF_CHAT_KEYS / XF_KEYS -- the xunfei MaaS chat flagship is a PAID
+          #     product (and answered AppIdNoAuthError anyway). Xunfei's free
+          #     embedding/OCR products are used elsewhere in this repo, untouched.
+          CF_NEURON_BUDGET: '0'
           # --- run shape ---
           MAX_LLM_CALLS: ${{ github.event.inputs.max_calls || '60' }}
           N_TOPICS:      ${{ github.event.inputs.topics || '3' }}
