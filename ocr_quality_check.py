@@ -55,7 +55,7 @@ def list_ocr_pages(bid):
         kw = {"Bucket": BUCKET, "Prefix": prefix, "MaxKeys": 1000}
         if token:
             kw["ContinuationToken"] = token
-        r = s3.list_objects_v2(**kw)
+        r = s3.list_objects_v2(**kw)   # ZERO-LIST-OK: scoped 单书前缀 _ocr/{bid}/(几百key),非全桶扫;OCR质量抽检必需
         keys += [o["Key"] for o in r.get("Contents", []) if o["Key"].endswith(".txt")]
         token = r.get("NextContinuationToken")
         if not token:
