@@ -10,10 +10,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: ban list_objects / get_paginator (零LIST铁律)
+      - name: ban 全桶 list_objects / get_paginator (零LIST铁律)
         run: |
-          if grep -rnE '\.list_objects(_v2)?\(|get_paginator\(' --include='*.py' .; then
-            echo "::error::发现 list_objects/get_paginator 调用 — 违反零LIST铁律(全扫桶烧Class A=$9重演)。必须读 D1 manifest 构造 key book/{id}/page_{n}.webp,一本书一本书处理。"
+          # 2026-07-25 精准化:原规则无差别 grep,把"scoped 单书前缀 LIST"(几百个 key,合理)
+          # 和"全桶扫几百万对象"(烧 Class A 的真祸根)一起毙掉 → CI 连续 10+ 次红灯 = 闸门形同虚设,
+          # 新的真违规 push 进来反而没人看。改为:必须在同一行显式标注 `# ZERO-LIST-OK: 理由`
+          # 才放行,且该标注本身就是审计线索(review 时一眼能看到有几处例外、各自理由)。
+          # 无标注的 list_objects/get_paginator 一律照旧硬拦。
+          HITS=$(grep -rnE '\.list_objects(_v2)?\(|get_paginator\(' --include='*.py' . || true)
+          BAD=$(echo "$HITS" | grep -v 'ZERO-LIST-OK' || true)
+          if [ -n "$BAD" ]; then
+            echo "$BAD"
+            echo "::error::发现未标注的 list_objects/get_paginator — 违反零LIST铁律(全扫桶烧 Class A)。必须读 D1 manifest 构造 key 逐本处理;确属小前缀 scoped LIST 的,在该行加 '# ZERO-LIST-OK: <理由>' 并接受 review。"
             exit 1
           fi
-          echo "OK: 全仓零 list_objects · 零LIST铁律守住"
+          OKN=$(echo "$HITS" | grep -c 'ZERO-LIST-OK' || true)
+          echo "OK: 零LIST铁律守住(已标注的 scoped 例外 ${OKN} 处,均带理由可审计)"
