@@ -1,7 +1,16 @@
 {
  "extra": {
   "actions": {
+   "cancelled": 254,
+   "failure": 423,
    "per_workflow": {
+    "CodeQL": {
+     "cancelled": 16,
+     "failure": 1,
+     "n": 297,
+     "other": 0,
+     "success": 280
+    },
     "Competitor & Regulatory Radar": {
      "cancelled": 0,
      "failure": 0,
@@ -12,30 +21,16 @@
     "Eagle Weekly Hunter": {
      "cancelled": 0,
      "failure": 0,
-     "n": 1,
+     "n": 5,
      "other": 0,
-     "success": 1
+     "success": 5
     },
     "Intel Radar Daily Report v3": {
      "cancelled": 0,
-     "failure": 2,
-     "n": 23,
+     "failure": 10,
+     "n": 43,
      "other": 0,
-     "success": 21
-    },
-    "Push on main": {
-     "cancelled": 12,
-     "failure": 1,
-     "n": 181,
-     "other": 1,
-     "success": 167
-    },
-    "Scheduled": {
-     "cancelled": 0,
-     "failure": 0,
-     "n": 1,
-     "other": 0,
-     "success": 1
+     "success": 33
     },
     "align-full": {
      "cancelled": 0,
@@ -45,11 +40,11 @@
      "success": 3
     },
     "clean-embed-ingest": {
-     "cancelled": 0,
+     "cancelled": 2,
      "failure": 1,
-     "n": 35,
+     "n": 88,
      "other": 0,
-     "success": 34
+     "success": 85
     },
     "code-self-audit": {
      "cancelled": 0,
@@ -58,19 +53,12 @@
      "other": 0,
      "success": 4
     },
-    "ctext-to-pan": {
-     "cancelled": 0,
-     "failure": 0,
-     "n": 1,
-     "other": 0,
-     "success": 1
-    },
     "ctext_harvest": {
-     "cancelled": 1,
-     "failure": 5,
-     "n": 39,
+     "cancelled": 2,
+     "failure": 7,
+     "n": 97,
      "other": 0,
-     "success": 33
+     "success": 88
     },
     "ctext_migrate_rename": {
      "cancelled": 1,
@@ -94,11 +82,25 @@
      "success": 2
     },
     "fleet-health": {
+     "cancelled": 5,
+     "failure": 0,
+     "n": 145,
+     "other": 0,
+     "success": 140
+    },
+    "fojing-cbeta": {
      "cancelled": 0,
      "failure": 0,
-     "n": 77,
+     "n": 1,
      "other": 0,
-     "success": 77
+     "success": 1
+    },
+    "fojing-ia": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 1,
+     "other": 0,
+     "success": 0
     },
     "formula-mine": {
      "cancelled": 0,
@@ -107,33 +109,75 @@
      "other": 1,
      "success": 2
     },
-    "guard-no-list-objects": {
-     "cancelled": 0,
-     "failure": 155,
-     "n": 181,
-     "other": 0,
-     "success": 26
-    },
-    "india_harvest": {
+    "graph-smoke": {
      "cancelled": 0,
      "failure": 0,
-     "n": 35,
+     "n": 1,
      "other": 0,
-     "success": 35
+     "success": 1
+    },
+    "guard-no-list-objects": {
+     "cancelled": 1,
+     "failure": 258,
+     "n": 291,
+     "other": 0,
+     "success": 32
+    },
+    "guji-sync": {
+     "cancelled": 53,
+     "failure": 9,
+     "n": 62,
+     "other": 0,
+     "success": 0
+    },
+    "guji_backup": {
+     "cancelled": 2,
+     "failure": 3,
+     "n": 5,
+     "other": 0,
+     "success": 0
+    },
+    "harvest-ndl-text": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "india_harvest": {
+     "cancelled": 2,
+     "failure": 0,
+     "n": 65,
+     "other": 0,
+     "success": 63
+    },
+    "make-book-video": {
+     "cancelled": 1,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 0
     },
     "make_video": {
      "cancelled": 2,
-     "failure": 10,
-     "n": 29,
+     "failure": 11,
+     "n": 31,
      "other": 0,
-     "success": 17
+     "success": 18
+    },
+    "media-smoke": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
     },
     "ocr": {
-     "cancelled": 16,
-     "failure": 3,
-     "n": 22,
+     "cancelled": 25,
+     "failure": 43,
+     "n": 85,
      "other": 0,
-     "success": 3
+     "success": 17
     },
     "ocr-compare": {
      "cancelled": 0,
@@ -173,37 +217,58 @@
     "ocr_xf": {
      "cancelled": 0,
      "failure": 0,
-     "n": 2,
+     "n": 5,
      "other": 0,
-     "success": 2
+     "success": 5
     },
     "pan-audit": {
      "cancelled": 2,
      "failure": 0,
-     "n": 9,
+     "n": 15,
      "other": 0,
-     "success": 7
+     "success": 13
+    },
+    "pan-enroll": {
+     "cancelled": 0,
+     "failure": 2,
+     "n": 4,
+     "other": 0,
+     "success": 2
+    },
+    "pan-explore": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
     },
     "pan-register": {
-     "cancelled": 0,
-     "failure": 1,
-     "n": 9,
+     "cancelled": 14,
+     "failure": 3,
+     "n": 50,
      "other": 0,
-     "success": 8
+     "success": 33
+    },
+    "pan-reorg": {
+     "cancelled": 2,
+     "failure": 0,
+     "n": 5,
+     "other": 0,
+     "success": 3
     },
     "pan-tidy": {
      "cancelled": 0,
      "failure": 0,
-     "n": 101,
+     "n": 110,
      "other": 0,
-     "success": 101
+     "success": 110
     },
     "r2-usage-audit": {
      "cancelled": 0,
      "failure": 1,
-     "n": 5,
+     "n": 10,
      "other": 0,
-     "success": 4
+     "success": 9
     },
     "report-daily": {
      "cancelled": 0,
@@ -215,30 +280,44 @@
     "report-monthly": {
      "cancelled": 0,
      "failure": 0,
-     "n": 1,
+     "n": 2,
      "other": 1,
-     "success": 0
+     "success": 1
     },
     "report-weekly": {
      "cancelled": 0,
      "failure": 0,
-     "n": 1,
-     "other": 0,
+     "n": 2,
+     "other": 1,
      "success": 1
     },
     "sync": {
-     "cancelled": 68,
-     "failure": 0,
-     "n": 72,
+     "cancelled": 103,
+     "failure": 72,
+     "n": 187,
      "other": 2,
-     "success": 2
+     "success": 10
+    },
+    "tcm-judge": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 4,
+     "other": 0,
+     "success": 4
     },
     "team-report-audit": {
      "cancelled": 0,
      "failure": 0,
-     "n": 8,
+     "n": 19,
      "other": 0,
-     "success": 8
+     "success": 19
+    },
+    "vectorize-ingest": {
+     "cancelled": 1,
+     "failure": 0,
+     "n": 12,
+     "other": 0,
+     "success": 11
     },
     "warm-dlink": {
      "cancelled": 0,
@@ -262,15 +341,15 @@
      "success": 1
     },
     "🛡️ Fleet Watch": {
-     "cancelled": 2,
+     "cancelled": 15,
      "failure": 0,
-     "n": 104,
+     "n": 265,
      "other": 0,
-     "success": 102
+     "success": 250
     }
    },
-   "success": 706,
-   "total": 1000
+   "success": 1297,
+   "total": 1980
   },
   "attendance": {
    "expected": 25,
@@ -305,7 +384,7 @@
    ]
   }
  },
- "generated_at": "2026-07-25T20:46:00.473547+08:00",
+ "generated_at": "2026-07-25T20:49:51.108118+08:00",
  "key": "2026-07",
  "metrics": {
   "cand_pending": {
@@ -354,7 +433,7 @@
   "2026-07-01",
   "2026-07-31"
  ],
- "run_id": "30158494505",
+ "run_id": "30158562750",
  "tables": {
   "daodu_by_ver": {
    "err": null,
