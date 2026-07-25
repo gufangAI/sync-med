@@ -65,6 +65,7 @@ SNAP_DIR = os.path.join("reports", "_snapshots")
 MANUAL_DIR = os.path.join("reports", "platform")
 
 PERIOD_CN = {"daily": "日报", "weekly": "周报", "monthly": "月报"}
+PERIOD_SHORT = {"daily": "日", "weekly": "周", "monthly": "月"}
 PERIOD_ICON = {"daily": "\U0001F4CA", "weekly": "\U0001F4C8", "monthly": "\U0001F5D3️"}
 
 
@@ -383,7 +384,7 @@ def build_md(period, key, start, end, metrics, tables, prev, prev_key, extra):
         L.append("## 二、人工日报出勤（reports/platform/）")
         L.append("")
         L.append("**本%s应 %d 份，实到 %d 份。**" % (
-            cn, a["expected"], len(a["present"])))
+            PERIOD_SHORT[period], a["expected"], len(a["present"])))
         L.append("")
         if a["missing"]:
             L.append("❌ 缺勤点名：" + "、".join(a["missing"]))
@@ -394,7 +395,7 @@ def build_md(period, key, start, end, metrics, tables, prev, prev_key, extra):
     if extra.get("actions"):
         s = extra["actions"]
         rate = (100.0 * s["success"] / s["total"]) if s["total"] else 0.0
-        L.append("## 三、本%s GitHub Actions 运行局面" % cn)
+        L.append("## 三、本%s GitHub Actions 运行局面" % PERIOD_SHORT[period])
         L.append("")
         L.append("总 run %d 次，成功 %d 次，成功率 **%.1f%%**。"
                  % (s["total"], s["success"], rate))
