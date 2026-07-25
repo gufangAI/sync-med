@@ -67,6 +67,11 @@ CJK_RB = "\u3011"
 CJK_COLON = "\uff1a"     # fullwidth colon
 ARROW_CHARS = "\u2192\u21d2"   # fullwidth -> and =>
 CJK_TO = "\u81f3"        # "to", as in "2% to 8%"
+
+# Cloudflare Workers AI free allocation, per DAY. Reporting the run's neuron
+# spend as a share of this is the honest form: a flat "cost 0" is what invites
+# the complacency that produced the 2026-07-09 burn.
+CF_FREE_DAILY_NEURONS = 10000.0
 T0 = time.time()
 
 
@@ -489,6 +494,9 @@ def build_report(date_str, topics, results, metrics, skipped, bench_report,
             t("rpt_h2_usage"), "",
             t("usage_tpl", calls=snap["calls"], cap=roster.MAX_CALLS, fails=snap["fails"],
               dist=dist or "-", neurons=snap["neurons"], nbudget=int(roster.CF_NEURON_BUDGET),
+              # CF's free allocation is per DAY, so the honest figure is the
+              # share of that allocation this run consumed -- not a flat "0"
+              pct=snap["neurons"] * 100.0 / CF_FREE_DAILY_NEURONS,
               elapsed=hhmmss(time.time() - T0)), "",
             t("rpt_footer")]
     return "\n".join(out)
