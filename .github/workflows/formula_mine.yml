@@ -1,0 +1,125 @@
+name: formula-mine
+
+# Formula-library production mining (GitHub Actions matrix, free).
+# Input = a segment of formula_worklist.json (an offset/limit slice of the
+# density-ranked book list produced by the local Phase0 census), dealt
+# round-robin across `shards` matrix workers. Each worker processes its
+# books' FULL candidate-window set (no per-book truncation) through the
+# 3-gate LLM structuring pipeline and writes a per-shard JSONL artifact.
+# Read-only against D1/R2 (D1 SELECT only, R2 get_object by constructed key
+# only -- guard_no_list.yml CI-enforces no list_objects/get_paginator
+# anywhere in the repo). Writes nothing to any production table/bucket.
+
+on:
+  workflow_dispatch:
+    inputs:
+      offset:
+        description: start index into formula_worklist.json
+        default: "0"
+      limit:
+        description: how many books from offset to include in this dispatch
+        default: "50"
+      shards:
+        description: matrix shard count (concurrency)
+        default: "8"
+      conc:
+        description: per-shard LLM thread concurrency
+        default: "10"
+
+concurrency:
+  group: formula-mine-run
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.g.outputs.shards }}
+    steps:
+      - id: g
+        run: python -c "import json,os;print('shards='+json.dumps(list(range(int(os.environ['T'])))))" >> "$GITHUB_OUTPUT"
+        env:
+          T: ${{ github.event.inputs.shards || '8' }}
+
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      max-parallel: 8   # org-wide Free-plan concurrency ceiling, shared with ocr.yml/ocr_ndl.yml/align_full.yml
+      matrix:
+        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet boto3 requests
+      - name: restore ledger cache
+        uses: actions/cache/restore@v4
+        with:
+          path: formula_mine_result_shard${{ matrix.shard }}.jsonl
+          key: formula-mine-ledger-o${{ github.event.inputs.offset || '0' }}-l${{ github.event.inputs.limit || '50' }}-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            formula-mine-ledger-o${{ github.event.inputs.offset || '0' }}-l${{ github.event.inputs.limit || '50' }}-s${{ matrix.shard }}-
+      - run: python formula_mine.py
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          AGNES_API_BASE: ${{ secrets.AGNES_API_BASE }}
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AGNES_TEXT_MODEL: ${{ secrets.AGNES_TEXT_MODEL }}
+          XF_KEYS: ${{ secrets.XF_KEYS }}
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.shards || '8' }}
+          OFFSET: ${{ github.event.inputs.offset || '0' }}
+          LIMIT: ${{ github.event.inputs.limit || '50' }}
+          CONC: ${{ github.event.inputs.conc || '10' }}
+      - name: save ledger cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: formula_mine_result_shard${{ matrix.shard }}.jsonl
+          key: formula-mine-ledger-o${{ github.event.inputs.offset || '0' }}-l${{ github.event.inputs.limit || '50' }}-s${{ matrix.shard }}-${{ github.run_id }}
+      - name: upload shard artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formula-mine-shard-${{ matrix.shard }}
+          path: formula_mine_result_shard${{ matrix.shard }}.jsonl
+          if-no-files-found: warn
+          retention-days: 30
+
+  summarize:
+    needs: run
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: download all shard artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: formula-mine-shard-*
+          path: shards
+          merge-multiple: true
+      - run: python formula_mine.py --summarize shards
+      - name: upload merged artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formula-mine-final
+          path: |
+            formula_mine_final.jsonl
+            formula_mine_stats.json
+          if-no-files-found: warn
+          retention-days: 30
