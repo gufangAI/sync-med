@@ -1,0 +1,137 @@
+name: sueai-council
+
+# SueAI council: eagle-eye numbers -> multi-vendor race -> mutual critique ->
+# referee verdict -> a GitHub Issue the founder ticks. The point is that the
+# loop between "radar noticed a gap" and "someone proposed a fix" no longer
+# needs a human awake: intel-radar could only file an Issue, so whenever nobody
+# was reading, self-improvement stopped dead. This job closes that gap.
+#
+# ADVISORY ONLY -- the standing red line for this pipeline:
+#   * D1 is read-only, enforced in code (scripts/council/probes.py rejects any
+#     statement that is not a single SELECT before it reaches the wire)
+#   * no step here writes a D1 table, edits application code, or deploys
+#     anything to Cloudflare
+#   * the ONLY repo write is reports/council/<date>.md, and the commit step
+#     below hard-fails if anything outside that directory is staged
+#
+# Cost: the free model pools (xunfei / zhipu / agnes) cost nothing. Cloudflare
+# Workers AI is metered, so scripts/council/llm_roster.py meters every CF call
+# against CF_NEURON_BUDGET using the neuron count Cloudflare returns, and stops
+# calling CF the moment the budget is spent. Measured 2026-07-25: ~121 neurons
+# per council-sized call, free allocation 10000/day, default budget 6000 -- a
+# full run lands well inside the free tier and the Issue prints what was spent.
+
+on:
+  schedule:
+    - cron: '0 1 * * *'      # 01:00 UTC = 09:00 Beijing, daily
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: 'force a specific topic (free text); empty = auto-triage from D1'
+        required: false
+        default: ''
+      topics:
+        description: 'how many topics to convene on'
+        required: false
+        default: '3'
+      racers:
+        description: 'how many model houses race per topic'
+        required: false
+        default: '4'
+      max_calls:
+        description: 'hard cap on total LLM calls this run'
+        required: false
+        default: '60'
+      dry_run:
+        description: 'true = run everything but create no Issue'
+        required: false
+        default: 'false'
+
+concurrency:
+  group: sueai-council
+  cancel-in-progress: false   # let a running council finish; queue the next
+
+permissions:
+  contents: write   # ONLY to commit reports/council/*.md (guarded below)
+  issues: write     # the founder-facing deliverable
+
+jobs:
+  convene:
+    name: convene the council
+    runs-on: ubuntu-latest     # standard runner + public repo = genuinely free
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      # no pip install on purpose: the council uses stdlib urllib only, so the
+      # job cannot be broken by a transitive dependency going bad upstream
+
+      - name: convene
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # --- D1 (read-only) ---
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          # --- model pools (free-first) ---
+          XF_KEYS:          ${{ secrets.XF_KEYS }}
+          ZHIPU_API_KEY:    ${{ secrets.ZHIPU_API_KEY }}
+          AGNES_API_BASE:   ${{ secrets.AGNES_API_BASE }}
+          AGNES_API_KEY:    ${{ secrets.AGNES_API_KEY }}
+          AGNES_TEXT_MODEL: ${{ secrets.AGNES_TEXT_MODEL }}
+          GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY:   ${{ secrets.NVIDIA_API_KEY }}
+          # --- Cloudflare Workers AI (metered, budget-capped in code) ---
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_NEURON_BUDGET: '6000'
+          # --- run shape ---
+          MAX_LLM_CALLS: ${{ github.event.inputs.max_calls || '60' }}
+          N_TOPICS:      ${{ github.event.inputs.topics || '3' }}
+          N_RACERS:      ${{ github.event.inputs.racers || '4' }}
+          MANUAL_TOPIC:  ${{ github.event.inputs.topic || '' }}
+        run: |
+          EXTRA=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            EXTRA="--dry-run"
+          fi
+          python scripts/council/council.py $EXTRA
+
+      - name: commit the report (reports/council only)
+        if: always()
+        run: |
+          set -e
+          git config user.name  "sueai-council[bot]"
+          git config user.email "sueai-council@users.noreply.github.com"
+          git add -- reports/council || true
+          STAGED=$(git diff --cached --name-only)
+          if [ -z "$STAGED" ]; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          # hard rail: this job is advisory-only, so a commit that touches
+          # anything but its own report directory is a bug, not a convenience
+          OUTSIDE=$(echo "$STAGED" | grep -v '^reports/council/' || true)
+          if [ -n "$OUTSIDE" ]; then
+            echo "::error::council tried to commit files outside reports/council/:"
+            echo "$OUTSIDE"
+            exit 1
+          fi
+          echo "$STAGED"
+          git commit -m "council report $(date -u +%F) [skip ci]"
+          git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: upload report + usage log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: council-${{ github.run_id }}
+          path: |
+            reports/council/
+            council_usage.json
+          if-no-files-found: warn
+          retention-days: 90
