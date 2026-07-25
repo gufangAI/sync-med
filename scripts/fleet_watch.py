@@ -16,14 +16,14 @@ TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
 
 WORKFLOWS = {
-    "ocr.yml":         {"name": "OCR",          "alert_hours": 8},
+    "ocr_ndl.yml":     {"name": "OCR(NDL主力线)", "alert_hours": 8},
     "sync.yml":        {"name": "sync",         "alert_hours": 24},
     "guji_sync.yml":   {"name": 'guji-sync(\u53e4\u7c4d\u8fc1\u79fb)', "alert_hours": 6},
     "clean-embed.yml": {"name": 'clean-embed(clean\u7d22\u5f15\u704c\u5e93)', "alert_hours": 10},
 }
 
 
-OCR_WORKFLOW = "ocr.yml"
+OCR_WORKFLOW = "ocr_ndl.yml"
 OCR_DEPTH_RUNS = 3          
 OCR_ZERO_ALERT_THRESHOLD = 3  
 OCR_LOG_SAMPLE_JOBS = 8      
@@ -152,11 +152,17 @@ _SHARD_START_RE = re.compile(
     r"shard \d+/\d+ imgs (\d+)/(\d+)"
 )
 
+# 2026-07-25: 监控指针切至 ocr_ndl.yml,兼容其日志格式(done/skip/err/low_conf)
+_NDL_SUMMARY_RE = re.compile(r"=== shard \d+ 完成 done=(\d+) skip=(\d+) err=\d+ low_conf=(\d+) / (\d+) ===")
+_NDL_START_RE = re.compile(r"shard \d+/\d+ 分到 (\d+)/(\d+)")
+
 
 def _parse_ocr_metrics_from_log(log_text: str) -> dict:
     '\n    \u4ece\u5355\u6b21 run \u7684\u65e5\u5fd7\u6587\u672c\u4e2d\u63d0\u53d6 OCR \u6307\u6807\u3002\n    \u8fd4\u56de:\n        total_new      \u2014 \u672c\u6b21 run \u4ea7\u51fa\u7684\u65b0 OCR \u6761\u6570\uff08\u6240\u6709\u53ef\u89c1 shard \u4e4b\u548c\uff09\n        shard_count    \u2014 \u51fa\u73b0\u6c47\u603b\u884c\u7684 shard \u6570\n        zero_shards    \u2014 \u4ea7\u51fa=0 \u7684 shard \u6570\n        imgs_per_shard \u2014 \u6bcf shard \u56fe\u6570\uff08\u53d6\u7b2c\u4e00\u4e2a\u542f\u52a8\u884c\uff09\n        total_imgs     \u2014 \u5168\u5e93\u603b\u56fe\u6570\uff08\u53d6\u7b2c\u4e00\u4e2a\u542f\u52a8\u884c\uff09\n        done_ratio     \u2014 \u5e73\u5747\u5df2\u5b8c\u6210\u7387\uff08Y/Z \u5747\u503c\uff09\uff0c\u82e5\u65e0\u5219 None\n    '
     summaries = _SHARD_SUMMARY_RE.findall(log_text)
+    summaries += [(d, str(int(d) + int(s)), t) for d, s, _lc, t in _NDL_SUMMARY_RE.findall(log_text)]
     starts = _SHARD_START_RE.findall(log_text)
+    starts += _NDL_START_RE.findall(log_text)
 
     total_new = 0
     zero_shards = 0
