@@ -69,6 +69,11 @@ PERIOD_SHORT = {"daily": "日", "weekly": "周", "monthly": "月"}
 PERIOD_ICON = {"daily": "\U0001F4CA", "weekly": "\U0001F4C8", "monthly": "\U0001F5D3️"}
 
 
+def issue_title_stem(period):
+    """Single source of truth so the Issue title and the markdown H1 never drift."""
+    return "平台数据日报" if period == "daily" else "平台" + PERIOD_CN[period]
+
+
 # ---------------------------------------------------------------------------
 # D1 (read-only)
 # ---------------------------------------------------------------------------
@@ -330,11 +335,10 @@ def create_issue(title, body):
 # markdown
 # ---------------------------------------------------------------------------
 def build_md(period, key, start, end, metrics, tables, prev, prev_key, extra):
-    cn = PERIOD_CN[period]
     now = datetime.datetime.now(BJ).strftime("%Y-%m-%d %H:%M")
     pm = (prev or {}).get("metrics", {})
     L = []
-    L.append("# %s 平台数据%s · %s" % (PERIOD_ICON[period], cn, key))
+    L.append("# %s %s · %s" % (PERIOD_ICON[period], issue_title_stem(period), key))
     L.append("")
     L.append("> 自动生成 · 北京时间 %s · run `%s`" % (now, RUN_ID))
     L.append("> 统计区间 %s ~ %s · 对比基准 %s" % (
@@ -483,10 +487,7 @@ def main():
 
     issue_no, issue_url = None, None
     if not args.no_issue and GH_TOKEN and REPO:
-        title = "%s 平台%s%s %s" % (
-            PERIOD_ICON[period],
-            "数据" if period == "daily" else "",
-            PERIOD_CN[period], key)
+        title = "%s %s %s" % (PERIOD_ICON[period], issue_title_stem(period), key)
         try:
             issue_no, issue_url = create_issue(title, md)
             print("-- issue #%s %s --" % (issue_no, issue_url), flush=True)
