@@ -188,8 +188,16 @@ def _bench():
                       "kind": "openai", "keys": [os.environ["GEMINI_API_KEY"].strip()],
                       "base": "https://generativelanguage.googleapis.com/v1beta/openai"})
     if cf_acc and cf_tok:
-        # bench only: different house (Mistral) so it can legally replace a
-        # dead seat without breaking the vendor-diversity invariant
+        # Qwen stand-in. xunfei is this council's Qwen seat, but its keys
+        # answered AppIdNoAuthError on 2026-07-25 (an account-side grant
+        # problem, not a code one). Without this bench entry "xunfei is down"
+        # silently degrades to "no Qwen-family view in the room at all", which
+        # is a quieter and worse failure than a missing vendor.
+        seats.append({"id": "cf-qwen3", "vendor": "Qwen3-30B (CF)", "house": "qwen",
+                      "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+                      "kind": "cf", "keys": [cf_tok], "base": cf_acc})
+        # different house (Mistral) so it can legally replace a dead seat
+        # without breaking the vendor-diversity invariant
         seats.append({"id": "cf-mistral", "vendor": "Mistral-Small-24B (CF)", "house": "mistral",
                       "model": "@cf/mistralai/mistral-small-3.1-24b-instruct",
                       "kind": "cf", "keys": [cf_tok], "base": cf_acc})
