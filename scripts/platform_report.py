@@ -155,8 +155,14 @@ def resolve_period(period, date_str):
 # ---------------------------------------------------------------------------
 SCALARS = [
     # (key, label, which-db, sql)
-    ("med_visible", "医书可见数 (books_assets_v2)", "main",
+    ("med_visible", "医书可见数 (books_assets_v2, frontend_visible=1)", "main",
      "SELECT COUNT(*) AS n FROM books_assets_v2 WHERE frontend_visible=1 AND upload_status='done'"),
+    # med_visible 的口径(frontend_visible=1)命中的全是 collection='overseas'/'overseas_guji';
+    # 国内古方典籍库的前台闸门是 resources.js 的 "done + collection 空"(不看 frontend_visible),
+    # 所以它一本都不在上面那行里。少了它 = 核心资产报漏,单列一行。
+    ("gufang_lib", "古方典籍库可见数 (collection 空 + done)", "main",
+     "SELECT COUNT(*) AS n FROM books_assets_v2 WHERE upload_status='done' "
+     "AND (collection IS NULL OR collection='')"),
     ("guji_visible", "古籍可见数 (guji-db guji_assets)", "guji",
      "SELECT COUNT(*) AS n FROM guji_assets WHERE frontend_visible=1"),
     ("daodu_total", "导读总条数 (book_daodu_ai)", "main",
@@ -346,8 +352,17 @@ def create_issue(title, body):
 # ---------------------------------------------------------------------------
 # markdown
 # ---------------------------------------------------------------------------
+CN_NUM = ["一", "二", "三", "四", "五", "六"]
+
+
 def build_md(period, key, start, end, metrics, tables, prev, prev_key, extra):
     now = datetime.datetime.now(BJ).strftime("%Y-%m-%d %H:%M")
+    # 小节号动态递增:日报没有"出勤/Actions"两节,写死一二三四会跳号(一 -> 四)。
+    sec = [0]
+
+    def head(t):
+        sec[0] += 1
+        return "## %s、%s" % (CN_NUM[sec[0] - 1], t)
     pm = (prev or {}).get("metrics", {})
     L = []
     L.append("# %s %s · %s" % (PERIOD_ICON[period], issue_title_stem(period), key))
@@ -356,7 +371,7 @@ def build_md(period, key, start, end, metrics, tables, prev, prev_key, extra):
     L.append("> 统计区间 %s ~ %s · 对比基准 %s" % (
         start.isoformat(), end.isoformat(), prev_key or "无（首期）"))
     L.append("")
-    L.append("## 一、核心资产快照")
+    L.append(head("核心资产快照"))
     L.append("")
     L.append("| 指标 | 当前 | 上期 | Δ |")
     L.append("|---|---:|---:|---:|")
@@ -397,7 +412,7 @@ def build_md(period, key, start, end, metrics, tables, prev, prev_key, extra):
 
     if extra.get("attendance"):
         a = extra["attendance"]
-        L.append("## 二、人工日报出勤（reports/platform/）")
+        L.append(head("人工日报出勤（reports/platform/）"))
         L.append("")
         L.append("**本%s应 %d 份，实到 %d 份。**" % (
             PERIOD_SHORT[period], a["expected"], len(a["present"])))
@@ -411,7 +426,7 @@ def build_md(period, key, start, end, metrics, tables, prev, prev_key, extra):
     if extra.get("actions"):
         s = extra["actions"]
         rate = (100.0 * s["success"] / s["total"]) if s["total"] else 0.0
-        L.append("## 三、本%s GitHub Actions 运行局面" % PERIOD_SHORT[period])
+        L.append(head("本%s GitHub Actions 运行局面" % PERIOD_SHORT[period]))
         L.append("")
         L.append("总 run %d 次：成功 %d · 失败 %d · 取消 %d，成功率 **%.1f%%**。"
                  % (s["total"], s["success"], s.get("failure", 0),
@@ -427,7 +442,7 @@ def build_md(period, key, start, end, metrics, tables, prev, prev_key, extra):
             L.append("")
 
     errs = [m for m in metrics.values() if m.get("err")] + [t for t in tables.values() if t.get("err")]
-    L.append("## 四、取数健康")
+    L.append(head("取数健康"))
     L.append("")
     if errs:
         L.append("以下指标本期没取到（据实报，不编数）：")
