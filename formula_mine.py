@@ -17,9 +17,18 @@ in this repo:
   - env/secrets instead of a local .env file + local pool-call module
   - operates on a *segment* of a pre-ranked worklist (formula_worklist.json,
     an ordered array of text_id, committed alongside this script), sliced
-    by OFFSET/LIMIT then dealt round-robin across SHARD/TOTAL
-  - full per-book candidate-window set, no artificial per-book cap (the
-    pilot's 600-window budget cap lived in its caller, not in stage1_book)
+    by OFFSET/LIMIT; the segment is then expanded to *volume* work-units and
+    those are dealt round-robin across SHARD/TOTAL. Sharding at volume rather
+    than book granularity is what makes the big compendia tractable: \u666e\u6d4e\u65b9
+    is 375 volumes / 27620 windows on its own, i.e. ~18h and a blown 6h job
+    ceiling if one shard had to swallow the whole book.
+  - SOURCE=d1 (default) reads the compliance-gated corpus via D1; SOURCE=
+    r2text reads a committed {book,key} worklist for the flat one-txt-per-
+    book mirror. Either way R2 keys come from D1 rows or a committed file --
+    never from a bucket listing.
+  - full candidate-window set, no artificial per-book cap (the pilot's
+    600-window budget cap lived in its caller, not in stage1_book); the only
+    throttle left is PER_NAME_CAP, keyed on (text_id, name)
   - this shard's own output JSONL doubles as the resume ledger: every
     attempted window (any status) is one line, so a resumed run (cache
     restored to the same path) skips what is already there
@@ -41,8 +50,13 @@ Modes:
   (default)          -- shard worker, reads OFFSET/LIMIT/SHARD/TOTAL env,
                          writes formula_mine_result_shard{SHARD}.jsonl
   --summarize DIR     -- merges every shard's *.jsonl under DIR, keeps only
-                         status=="ok" rows, dedups by (book, name, herb-set),
-                         writes formula_mine_final.jsonl + prints stats
+                         status=="ok" rows, translates the LLM record's
+                         Chinese keys into the ASCII field names the import
+                         script and sue_formulas use, welds on the provenance
+                         stamp (book/text_id/vol/quote/gate/batch_id), dedups
+                         by (text_id, name, herb-set) -- the same triple as
+                         the D1 unique index -- and writes
+                         formula_mine_final.jsonl + formula_mine_stats.json
 """
 import os
 import sys
@@ -93,9 +107,26 @@ if len(sys.argv) >= 2 and sys.argv[1] == "--summarize":
         print(f"  + {fp}: {n} rows", flush=True)
 
     per_book_status = {}
+    status_total = {}
     for r in rows:
         st = per_book_status.setdefault(r.get("book", "?"), {})
         st[r.get("status", "?")] = st.get(r.get("status", "?"), 0) + 1
+        status_total[r.get("status", "?")] = status_total.get(r.get("status", "?"), 0) + 1
+
+    # The LLM record ("rec") carries the pilot's *Chinese* JSON keys
+    # (name / composition / indication / source-quote). The import script and
+    # the sue_formulas table use ASCII field names, so the merge is where the
+    # translation happens -- and where each row gets its provenance stamp
+    # (book / text_id / vol / quote / gate / batch_id) welded on. Getting this
+    # mapping wrong is not cosmetic: reading rec["name"] on a Chinese-keyed
+    # record yields "" for every row, which collapses the whole dedup key and
+    # silently reduces a whole run to a single entry. (That is exactly how
+    # run 30153667173's summarize job died -- KeyError: 'book'.)
+    K_NAME = "\u65b9\u540d"           # formula name
+    K_COMP = "\u7ec4\u6210"           # composition (herb list)
+    K_INDI = "\u4e3b\u6cbb"           # indication
+    K_QUOTE = "\u539f\u6587\u5f15\u6587"  # verbatim source quote
+    GATE_PASS = "\u4e09\u95f8\u5168\u8fc7"   # "all three gates passed"
 
     final, seen = [], set()
     dup = 0
@@ -103,14 +134,30 @@ if len(sys.argv) >= 2 and sys.argv[1] == "--summarize":
         if r.get("status") != "ok" or "rec" not in r:
             continue
         rec = r["rec"]
-        name = str(rec.get("name") or "").strip()
-        comp = [str(x).strip() for x in (rec.get("composition") or []) if str(x).strip()]
-        key = (r["book"], norm(name), frozenset(norm(c) for c in comp))
+        name = str(rec.get(K_NAME) or "").strip()
+        comp = [str(x).strip() for x in (rec.get(K_COMP) or []) if str(x).strip()]
+        quote = str(rec.get(K_QUOTE) or "").strip()
+        if not (name and comp and quote):
+            continue
+        # dedup key mirrors the D1 unique index (text_id, name, composition)
+        key = (r.get("text_id", ""), norm(name), frozenset(norm(c) for c in comp))
         if key in seen:
             dup += 1
             continue
         seen.add(key)
-        final.append(rec)
+        final.append({
+            "name": name,
+            "aliases": r.get("aliases_hint") or [],
+            "book": r.get("book", ""),
+            "text_id": r.get("text_id", ""),
+            "vol": r.get("vol"),
+            "composition": comp,
+            "indication": str(rec.get(K_INDI) or "").strip(),
+            "quote": quote,
+            "gate": GATE_PASS,
+            "src": r.get("src", ""),
+            "batch_id": f"fm{RUN_ID}",
+        })
 
     out_path = "formula_mine_final.jsonl"
     with open(out_path, "w", encoding="utf-8") as f:
@@ -121,13 +168,24 @@ if len(sys.argv) >= 2 and sys.argv[1] == "--summarize":
     for rec in final:
         per_book_final[rec["book"]] = per_book_final.get(rec["book"], 0) + 1
 
+    attempted = len(rows)
+    ok_rows = status_total.get("ok", 0)
+    gate_rejects = sum(status_total.get(k, 0) for k in
+                       ("gate_name", "gate_quote", "gate_herb", "empty_composition"))
     print(f"\n=== merge summary (run {RUN_ID}) ===", flush=True)
-    print(f"raw attempt rows: {len(rows)}", flush=True)
-    print(f"final ok+deduped: {len(final)} (dup_in_book={dup})", flush=True)
+    print(f"raw attempt rows (= LLM windows processed): {attempted}", flush=True)
+    print(f"status breakdown: {json.dumps(status_total, ensure_ascii=False)}", flush=True)
+    if attempted:
+        print(f"gate pass rate: {ok_rows}/{attempted} = {100.0*ok_rows/attempted:.1f}%  "
+              f"(gate rejects {gate_rejects} = {100.0*gate_rejects/attempted:.1f}%)", flush=True)
+    print(f"final ok+deduped: {len(final)} (dup dropped={dup})", flush=True)
     print("per-book final count:", flush=True)
     for b, c in sorted(per_book_final.items(), key=lambda x: -x[1]):
         print(f"  {b}: {c}", flush=True)
-    stats = {"raw_rows": len(rows), "final_count": len(final), "dup_in_book": dup,
+    stats = {"raw_rows": attempted, "final_count": len(final), "dup_dropped": dup,
+             "status_total": status_total, "ok_rows": ok_rows, "gate_rejects": gate_rejects,
+             "gate_pass_rate": round(ok_rows / attempted, 4) if attempted else 0.0,
+             "batch_id": f"fm{RUN_ID}",
              "per_book_status": per_book_status, "per_book_final": per_book_final}
     with open("formula_mine_stats.json", "w", encoding="utf-8") as f:
         json.dump(stats, f, ensure_ascii=False, indent=1)
@@ -175,9 +233,23 @@ SHARD = int(os.environ.get("SHARD", "0"))
 TOTAL = int(os.environ.get("TOTAL", "1"))
 OFFSET = int(os.environ.get("OFFSET", "0"))
 LIMIT = int(os.environ.get("LIMIT", "50"))
-WORKLIST_PATH = os.environ.get("WORKLIST_PATH", "formula_worklist.json")
+# d1     = books_text / books_text_volumes (compliance-gated corpus)
+# r2text = flat one-txt-per-book mirror, keys read from a committed worklist
+SOURCE = os.environ.get("SOURCE", "d1").strip().lower()
+if SOURCE not in ("d1", "r2text"):
+    raise SystemExit(f"SOURCE must be d1 or r2text, got {SOURCE!r}")
+WORKLIST_PATH = os.environ.get("WORKLIST_PATH") or (
+    "formula_worklist_r2text.json" if SOURCE == "r2text" else "formula_worklist.json")
 CONC = int(os.environ.get("CONC", "10"))
 LLM_RETRY = int(os.environ.get("LLM_RETRY", "2"))
+# Smoke-test throttle ONLY: cap how many volume units this shard takes, so a
+# validation dispatch can touch "the first N volumes of \u666e\u6d4e\u65b9" without
+# committing to its full 27620 windows. 0 = unlimited, and unlimited is the
+# only setting a production dispatch may use. This is a *volume* bound for
+# validation, never a per-book window ceiling -- window ceilings are exactly
+# what the 2026-07-25 ruling forbids (a 600-window cap is why the pilot
+# reported 328 formulas for a book that historically records thousands).
+MAX_UNITS = int(os.environ.get("MAX_UNITS", "0"))
 
 OUT_PATH = f"formula_mine_result_shard{SHARD}.jsonl"
 
@@ -238,7 +310,16 @@ ALIAS_RE = re.compile('(?:\u4e00\u540d|\u53c8\u540d|\u4ea6\u540d|\u6216\u540d|\u
 
 WIN_BEFORE = 50
 WIN_AFTER = 600
-PER_NAME_CAP = 2
+# Same-name window cap *within one shard*. This is the only remaining
+# throttle and it exists purely so a book that repeats one famous formula
+# hundreds of times (the pilot's example: \u6842\u679d\u6c64 in \u533b\u5b97\u91d1\u9274) cannot eat the
+# whole LLM budget. There is deliberately NO per-book window ceiling --
+# the founder's 2026-07-25 ruling is that an artificial window cap is what
+# made the pilot report only 328 entries for a 90-volume book whose real
+# formula count runs into the thousands. Default raised 2 -> 3 to match the
+# pilot script's current PER_NAME_CAP, since one name legitimately recurs
+# with different compositions/provenance in the big compendia.
+PER_NAME_CAP = int(os.environ.get("PER_NAME_CAP", "3"))
 
 
 def clean_title_name(raw):
@@ -274,16 +355,28 @@ def cut_window(text, start, struct_spans):
     return text[lo:hi]
 
 
-def stage1_book(text_id, book, volumes):
-    """Full per-book candidate window list, no truncation (production scale;
-    the pilot's 600-window cap was applied by its *caller*, not in here).
-    Verbatim port of pilot_extract.py stage1_book(), fetch call adapted."""
+def stage1_units(units, progress_every=40):
+    """Candidate windows for a list of *volume* work-units, no truncation.
+
+    Sharding happens one level below the book (see build_units): a work-unit
+    is one volume, not one book. Sharding by book cannot work at production
+    scale -- \u666e\u6d4e\u65b9 alone is 375 volumes / 27620 candidate windows, which at
+    the measured ~25 windows/min would need ~18h in a single shard and blow
+    straight through the 6h job ceiling, while the other 7 shards sit idle.
+    Volume granularity spreads even the largest compendium across all shards
+    and keeps each volume fetched from R2 exactly once.
+
+    Body is a verbatim port of pilot_extract.py stage1_book(); only the loop
+    header (volume unit instead of book+volumes) and the fetch call differ."""
     cands = []
     n_struct = 0
     n_generic = 0
-    for v in volumes:
-        vol_no = v["vol_no"]
-        text = get_text(v["r2_key"])
+    for ui, u in enumerate(units):
+        text_id, book, vol_no = u["text_id"], u["book"], u["vol_no"]
+        if progress_every and ui and ui % progress_every == 0:
+            print(f"  [{round(time.time()-T0)}s] stage1 {ui}/{len(units)} unit(s), "
+                  f"{len(cands)} window(s) so far", flush=True)
+        text = get_text(u["r2_key"])
         if not text:
             continue
         struct_spans = [(m.start(), m.end()) for m in STRUCT_HEAD_RE.finditer(text)]
@@ -325,15 +418,21 @@ def stage1_book(text_id, book, volumes):
             seen_pos.add(pos // 40)
             n_generic += 1
     # \u540c\u4e66\u540c\u65b9\u540d cap(\u7ed3\u6784\u5316\u4f18\u5148\u4fdd\u7559,\u518d\u6309\u6587\u4e2d\u987a\u5e8f)
+    # NB: the cap key is (text_id, name) -- the pilot ran one book per call so a
+    # bare name sufficed; this function now spans books, and a bare name here
+    # would cap \u6842\u679d\u6c64 to 3 windows *across the entire corpus* and throw away
+    # every other book's version of the same famous formula. Sort is stable, so
+    # struct-titled candidates win the cap slots and in-text order is preserved.
     cands.sort(key=lambda c: (0 if c["src"] == "struct" else 1,))
     kept, cnt = [], {}
     for c in cands:
-        k = c["name_hint"]
+        k = (c["text_id"], c["name_hint"])
         if cnt.get(k, 0) >= PER_NAME_CAP:
             continue
         cnt[k] = cnt.get(k, 0) + 1
         kept.append(c)
-    return kept
+    return kept, {"struct": n_struct, "generic": n_generic,
+                  "raw": n_struct + n_generic, "after_cap": len(kept)}
 
 # ---------------------------------------------------------------------------
 # stage-2: 3-provider LLM chain + verbatim pilot prompt/gates
@@ -524,13 +623,87 @@ def process_window(cand, out_f, total):
             print(f"[llm] {_counter['done']}/{total} done, pool_calls={_counter['calls']}", flush=True)
 
 
+def build_units(segment):
+    """Expand a worklist segment into a deterministic flat list of volume
+    work-units [{text_id, book, vol_no, r2_key}, ...].
+
+    source=d1     -- segment holds text_ids; volumes come from
+                     books_text_volumes (which carries the r2_key). This is
+                     the compliance-gated corpus: the worklist is built from
+                     books_text.allow_sueai_extract=1 only.
+    source=r2text -- segment holds pre-resolved {book, key} objects from a
+                     committed worklist file (the flat one-txt-per-book
+                     mirror under text/\u4e2d\u533b\u7eaf\u6587\u672c\u603b\u5e93/\u539f\u6587\u7248/). Keys come
+                     from the committed file, never from a bucket listing:
+                     the zero-LIST rule is CI-enforced by guard_no_list.yml.
+    Order is fully determined by (worklist order, vol_no), so shard
+    assignment is reproducible across reruns and resumes."""
+    units = []
+    if SOURCE == "r2text":
+        for i, item in enumerate(segment):
+            if isinstance(item, str):
+                item = {"book": os.path.basename(item).rsplit(".", 1)[0], "key": item}
+            units.append({"text_id": item.get("text_id") or f"r2t_{item['key']}",
+                          "book": item.get("book", ""), "vol_no": item.get("vol", 1),
+                          "r2_key": item["key"]})
+        return units
+    for text_id in segment:
+        rows = q("SELECT clean_name FROM books_text WHERE text_id = ?", [text_id])
+        if not rows:
+            print(f"  WARN {text_id}: not found in books_text, skip", flush=True)
+            continue
+        book_name = rows[0]["clean_name"]
+        vols = q("SELECT vol_no, r2_key FROM books_text_volumes WHERE text_id = ? ORDER BY vol_no",
+                 [text_id])
+        if not vols:
+            print(f"  WARN {text_id} ({book_name}): no volumes, skip", flush=True)
+            continue
+        for v in vols:
+            units.append({"text_id": text_id, "book": book_name,
+                          "vol_no": v["vol_no"], "r2_key": v["r2_key"]})
+    return units
+
+
+def interleave_by_book(units):
+    """Round-robin the volume units across books (vol 1 of every book, then
+    vol 2 of every book, ...). Same trick the pilot's run_llm() used for its
+    3 books, and it buys two things at production scale: every shard gets a
+    mix of books instead of shard 0 drowning in \u666e\u6d4e\u65b9's 375 volumes while
+    shard 7 gets short texts, and if a dispatch is cut short the coverage is
+    even across books rather than complete on the first book and zero on the
+    rest. Deterministic: input order fixes output order."""
+    by = {}
+    for u in units:
+        by.setdefault(u["text_id"], []).append(u)
+    lists = list(by.values())
+    out, i = [], 0
+    while True:
+        added = False
+        for L in lists:
+            if i < len(L):
+                out.append(L[i])
+                added = True
+        if not added:
+            return out
+        i += 1
+
+
 def main():
     with open(WORKLIST_PATH, encoding="utf-8") as f:
         worklist = json.load(f)
     segment = worklist[OFFSET: OFFSET + LIMIT]
-    mine = segment[SHARD::TOTAL]
-    print(f"[{round(time.time()-T0)}s] worklist={len(worklist)} segment=[{OFFSET}:{OFFSET+LIMIT}]={len(segment)} "
-          f"shard {SHARD}/{TOTAL} -> {len(mine)} book(s): {mine}", flush=True)
+    print(f"[{round(time.time()-T0)}s] source={SOURCE} worklist={len(worklist)} "
+          f"segment=[{OFFSET}:{OFFSET+LIMIT}]={len(segment)} item(s)", flush=True)
+
+    units = interleave_by_book(build_units(segment))
+    mine = units[SHARD::TOTAL]
+    if MAX_UNITS > 0:
+        mine = mine[:MAX_UNITS]
+        print(f"[{round(time.time()-T0)}s] MAX_UNITS={MAX_UNITS} active "
+              f"(SMOKE TEST ONLY -- production dispatches must leave this at 0)", flush=True)
+    books_here = sorted({u["text_id"] for u in mine})
+    print(f"[{round(time.time()-T0)}s] segment -> {len(units)} volume unit(s); "
+          f"shard {SHARD}/{TOTAL} takes {len(mine)} unit(s) across {len(books_here)} book(s)", flush=True)
 
     done_wids = set()
     if os.path.exists(OUT_PATH):
@@ -542,20 +715,9 @@ def main():
                     pass
         print(f"[{round(time.time()-T0)}s] resume: {len(done_wids)} window(s) already in ledger", flush=True)
 
-    all_cands = []
-    for text_id in mine:
-        rows = q("SELECT clean_name FROM books_text WHERE text_id = ?", [text_id])
-        if not rows:
-            print(f"  WARN {text_id}: not found in books_text, skip", flush=True)
-            continue
-        book_name = rows[0]["clean_name"]
-        vols = q("SELECT vol_no, r2_key FROM books_text_volumes WHERE text_id = ? ORDER BY vol_no", [text_id])
-        if not vols:
-            print(f"  WARN {text_id} ({book_name}): no volumes, skip", flush=True)
-            continue
-        cands = stage1_book(text_id, book_name, vols)
-        print(f"  {text_id} ({book_name}): {len(vols)} volume(s) -> {len(cands)} candidate window(s)", flush=True)
-        all_cands.extend(cands)
+    all_cands, st = stage1_units(mine)
+    print(f"[{round(time.time()-T0)}s] stage1 done: struct={st['struct']} generic={st['generic']} "
+          f"raw={st['raw']} after name-cap({PER_NAME_CAP})={st['after_cap']}", flush=True)
 
     todo = [c for c in all_cands if c["wid"] not in done_wids]
     print(f"[{round(time.time()-T0)}s] total candidates={len(all_cands)} todo={len(todo)} conc={CONC}", flush=True)
@@ -566,8 +728,10 @@ def main():
             for fut in as_completed(futs):
                 fut.result()
 
-    print(f"[{round(time.time()-T0)}s] shard {SHARD}/{TOTAL} DONE, processed {len(todo)} window(s), "
-          f"calls={_counter['calls']} -> {OUT_PATH}", flush=True)
+    el = max(1e-9, time.time() - T0)
+    print(f"[{round(el)}s] shard {SHARD}/{TOTAL} DONE, processed {len(todo)} window(s), "
+          f"llm_calls={_counter['calls']}, throughput={60.0*len(todo)/el:.1f} windows/min "
+          f"-> {OUT_PATH}", flush=True)
 
 
 if __name__ == "__main__":

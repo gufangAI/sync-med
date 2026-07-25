@@ -1,11 +1,15 @@
 name: formula-mine
 
 # Formula-library production mining (GitHub Actions matrix, free).
-# Input = a segment of formula_worklist.json (an offset/limit slice of the
-# density-ranked book list produced by the local Phase0 census), dealt
-# round-robin across `shards` matrix workers. Each worker processes its
-# books' FULL candidate-window set (no per-book truncation) through the
-# 3-gate LLM structuring pipeline and writes a per-shard JSONL artifact.
+# Input = a segment of the worklist (an offset/limit slice of the density-
+# ranked book list produced by the local Phase0 census). The segment is
+# expanded to VOLUME work-units and those are dealt round-robin across
+# `shards` matrix workers -- volume, not book, because a single compendium
+# (普济方: 375 volumes, 27620 candidate windows) would otherwise pin one
+# shard for ~18h past the 6h job ceiling while the rest idle.
+# Each worker processes its units' FULL candidate-window set (no per-book
+# window ceiling) through the 3-gate LLM structuring pipeline and writes a
+# per-shard JSONL artifact.
 # Read-only against D1/R2 (D1 SELECT only, R2 get_object by constructed key
 # only -- guard_no_list.yml CI-enforces no list_objects/get_paginator
 # anywhere in the repo). Writes nothing to any production table/bucket.
@@ -13,8 +17,13 @@ name: formula-mine
 on:
   workflow_dispatch:
     inputs:
+      source:
+        description: d1 (compliance-gated books_text corpus) or r2text (flat one-txt-per-book mirror)
+        type: choice
+        options: ["d1", "r2text"]
+        default: "d1"
       offset:
-        description: start index into formula_worklist.json
+        description: start index into the worklist
         default: "0"
       limit:
         description: how many books from offset to include in this dispatch
@@ -25,10 +34,21 @@ on:
       conc:
         description: per-shard LLM thread concurrency
         default: "10"
+      per_name_cap:
+        description: max windows per (book, formula-name); throttles famous formulas only
+        default: "3"
+      max_units:
+        description: SMOKE TEST ONLY -- cap volume units per shard. 0 = unlimited (required for production runs)
+        default: "0"
 
 concurrency:
   group: formula-mine-run
   cancel-in-progress: false
+
+env:
+  # One ledger namespace per (source, segment) so a resumed dispatch restores
+  # its own partial work and never inherits a different segment's windows.
+  LEDGER: formula-mine-ledger-${{ github.event.inputs.source || 'd1' }}-o${{ github.event.inputs.offset || '0' }}-l${{ github.event.inputs.limit || '50' }}
 
 jobs:
   prep:
@@ -60,9 +80,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: formula_mine_result_shard${{ matrix.shard }}.jsonl
-          key: formula-mine-ledger-o${{ github.event.inputs.offset || '0' }}-l${{ github.event.inputs.limit || '50' }}-s${{ matrix.shard }}-${{ github.run_id }}
+          key: ${{ env.LEDGER }}-s${{ matrix.shard }}-${{ github.run_id }}
           restore-keys: |
-            formula-mine-ledger-o${{ github.event.inputs.offset || '0' }}-l${{ github.event.inputs.limit || '50' }}-s${{ matrix.shard }}-
+            ${{ env.LEDGER }}-s${{ matrix.shard }}-
       - run: python formula_mine.py
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
@@ -82,12 +102,15 @@ jobs:
           OFFSET: ${{ github.event.inputs.offset || '0' }}
           LIMIT: ${{ github.event.inputs.limit || '50' }}
           CONC: ${{ github.event.inputs.conc || '10' }}
+          SOURCE: ${{ github.event.inputs.source || 'd1' }}
+          PER_NAME_CAP: ${{ github.event.inputs.per_name_cap || '3' }}
+          MAX_UNITS: ${{ github.event.inputs.max_units || '0' }}
       - name: save ledger cache
         if: always()
         uses: actions/cache/save@v4
         with:
           path: formula_mine_result_shard${{ matrix.shard }}.jsonl
-          key: formula-mine-ledger-o${{ github.event.inputs.offset || '0' }}-l${{ github.event.inputs.limit || '50' }}-s${{ matrix.shard }}-${{ github.run_id }}
+          key: ${{ env.LEDGER }}-s${{ matrix.shard }}-${{ github.run_id }}
       - name: upload shard artifact
         if: always()
         uses: actions/upload-artifact@v4
