@@ -492,8 +492,27 @@ def parse_llm_json(s):
         raise ValueError("json parse failed: " + t[:60])
     for o in reversed(objs):
         if o.get("\u65b9\u540d"):
-            return o
-    return objs[0]
+            return normalize_keys(o)
+    return normalize_keys(objs[0])
+
+
+# The prompt is written in simplified Chinese, but the source texts are often
+# traditional and the models mirror the text they are reading: the smoke run
+# produced records keyed "\u7d44\u6210" (traditional) instead of "\u7ec4\u6210",
+# which the composition check read as a missing field and threw away as
+# json_fail. The other three keys are identical in both scripts, so this is
+# the only alias that has ever been observed -- fold it before any field
+# lookup. Values are untouched; only the key spelling is normalized.
+_KEY_ALIASES = {"\u7d44\u6210": "\u7ec4\u6210"}
+
+
+def normalize_keys(obj):
+    if not isinstance(obj, dict):
+        return obj
+    for alias, canon in _KEY_ALIASES.items():
+        if alias in obj and canon not in obj:
+            obj[canon] = obj[alias]
+    return obj
 
 
 def _call_agnes(system, user, max_tokens, timeout):
@@ -559,7 +578,15 @@ class _Backoff(Exception):
 CHAIN = [("agnes", _call_agnes), ("xf", _call_xf), ("zhipu", _call_zhipu)]
 
 
-def llm_call(system, user, max_tokens=900, timeout=120):
+# 900 was not enough headroom: the smoke run's llm_fail rows were all
+# well-formed JSON cut off mid-composition on formulas with long herb lists,
+# and the big compendia this pipeline now targets are exactly where long
+# formulas cluster. The budget is per-response so raising it costs nothing on
+# the (majority) short answers.
+MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "1400"))
+
+
+def llm_call(system, user, max_tokens=MAX_TOKENS, timeout=120):
     """Try agnes -> xf -> zhipu in order; 429/412 backs off and falls through
     to the next provider (xf also rotates its key pool across attempts)."""
     last_err = "no provider"
@@ -589,7 +616,7 @@ def process_window(cand, out_f, total):
         try:
             with _write_lock:
                 _counter["calls"] += 1
-            txt = llm_call(SYS_PROMPT, user, max_tokens=900, timeout=120)
+            txt = llm_call(SYS_PROMPT, user, max_tokens=MAX_TOKENS, timeout=120)
             obj = parse_llm_json(txt)
             if obj.get("skip") and not obj.get("\u65b9\u540d"):
                 if dose_hits >= 2 and attempt < LLM_RETRY:
