@@ -277,37 +277,49 @@ def gh_api(path, method="GET", payload=None):
     return json.loads(raw) if raw else {}
 
 
+def _runs_count(path, qs):
+    """Exact run count via the API's own total_count -- never a paginated sample.
+    (An earlier version summed paginated pages and hit its own 10-page ceiling,
+    which reported a truncated 1000 as if it were the real total. A capped number
+    presented as exact is a lie; total_count is the truth.)"""
+    j = gh_api("%s?%s&per_page=1" % (path, qs))
+    return int(j.get("total_count") or 0)
+
+
 def actions_stats(start, end):
-    """Runs created inside [start, end] grouped by workflow name."""
+    """Runs created inside [start, end]: exact totals + exact per-workflow breakdown."""
+    rng = "created=%s..%s" % (start.isoformat(), end.isoformat())
+    base = "/repos/%s/actions/runs" % REPO
+    total = _runs_count(base, rng)
+    ok = _runs_count(base, rng + "&status=success")
+    fail = _runs_count(base, rng + "&status=failure")
+    cancel = _runs_count(base, rng + "&status=cancelled")
     per = {}
-    total = ok = 0
-    page = 1
-    while page <= 10:
-        q = "/repos/%s/actions/runs?created=%s..%s&per_page=100&page=%d" % (
-            REPO, start.isoformat(), end.isoformat(), page)
-        j = gh_api(q)
-        runs = j.get("workflow_runs") or []
-        if not runs:
-            break
-        for r in runs:
-            name = r.get("name") or "(unnamed)"
-            concl = r.get("conclusion") or r.get("status") or "?"
-            e = per.setdefault(name, {"n": 0, "success": 0, "failure": 0, "cancelled": 0, "other": 0})
-            e["n"] += 1
-            total += 1
-            if concl == "success":
-                e["success"] += 1
-                ok += 1
-            elif concl == "failure":
-                e["failure"] += 1
-            elif concl == "cancelled":
-                e["cancelled"] += 1
-            else:
-                e["other"] += 1
-        if len(runs) < 100:
-            break
-        page += 1
-    return {"total": total, "success": ok, "per_workflow": per}
+    try:
+        wfs = (gh_api("/repos/%s/actions/workflows?per_page=100" % REPO) or {}).get("workflows") or []
+    except Exception as e:  # noqa: BLE001
+        print("!! workflow list failed: %s" % str(e)[:160], flush=True)
+        wfs = []
+    for w in wfs:
+        wid, name = w.get("id"), (w.get("name") or "(unnamed)")
+        p = "/repos/%s/actions/workflows/%s/runs" % (REPO, wid)
+        try:
+            n = _runs_count(p, rng)
+            if not n:
+                continue
+            s = _runs_count(p, rng + "&status=success")
+            f = _runs_count(p, rng + "&status=failure")
+            c = _runs_count(p, rng + "&status=cancelled")
+        except Exception:  # noqa: BLE001
+            continue
+        e = per.setdefault(name, {"n": 0, "success": 0, "failure": 0, "cancelled": 0, "other": 0})
+        e["n"] += n
+        e["success"] += s
+        e["failure"] += f
+        e["cancelled"] += c
+        e["other"] += max(0, n - s - f - c)
+    return {"total": total, "success": ok, "failure": fail, "cancelled": cancel,
+            "per_workflow": per}
 
 
 def attendance(start, end):
@@ -401,8 +413,9 @@ def build_md(period, key, start, end, metrics, tables, prev, prev_key, extra):
         rate = (100.0 * s["success"] / s["total"]) if s["total"] else 0.0
         L.append("## 三、本%s GitHub Actions 运行局面" % PERIOD_SHORT[period])
         L.append("")
-        L.append("总 run %d 次，成功 %d 次，成功率 **%.1f%%**。"
-                 % (s["total"], s["success"], rate))
+        L.append("总 run %d 次：成功 %d · 失败 %d · 取消 %d，成功率 **%.1f%%**。"
+                 % (s["total"], s["success"], s.get("failure", 0),
+                    s.get("cancelled", 0), rate))
         L.append("")
         if s["per_workflow"]:
             L.append("| workflow | run | 成功 | 失败 | 取消 | 成功率 |")
