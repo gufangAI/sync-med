@@ -149,7 +149,14 @@ D1_URL = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACC}/d1/database/{D
 S_EP = os.environ["S_EP"]
 S_AK = os.environ["S_AK"]
 S_SK = os.environ["S_SK"]
-S_BUCKET = os.environ["S_BUCKET"]
+# NOTE: the S_BUCKET secret points at the OCR-output bucket (same one
+# ocr.py/ocr_ndl.py write _ocr/{book_id}/page_NNNN.txt into) -- it is NOT
+# where books_text_volumes.r2_key lives. align_full.py in this repo already
+# established the correct fixed bucket for that (its BUCKET_TEXT constant,
+# with the comment "not a secret, just a bucket name"); confirmed by a smoke
+# -test run that came back with 0 candidates against every real volume when
+# this pointed at S_BUCKET. Match align_full.py's precedent exactly.
+TEXT_BUCKET = "guyaofang-assets"
 
 # LLM chain secrets -- all optional at import time, checked lazily per
 # provider so a missing/unset provider just gets skipped instead of
@@ -208,7 +215,7 @@ s3 = boto3.client(
 def get_text(key):
     for att in range(2):
         try:
-            return s3.get_object(Bucket=S_BUCKET, Key=key)["Body"].read().decode("utf-8", errors="replace")
+            return s3.get_object(Bucket=TEXT_BUCKET, Key=key)["Body"].read().decode("utf-8", errors="replace")
         except Exception:
             if att == 1:
                 return ""
