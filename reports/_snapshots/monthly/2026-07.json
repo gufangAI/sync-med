@@ -1,0 +1,394 @@
+{
+ "extra": {
+  "actions": {
+   "per_workflow": {
+    "Competitor & Regulatory Radar": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 2,
+     "other": 0,
+     "success": 2
+    },
+    "Eagle Weekly Hunter": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "Intel Radar Daily Report v3": {
+     "cancelled": 0,
+     "failure": 2,
+     "n": 23,
+     "other": 0,
+     "success": 21
+    },
+    "Push on main": {
+     "cancelled": 12,
+     "failure": 1,
+     "n": 181,
+     "other": 1,
+     "success": 167
+    },
+    "Scheduled": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "align-full": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 3,
+     "other": 0,
+     "success": 3
+    },
+    "clean-embed-ingest": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 35,
+     "other": 0,
+     "success": 34
+    },
+    "code-self-audit": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 4,
+     "other": 0,
+     "success": 4
+    },
+    "ctext-to-pan": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "ctext_harvest": {
+     "cancelled": 1,
+     "failure": 5,
+     "n": 39,
+     "other": 0,
+     "success": 33
+    },
+    "ctext_migrate_rename": {
+     "cancelled": 1,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 0
+    },
+    "diag-pan-account": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "diag-r2-manifests": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 2,
+     "other": 0,
+     "success": 2
+    },
+    "fleet-health": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 77,
+     "other": 0,
+     "success": 77
+    },
+    "formula-mine": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 4,
+     "other": 1,
+     "success": 2
+    },
+    "guard-no-list-objects": {
+     "cancelled": 0,
+     "failure": 155,
+     "n": 181,
+     "other": 0,
+     "success": 26
+    },
+    "india_harvest": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 35,
+     "other": 0,
+     "success": 35
+    },
+    "make_video": {
+     "cancelled": 2,
+     "failure": 10,
+     "n": 29,
+     "other": 0,
+     "success": 17
+    },
+    "ocr": {
+     "cancelled": 16,
+     "failure": 3,
+     "n": 22,
+     "other": 0,
+     "success": 3
+    },
+    "ocr-compare": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "ocr-ndl": {
+     "cancelled": 3,
+     "failure": 0,
+     "n": 36,
+     "other": 0,
+     "success": 33
+    },
+    "ocr-quality-audit": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "ocr-race": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "ocr-reflash": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 2,
+     "other": 0,
+     "success": 2
+    },
+    "ocr_xf": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 2,
+     "other": 0,
+     "success": 2
+    },
+    "pan-audit": {
+     "cancelled": 2,
+     "failure": 0,
+     "n": 9,
+     "other": 0,
+     "success": 7
+    },
+    "pan-register": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 9,
+     "other": 0,
+     "success": 8
+    },
+    "pan-tidy": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 101,
+     "other": 0,
+     "success": 101
+    },
+    "r2-usage-audit": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 5,
+     "other": 0,
+     "success": 4
+    },
+    "report-daily": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "report-monthly": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 1,
+     "success": 0
+    },
+    "report-weekly": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "sync": {
+     "cancelled": 68,
+     "failure": 0,
+     "n": 72,
+     "other": 2,
+     "success": 2
+    },
+    "team-report-audit": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 8,
+     "other": 0,
+     "success": 8
+    },
+    "warm-dlink": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 2,
+     "other": 1,
+     "success": 1
+    },
+    "warm-thumbs": {
+     "cancelled": 1,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 0
+    },
+    "🔍 本地-GitHub 一致性审计": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "🛡️ Fleet Watch": {
+     "cancelled": 2,
+     "failure": 0,
+     "n": 104,
+     "other": 0,
+     "success": 102
+    }
+   },
+   "success": 706,
+   "total": 1000
+  },
+  "attendance": {
+   "expected": 25,
+   "missing": [
+    "2026-07-01",
+    "2026-07-02",
+    "2026-07-03",
+    "2026-07-04",
+    "2026-07-05",
+    "2026-07-06",
+    "2026-07-07",
+    "2026-07-08",
+    "2026-07-09",
+    "2026-07-10",
+    "2026-07-11",
+    "2026-07-12",
+    "2026-07-13",
+    "2026-07-15",
+    "2026-07-16",
+    "2026-07-17",
+    "2026-07-18",
+    "2026-07-19",
+    "2026-07-20",
+    "2026-07-21",
+    "2026-07-22"
+   ],
+   "present": [
+    "2026-07-14",
+    "2026-07-23",
+    "2026-07-24",
+    "2026-07-25"
+   ]
+  }
+ },
+ "generated_at": "2026-07-25T20:46:00.473547+08:00",
+ "key": "2026-07",
+ "metrics": {
+  "cand_pending": {
+   "err": null,
+   "value": 5777
+  },
+  "daodu_total": {
+   "err": null,
+   "value": 1953
+  },
+  "formulas_books": {
+   "err": null,
+   "value": 6
+  },
+  "formulas_names": {
+   "err": null,
+   "value": 1827
+  },
+  "formulas_total": {
+   "err": null,
+   "value": 2207
+  },
+  "graph_edges": {
+   "err": null,
+   "value": 3026
+  },
+  "graph_edges_tier1": {
+   "err": null,
+   "value": 1069
+  },
+  "graph_nodes": {
+   "err": null,
+   "value": 1823
+  },
+  "guji_visible": {
+   "err": null,
+   "value": 552
+  },
+  "med_visible": {
+   "err": null,
+   "value": 44775
+  }
+ },
+ "period": "monthly",
+ "range": [
+  "2026-07-01",
+  "2026-07-31"
+ ],
+ "run_id": "30158494505",
+ "tables": {
+  "daodu_by_ver": {
+   "err": null,
+   "rows": [
+    {
+     "k": "daodu-v3-ragground",
+     "n": 898
+    },
+    {
+     "k": "daodu-v3-corpus-batch",
+     "n": 893
+    },
+    {
+     "k": "daodu-multi-v1",
+     "n": 162
+    }
+   ]
+  },
+  "med_by_collection": {
+   "err": null,
+   "rows": [
+    {
+     "k": "overseas_guji",
+     "n": 23906
+    },
+    {
+     "k": "overseas",
+     "n": 20856
+    },
+    {
+     "k": "nonmed_junk",
+     "n": 13
+    }
+   ]
+  }
+ }
+}
