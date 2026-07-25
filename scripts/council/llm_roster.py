@@ -202,9 +202,6 @@ def _cf_chat(base, key, model, system, user, max_tokens, temperature, timeout,
 # ---------------------------------------------------------------------------
 # seat bench
 # ---------------------------------------------------------------------------
-# vendor = the house that MADE the weights (not who hosts them): two seats that
-# both resolve to Qwen are not a real race even via two different hosts.
-#
 # EVERY entry below is a free pool of the "runs out = stops serving" kind, and
 # every base/model pair is copied from a config already proven in production
 # (guyaofang-web `functions/api/gateway/_providers.js`, cross-checked against the
