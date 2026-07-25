@@ -130,7 +130,14 @@ def _cf_chat(base, key, model, system, user, max_tokens, temperature, timeout):
     if not d.get("success", True):
         raise RuntimeError("cf: " + str(d.get("errors"))[:120])
     res = d.get("result") or {}
+    # two shapes in the wild: the older models answer {"response": "..."},
+    # the newer ones (gpt-oss, glm-5.2, qwen3) answer OpenAI-style choices[]
+    # with no "response" key at all. Reading only the first shape silently
+    # turned the strongest models into "empty response" failures.
     txt = res.get("response") or ""
+    if not txt and res.get("choices"):
+        msg = (res["choices"][0] or {}).get("message") or {}
+        txt = msg.get("content") or msg.get("reasoning_content") or ""
     usage = res.get("usage") or {}
     neurons = float(usage.get("neurons") or hdrs.get("cf-ai-neurons") or 0.0)
     with _lock:
@@ -148,7 +155,10 @@ def _cf_chat(base, key, model, system, user, max_tokens, temperature, timeout):
 # vendor = the house that MADE the weights (not who hosts them): two seats that
 # both resolve to Qwen are not a real race even via two different hosts.
 def _bench():
-    xf_keys = [k.strip() for k in os.environ.get("XF_KEYS", "").replace("\n", ",").split(",") if k.strip()]
+    # XF_CHAT_KEYS is the chat-model-granted pool; XF_KEYS is the older pool
+    # and answers AppIdNoAuthError on chat models (measured 2026-07-25).
+    xf_raw = os.environ.get("XF_CHAT_KEYS", "") or os.environ.get("XF_KEYS", "")
+    xf_keys = [k.strip() for k in xf_raw.replace("\n", ",").split(",") if k.strip()]
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
     cf_tok = (os.environ.get("CLOUDFLARE_API_TOKEN", "")
               or os.environ.get("CF_AI_TOKEN", "")).strip()
@@ -251,15 +261,34 @@ def call(seat, system, user, max_tokens=1200, temperature=0.6, timeout=150,
     raise RuntimeError("seat %s failed: %s" % (seat["id"], last))
 
 
-def probe(seat, timeout=45):
-    """Cheap liveness check. Costs one call against the cap on purpose -- a
-    probe that lies about the budget is worse than no probe."""
-    try:
-        call(seat, "reply with OK", "OK?", max_tokens=8, temperature=0.0,
-             timeout=timeout, stage="probe", tag=seat["id"], retries=0)
+def probe(seat, timeout=45, retries=1):
+    """Liveness check. Costs real calls against the cap on purpose -- a probe
+    that lies about the budget is worse than no probe.
+
+    For a multi-key seat every key is probed and the seat is narrowed IN PLACE
+    to the keys that actually answered: xunfei ships several keys and they do
+    not all carry the same model grants, so one dead key must not sink a whole
+    vendor. `retries` covers the 429s that are a per-minute window rather than
+    a spent daily quota (agnes and gemini both hit exactly that)."""
+    live = []
+    for key in seat["keys"]:
+        one = dict(seat)
+        one["keys"] = [key]
+        for attempt in range(retries + 1):
+            try:
+                call(one, "reply with OK", "OK?", max_tokens=8, temperature=0.0,
+                     timeout=timeout, stage="probe", tag=seat["id"], retries=0)
+                live.append(key)
+                break
+            except BudgetExhausted:
+                return bool(live)
+            except Exception:
+                if attempt < retries:
+                    time.sleep(6)
+    if live:
+        seat["keys"] = live
         return True
-    except Exception:
-        return False
+    return False
 
 
 def assemble(n_racers=4):
