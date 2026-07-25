@@ -264,13 +264,16 @@ LLM_RETRY = int(os.environ.get("LLM_RETRY", "2"))
 # what the 2026-07-25 ruling forbids (a 600-window cap is why the pilot
 # reported 328 formulas for a book that historically records thousands).
 MAX_UNITS = int(os.environ.get("MAX_UNITS", "0"))
-# Cross-dispatch idempotency. A book that already has rows in sue_formulas is
-# dropped from the segment, so a whole-corpus dispatch can be fired again and
-# again and only pays for what is still unmined -- which is what makes running
-# the full worklist affordable in the first place. Set 0 to force a re-mine;
-# that is safe (D1's unique index on (text_id, name, composition) absorbs the
-# repeats) but it spends free-pool calls re-deriving rows that already exist.
-SKIP_DONE = os.environ.get("SKIP_DONE", "1").strip().lower() not in ("0", "false", "no", "")
+# OPERATOR TOOL, OFF BY DEFAULT -- and it must stay off by default. It drops
+# any book that has *at least one* row in sue_formulas, which says nothing
+# about whether that book was mined to the end: on 2026-07-25 the library held
+# 39 rows for Puji Fang against 56443 candidate windows, and 576 for
+# Taiping Shenghui Fang against 22738. Defaulting this on would have quietly
+# excluded the two largest books in the corpus and re-created, one level up,
+# exactly the ceiling this pipeline just spent a day removing. Turn it on only
+# for books already verified complete; the safe way to avoid re-work is OFFSET
+# plus the per-window resume ledger, which skips windows, not books.
+SKIP_DONE = os.environ.get("SKIP_DONE", "0").strip().lower() not in ("0", "false", "no", "")
 
 OUT_PATH = f"formula_mine_result_shard{SHARD}.jsonl"
 

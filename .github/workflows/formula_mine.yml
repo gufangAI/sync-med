@@ -53,8 +53,10 @@ on:
         description: SMOKE TEST ONLY -- cap volume units per shard. 0 = unlimited (required for production runs)
         default: "0"
       skip_done:
-        description: 1 = skip books that already have rows in sue_formulas (idempotent re-dispatch); 0 = re-mine everything
-        default: "1"
+        description: >-
+          DANGEROUS, leave 0. 1 drops any book with at least one row in sue_formulas regardless of how
+          little of it was mined (Puji Fang had 39 rows against 56443 windows). Only for books verified complete.
+        default: "0"
 
 concurrency:
   # Per-segment, not per-workflow. A single global group meant a 20-minute
@@ -128,10 +130,10 @@ jobs:
           SOURCE: ${{ github.event.inputs.source || 'd1' }}
           PER_NAME_CAP: ${{ github.event.inputs.per_name_cap || '0' }}
           MAX_UNITS: ${{ github.event.inputs.max_units || '0' }}
-          # NOT `inputs.skip_done || '1'`: GitHub casts the string "0" to a
-          # falsy number, so the || form would silently rewrite an explicit
-          # skip_done=0 back to 1 and quietly refuse to re-mine.
-          SKIP_DONE: ${{ github.event.inputs.skip_done == '0' && '0' || '1' }}
+          # Explicit comparison, not `inputs.skip_done || '0'`: GitHub casts the
+          # string "0" to a falsy number, so the || form silently rewrites the
+          # value. Only a literal "1" turns the book-level skip on.
+          SKIP_DONE: ${{ github.event.inputs.skip_done == '1' && '1' || '0' }}
       - name: save ledger cache
         if: always()
         uses: actions/cache/save@v4
