@@ -257,8 +257,13 @@ def _bench():
     A vendor with no secret is simply absent -- no error, no placeholder. That
     is what makes adding a pool a pure secrets operation: `gh secret set
     LONGCAT_API_KEY` and the seat appears on the next run with no code change.
-    Per-seat model ids are overridable via <ID>_MODEL for ops tuning without a
-    deploy, same convention as the gateway's GW_<PROVIDER>_MODEL."""
+
+    Endpoint and model are overridable per seat without a deploy, same idea as
+    the gateway's GW_<PROVIDER>_BASE / _MODEL: <ID>_API_BASE overrides the base,
+    <ID>_MODEL or <ID>_TEXT_MODEL overrides the model. Those exact names are why
+    the agnes seat keeps honouring the AGNES_API_BASE / AGNES_TEXT_MODEL secrets
+    this repo already carries -- the defaults below happen to match today, and a
+    vendor renaming a model must stay a secret edit, not a code push."""
     seats = []
     for sid, vkey, house, model, base, env_names, extra, ptok in _FREE_BENCH:
         raw = ""
@@ -272,10 +277,13 @@ def _bench():
         # these vendors are two founder accounts sharing one secret slot, and
         # one dead key must not sink a whole vendor (see probe()).
         keys = [k.strip() for k in raw.replace("\n", ",").split(",") if k.strip()]
+        up = sid.upper()
         seats.append({
             "id": sid, "vendor": t(vkey), "house": house,
-            "model": os.environ.get(sid.upper() + "_MODEL", "").strip() or model,
-            "kind": "openai", "keys": keys, "base": base,
+            "model": (os.environ.get(up + "_MODEL", "").strip()
+                      or os.environ.get(up + "_TEXT_MODEL", "").strip() or model),
+            "kind": "openai", "keys": keys,
+            "base": os.environ.get(up + "_API_BASE", "").strip() or base,
             "extra": extra, "probe_tokens": ptok,
         })
     return seats

@@ -89,6 +89,10 @@ jobs:
           AGNES_API_KEY:    ${{ secrets.AGNES_API_KEY }}
           GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
           NVIDIA_API_KEY:   ${{ secrets.NVIDIA_API_KEY }}
+          # ops overrides (<ID>_API_BASE / <ID>_TEXT_MODEL) so a vendor renaming
+          # a model stays a secret edit rather than a code push
+          AGNES_API_BASE:   ${{ secrets.AGNES_API_BASE }}
+          AGNES_TEXT_MODEL: ${{ secrets.AGNES_TEXT_MODEL }}
           # Free pools guyaofang-web already runs on but this repo has no secret
           # for yet -- resolve to "" and stay off the bench until they are set.
           # Each one restores a distinct model house, i.e. a better race.
