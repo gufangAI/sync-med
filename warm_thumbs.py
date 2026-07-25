@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 """
+RETIRED 2026-07-25, same day this was built -- see warm_thumbs.yml header for why
+(superseded by warm_dlink.py's pan:dlink KV pre-warming once the 123 direct-link auth key
+landed). Left in place (never delete, only retire) as a working reference for the
+R2-thumb-hot-layer approach, in case the direct-link path ever needs a fallback.
+
 Cover-thumb R2 hot-layer warmer -- GitHub Actions matrix, slow-drip version (2026-07-25).
 
 Carries forward the approach already proven by

@@ -1,0 +1,87 @@
+name: warm-dlink
+
+# 123 direct-link KV pre-warmer (2026-07-25). Populates pan:fid / pan:dlink KV cache entries
+# that functions/api/_lib/pan123.js's fetchViaDirectLink() reads at request time, so real
+# traffic never pays the first-hit 123 API cost. See warm_dlink.py header for the full
+# design writeup (two-layer skip via ledger.json + live KV GET, rate-limit discipline against
+# 123's shared file/list 3 QPS / direct-link/url 5 QPS ceilings, matrix sharding, soft time
+# budget). Supersedes warm_thumbs.yml (retired same day -- see that file's header).
+#
+# Never writes R2, never downloads image bytes, never touches D1 (read-only query). Only
+# writes two small strings per book into Cloudflare KV.
+
+on:
+  workflow_dispatch:
+    inputs:
+      total:
+        description: "shard count (matrix parallelism, keep <=3 -- 123 quota is account-wide shared with the download line)"
+        default: "3"
+      pilot:
+        description: "cap on items attempted per shard this run (empty = unlimited, gated only by the 105min soft deadline)"
+        default: ""
+  # Every 3 hours; each tick only progresses what the ledger/KV says isn't done yet (idempotent, additive-only)
+  schedule:
+    - cron: "35 */3 * * *"
+
+# One round at a time -- overlapping rounds would double the request rate against the
+# shared 123 quota. A new tick queues behind an in-progress one, never kills it mid-flight
+# (killing mid-flight would skip the "save ledger cache" step and lose that round's progress).
+concurrency:
+  group: warm-dlink
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.gen.outputs.shards }}
+    steps:
+      - id: gen
+        run: |
+          python -c "
+          import json, os
+          T = int(os.environ['T'])
+          print('shards=' + json.dumps(list(range(T))))
+          " >> "$GITHUB_OUTPUT"
+        env:
+          T: ${{ github.event.inputs.total || '3' }}
+
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
+    timeout-minutes: 115   # script self-wraps at 105min internally; this is just a hard backstop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet requests
+      - name: restore ledger cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ledger.json
+          key: warm-dlink-ledger-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            warm-dlink-ledger-s${{ matrix.shard }}-
+      - name: warm shard
+        run: python warm_dlink.py
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          PAN_CLIENT_ID: ${{ secrets.PAN_CLIENT_ID }}
+          PAN_CLIENT_SECRET: ${{ secrets.PAN_CLIENT_SECRET }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.total || '3' }}
+          PILOT: ${{ github.event.inputs.pilot }}
+      - name: save ledger cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ledger.json
+          key: warm-dlink-ledger-s${{ matrix.shard }}-${{ github.run_id }}

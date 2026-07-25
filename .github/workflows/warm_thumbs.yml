@@ -1,5 +1,15 @@
 name: warm-thumbs
 
+# RETIRED 2026-07-25 (same day it was built): superseded by warm_dlink.yml before this ever
+# completed a real production run. The founder supplied a 123 direct-link auth key the same
+# afternoon (deploy b0957bb0, fetchViaDirectLink() in pan123.js) -- cover-fetch success rate
+# went 3% -> 84% from that alone, and the new pan:dlink KV cache (1-year TTL, zero 123 API
+# calls once warmed) replaces the R2-thumb-hot-layer strategy this workflow existed for.
+# Cron disabled so this doesn't keep burning 123's shared quota for a superseded approach.
+# workflow_dispatch kept as manual fallback only, matching this repo's ocr.yml retirement
+# precedent ("2026-07-22 退休旧版...此处停掉旧版自动 cron,保留 workflow_dispatch 手动兜底").
+# See warm_dlink.py / warm_dlink.yml for the current approach.
+#
 # Cover-thumb R2 hot-layer warmer (2026-07-25). Slow-drips GET requests against the
 # production /api/reader/{book_id}/cover endpoint so its own existing waitUntil() backfill
 # logic fills R2 guyaofang-assets/thumbs/{book_id}.webp. See warm_thumbs.py header for the
@@ -18,9 +28,7 @@ on:
       pilot:
         description: "cap on items attempted per shard this run (empty = unlimited, gated only by the 105min soft deadline)"
         default: ""
-  # Every 3 hours; each tick only progresses what the ledger says isn't done yet (idempotent, additive-only)
-  schedule:
-    - cron: "15 */3 * * *"
+  # RETIRED: cron disabled 2026-07-25, see header. Was: schedule: - cron: "15 */3 * * *"
 
 # One round at a time -- overlapping rounds would double the request rate against the
 # shared 123 quota. A new tick queues behind an in-progress one, never kills it mid-flight
