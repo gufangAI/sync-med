@@ -1,0 +1,68 @@
+name: report-monthly
+
+# 平台月报（自动）。每月 1 日早上出上个月的账：核心资产快照 + 当月 Actions 成功率 +
+# 人工日报出勤点名。
+# 只读：D1 只 SELECT（脚本内硬拦非 SELECT），零 R2 访问。
+
+on:
+  schedule:
+    - cron: '0 1 1 * *'   # 01:00 UTC 每月 1 日 = 09:00 北京时间 每月 1 日（结上月的账）
+  workflow_dispatch:
+    inputs:
+      date:
+        description: '补跑哪个月：给该月内任意一天 YYYY-MM-DD（留空=上个月）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: report-monthly
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: generate monthly report
+        env:
+          CF_ACCOUNT_ID:    ${{ secrets.CF_ACCOUNT_ID }}
+          D1_API_TOKEN:     ${{ secrets.D1_API_TOKEN }}
+          D1_DATABASE_ID:   ${{ secrets.D1_DATABASE_ID }}
+          GUJI_DATABASE_ID: ${{ secrets.GUJI_DATABASE_ID }}
+          GH_TOKEN:         ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python scripts/platform_report.py --period monthly --date "${{ github.event.inputs.date }}"
+
+      - name: commit report + snapshot
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/platform/auto reports/_snapshots || true
+          if git diff --cached --quiet; then
+            echo "nothing to commit"; exit 0
+          fi
+          git commit -m "auto: platform monthly report (run ${{ github.run_id }})"
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push origin HEAD:"${GITHUB_REF_NAME}" && exit 0
+            echo "push retry $i"; sleep 5
+          done
+          echo "::warning::push failed after 3 tries (Issue 已发，数字不丢，只是快照没落仓)"
+
+      - name: upload result artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-monthly-${{ github.run_id }}
+          path: platform_report_result.json
+          if-no-files-found: warn
+          retention-days: 30

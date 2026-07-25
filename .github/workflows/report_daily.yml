@@ -1,0 +1,70 @@
+name: report-daily
+
+# 平台数据日报（自动，客观数字）。立此因：人工日报靠人记性，2026-07-17~07-22 断档 6 天，
+# 周报/月报从来没存在过。这条 cron 不依赖任何人记得。
+# 与人工日报分工：本 workflow 只报 D1 里的真实计数 + 环比 Δ；决策/叙事/风险仍由
+# skill `daily-report` 写 reports/platform/<date>.md（本 workflow 会点名它的缺勤，见周报/月报）。
+# 只读：D1 只 SELECT（脚本内硬拦非 SELECT），零 R2 访问。
+
+on:
+  schedule:
+    - cron: '30 14 * * *'   # 14:30 UTC = 22:30 北京时间（当日收工后）
+  workflow_dispatch:
+    inputs:
+      date:
+        description: '补跑哪天 YYYY-MM-DD（留空=今天）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write   # 需要把报告 md + 快照 json 提交回仓（快照是下一期算 Δ 的基准）
+  issues: write
+
+concurrency:
+  group: report-daily
+  cancel-in-progress: false   # 报告不许互相取消，排队跑完
+
+jobs:
+  report:
+    runs-on: ubuntu-latest    # 标准 runner + public 仓 = 真免费
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: generate daily snapshot report
+        env:
+          CF_ACCOUNT_ID:    ${{ secrets.CF_ACCOUNT_ID }}
+          D1_API_TOKEN:     ${{ secrets.D1_API_TOKEN }}
+          D1_DATABASE_ID:   ${{ secrets.D1_DATABASE_ID }}
+          GUJI_DATABASE_ID: ${{ secrets.GUJI_DATABASE_ID }}
+          GH_TOKEN:         ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python scripts/platform_report.py --period daily --date "${{ github.event.inputs.date }}"
+
+      - name: commit report + snapshot
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/platform/auto reports/_snapshots || true
+          if git diff --cached --quiet; then
+            echo "nothing to commit"; exit 0
+          fi
+          git commit -m "auto: platform daily report (run ${{ github.run_id }})"
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push origin HEAD:"${GITHUB_REF_NAME}" && exit 0
+            echo "push retry $i"; sleep 5
+          done
+          echo "::warning::push failed after 3 tries (Issue 已发，数字不丢，只是快照没落仓)"
+
+      - name: upload result artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-daily-${{ github.run_id }}
+          path: platform_report_result.json
+          if-no-files-found: warn
+          retention-days: 30
