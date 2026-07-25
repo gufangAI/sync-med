@@ -1,0 +1,87 @@
+name: warm-thumbs
+
+# Cover-thumb R2 hot-layer warmer (2026-07-25). Slow-drips GET requests against the
+# production /api/reader/{book_id}/cover endpoint so its own existing waitUntil() backfill
+# logic fills R2 guyaofang-assets/thumbs/{book_id}.webp. See warm_thumbs.py header for the
+# full design writeup (two-layer skip via ledger.json + head_object, rate-limit discipline
+# against 123's shared 5 QPS download_info ceiling, matrix sharding, soft time budget).
+#
+# Never touches D1 (read-only query), never calls 123 directly, never writes R2 directly --
+# the only write happens inside the already-deployed Worker, out of this workflow's scope.
+
+on:
+  workflow_dispatch:
+    inputs:
+      total:
+        description: "shard count (matrix parallelism, keep <=3 -- 123 download_info quota is account-wide shared with the download line)"
+        default: "3"
+      pilot:
+        description: "cap on items attempted per shard this run (empty = unlimited, gated only by the 105min soft deadline)"
+        default: ""
+  # Every 3 hours; each tick only progresses what the ledger says isn't done yet (idempotent, additive-only)
+  schedule:
+    - cron: "15 */3 * * *"
+
+# One round at a time -- overlapping rounds would double the request rate against the
+# shared 123 quota. A new tick queues behind an in-progress one, never kills it mid-flight
+# (killing mid-flight would skip the "save ledger cache" step and lose that round's progress).
+concurrency:
+  group: warm-thumbs
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.gen.outputs.shards }}
+    steps:
+      - id: gen
+        run: |
+          python -c "
+          import json, os
+          T = int(os.environ['T'])
+          print('shards=' + json.dumps(list(range(T))))
+          " >> "$GITHUB_OUTPUT"
+        env:
+          T: ${{ github.event.inputs.total || '3' }}
+
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        shard: ${{ fromJSON(needs.prep.outputs.shards) }}
+    timeout-minutes: 115   # script self-wraps at 105min internally; this is just a hard backstop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet boto3 requests
+      - name: restore ledger cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ledger.json
+          key: warm-thumbs-ledger-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            warm-thumbs-ledger-s${{ matrix.shard }}-
+      - name: warm shard
+        run: python warm_thumbs.py
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ github.event.inputs.total || '3' }}
+          PILOT: ${{ github.event.inputs.pilot }}
+      - name: save ledger cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ledger.json
+          key: warm-thumbs-ledger-s${{ matrix.shard }}-${{ github.run_id }}
