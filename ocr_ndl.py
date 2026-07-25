@@ -113,8 +113,16 @@ mine = [p for i, p in enumerate(pages) if i % TOTAL == SHARD]
 # 改成每次运行硬顶RUN_CAP页(默认300,可用PILOT覆盖做更小的手动试跑):
 # 保证job window内可靠完成→每次都有真实D1汇总产出;6小时cron自然分批啃完全量,不再空转赌大的。
 RUN_CAP = int(PILOT) if PILOT else 300
-mine = mine[:RUN_CAP]
-print(f"shard {SHARD}/{TOTAL} 分到 {len(mine)}/{len(pages)} 页(本轮硬顶{RUN_CAP})  pilot={PILOT or '无'}", flush=True)
+# 2026-07-25 修停摆根因: 原先在查ledger之前就 mine[:RUN_CAP] 截断——每shard永远只看slice前300页,
+# 做完即永久空转(fleet-watch实证连续3轮零产出)。改为先滤掉ledger已做,再截RUN_CAP,才会持续推进。
+_ledger_early = set()
+if os.path.exists("ledger.json"):
+    try:
+        _ledger_early = set(json.load(open("ledger.json", encoding="utf-8")))
+    except Exception:
+        _ledger_early = set()
+mine = [t for t in mine if f"{t[0]}:{str(t[1]).zfill(4)}" not in _ledger_early][:RUN_CAP]
+print(f"shard {SHARD}/{TOTAL} 分到 {len(mine)}/{len(pages)} 页(已滤台账·本轮硬顶{RUN_CAP})  pilot={PILOT or '无'}", flush=True)
 
 OCR_SRC = "ndlocr-lite/src"
 TMP = "/tmp/ndl_work"
