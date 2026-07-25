@@ -1,7 +1,16 @@
 {
  "extra": {
   "actions": {
+   "cancelled": 60,
+   "failure": 106,
    "per_workflow": {
+    "CodeQL": {
+     "cancelled": 6,
+     "failure": 1,
+     "n": 124,
+     "other": 0,
+     "success": 117
+    },
     "Competitor & Regulatory Radar": {
      "cancelled": 0,
      "failure": 0,
@@ -22,20 +31,6 @@
      "n": 15,
      "other": 0,
      "success": 14
-    },
-    "Push on main": {
-     "cancelled": 6,
-     "failure": 1,
-     "n": 116,
-     "other": 0,
-     "success": 109
-    },
-    "Scheduled": {
-     "cancelled": 0,
-     "failure": 0,
-     "n": 1,
-     "other": 0,
-     "success": 1
     },
     "align-full": {
      "cancelled": 0,
@@ -82,9 +77,9 @@
     "guard-no-list-objects": {
      "cancelled": 0,
      "failure": 93,
-     "n": 115,
+     "n": 120,
      "other": 0,
-     "success": 22
+     "success": 27
     },
     "india_harvest": {
      "cancelled": 0,
@@ -184,12 +179,19 @@
      "other": 0,
      "success": 1
     },
+    "report-monthly": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 2,
+     "other": 1,
+     "success": 1
+    },
     "report-weekly": {
      "cancelled": 0,
      "failure": 0,
-     "n": 1,
+     "n": 2,
      "other": 1,
-     "success": 0
+     "success": 1
     },
     "sync": {
      "cancelled": 43,
@@ -234,8 +236,8 @@
      "success": 58
     }
    },
-   "success": 441,
-   "total": 612
+   "success": 454,
+   "total": 627
   },
   "attendance": {
    "expected": 6,
@@ -251,7 +253,7 @@
    ]
   }
  },
- "generated_at": "2026-07-25T20:36:25.718720+08:00",
+ "generated_at": "2026-07-25T20:49:56.588755+08:00",
  "key": "2026-W30",
  "metrics": {
   "cand_pending": {
@@ -300,7 +302,7 @@
   "2026-07-20",
   "2026-07-26"
  ],
- "run_id": "30158224505",
+ "run_id": "30158574752",
  "tables": {
   "daodu_by_ver": {
    "err": null,
