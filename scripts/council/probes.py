@@ -178,9 +178,15 @@ def collect_metrics():
                   t("paid_display", a=n, b=subs, c=users), t("u_dan"), sql=sql)
 
     def formulas():
+        # Target set by the founder on 2026-07-25: one million structured
+        # formulas, "at least". The previous 10000 was not a goal, it was the
+        # size of the pilot dressed up as one -- and a target the pipeline can
+        # clear by accident tells the council nothing. Expect this metric to
+        # read as a deep shortfall until the mining corpus itself grows; that
+        # is the point.
         sql = "SELECT COUNT(*) c FROM sue_formulas"
         n = _scalar(sql)
-        return _m("formula", "corpus", "m_formula", float(n), 10000.0, str(n), t("u_shou"), sql=sql)
+        return _m("formula", "corpus", "m_formula", float(n), 1000000.0, str(n), t("u_shou"), sql=sql)
 
     def cases():
         sql = "SELECT COUNT(*) c FROM case_extractions"

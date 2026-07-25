@@ -15,20 +15,28 @@ extraction prompts, see tcm_judge.py's base64 PROMPT for precedent).
 Only the plumbing is new for production scale, same spirit as align_full.py
 in this repo:
   - env/secrets instead of a local .env file + local pool-call module
-  - operates on a *segment* of a pre-ranked worklist (formula_worklist.json,
-    an ordered array of text_id, committed alongside this script), sliced
-    by OFFSET/LIMIT; the segment is then expanded to *volume* work-units and
-    those are dealt round-robin across SHARD/TOTAL. Sharding at volume rather
-    than book granularity is what makes the big compendia tractable: \u666e\u6d4e\u65b9
-    is 375 volumes / 27620 windows on its own, i.e. ~18h and a blown 6h job
+  - operates on a *segment* of a worklist (formula_worklist.json, an ordered
+    array of text_id, committed alongside this script and regenerated from
+    D1 by gen_formula_worklist.py -- every compliance-allowed book, not a
+    hand-picked subset), sliced by OFFSET/LIMIT where LIMIT=0 means "to the
+    end"; the segment is then expanded to *volume* work-units and those are
+    dealt round-robin across SHARD/TOTAL. Sharding at volume rather than book
+    granularity is what makes the big compendia tractable: \u666e\u6d4e\u65b9
+    is 375 volumes / 56443 raw windows on its own, i.e. far past the 6h job
     ceiling if one shard had to swallow the whole book.
   - SOURCE=d1 (default) reads the compliance-gated corpus via D1; SOURCE=
     r2text reads a committed {book,key} worklist for the flat one-txt-per-
     book mirror. Either way R2 keys come from D1 rows or a committed file --
     never from a bucket listing.
-  - full candidate-window set, no artificial per-book cap (the pilot's
-    600-window budget cap lived in its caller, not in stage1_book); the only
-    throttle left is PER_NAME_CAP, keyed on (text_id, name)
+  - full candidate-window set, no artificial ceiling of any kind: no per-book
+    window cap (the pilot's 600-window budget cap lived in its caller, not in
+    stage1_book), no per-name cap (PER_NAME_CAP defaults to 0 since
+    2026-07-25 -- at 3 it discarded 31.5% of the census's candidate windows),
+    and no book-count cap (LIMIT defaults to 0 = the whole worklist).
+    Duplicate work is removed by content instead: identical windows are
+    hashed out in stage 1, books already present in sue_formulas are skipped
+    when SKIP_DONE=1, and --summarize dedups on (text_id, name, composition)
+    exactly like D1's unique index.
   - this shard's own output JSONL doubles as the resume ledger: every
     attempted window (any status) is one line, so a resumed run (cache
     restored to the same path) skips what is already there
@@ -66,6 +74,7 @@ import time
 import base64
 import random
 import glob
+import hashlib
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -232,7 +241,10 @@ ZHIPU_MODEL = os.environ.get("ZHIPU_MODEL", "glm-4-flash")
 SHARD = int(os.environ.get("SHARD", "0"))
 TOTAL = int(os.environ.get("TOTAL", "1"))
 OFFSET = int(os.environ.get("OFFSET", "0"))
-LIMIT = int(os.environ.get("LIMIT", "50"))
+# Segment bound for staged dispatches, NOT a mining ceiling: 0 (the default)
+# means "from OFFSET to the end of the worklist". The old default of 50 meant
+# every dispatch that did not override it silently stopped at 50 books.
+LIMIT = int(os.environ.get("LIMIT", "0"))
 # d1     = books_text / books_text_volumes (compliance-gated corpus)
 # r2text = flat one-txt-per-book mirror, keys read from a committed worklist
 SOURCE = os.environ.get("SOURCE", "d1").strip().lower()
@@ -241,6 +253,8 @@ if SOURCE not in ("d1", "r2text"):
 WORKLIST_PATH = os.environ.get("WORKLIST_PATH") or (
     "formula_worklist_r2text.json" if SOURCE == "r2text" else "formula_worklist.json")
 CONC = int(os.environ.get("CONC", "10"))
+# D1 rejects a statement carrying more than 100 bound variables.
+D1_PARAM_CHUNK = 90
 LLM_RETRY = int(os.environ.get("LLM_RETRY", "2"))
 # Smoke-test throttle ONLY: cap how many volume units this shard takes, so a
 # validation dispatch can touch "the first N volumes of \u666e\u6d4e\u65b9" without
@@ -250,6 +264,13 @@ LLM_RETRY = int(os.environ.get("LLM_RETRY", "2"))
 # what the 2026-07-25 ruling forbids (a 600-window cap is why the pilot
 # reported 328 formulas for a book that historically records thousands).
 MAX_UNITS = int(os.environ.get("MAX_UNITS", "0"))
+# Cross-dispatch idempotency. A book that already has rows in sue_formulas is
+# dropped from the segment, so a whole-corpus dispatch can be fired again and
+# again and only pays for what is still unmined -- which is what makes running
+# the full worklist affordable in the first place. Set 0 to force a re-mine;
+# that is safe (D1's unique index on (text_id, name, composition) absorbs the
+# repeats) but it spends free-pool calls re-deriving rows that already exist.
+SKIP_DONE = os.environ.get("SKIP_DONE", "1").strip().lower() not in ("0", "false", "no", "")
 
 OUT_PATH = f"formula_mine_result_shard{SHARD}.jsonl"
 
@@ -310,16 +331,20 @@ ALIAS_RE = re.compile('(?:\u4e00\u540d|\u53c8\u540d|\u4ea6\u540d|\u6216\u540d|\u
 
 WIN_BEFORE = 50
 WIN_AFTER = 600
-# Same-name window cap *within one shard*. This is the only remaining
-# throttle and it exists purely so a book that repeats one famous formula
-# hundreds of times (the pilot's example: \u6842\u679d\u6c64 in \u533b\u5b97\u91d1\u9274) cannot eat the
-# whole LLM budget. There is deliberately NO per-book window ceiling --
-# the founder's 2026-07-25 ruling is that an artificial window cap is what
-# made the pilot report only 328 entries for a 90-volume book whose real
-# formula count runs into the thousands. Default raised 2 -> 3 to match the
-# pilot script's current PER_NAME_CAP, since one name legitimately recurs
-# with different compositions/provenance in the big compendia.
-PER_NAME_CAP = int(os.environ.get("PER_NAME_CAP", "3"))
+# Same-name window cap, DISABLED by default (0 = no ceiling) since
+# 2026-07-25. It used to default to 3 windows per (text_id, name) to stop a
+# famous formula from eating the LLM budget, but measured against the Phase0
+# census it discarded 119087 of 377972 candidate windows across the 505-book
+# pool -- 31.5% -- and the loss landed hardest on exactly the compendia the
+# library is built for: Taiping Shenghui Fang lost 70% of its windows,
+# Shengji Zonglu 57%, Puji Fang 51%. A name recurring across 90 volumes is
+# not noise, it is the record; the same-formula-different-volume entries are
+# different data. Water is kept out by content, not by a counter: identical
+# windows are deduped below, the three hard gates still reject anything not
+# verbatim in the source, and --summarize dedups on
+# (text_id, name, composition) exactly like the D1 unique index. Any value
+# > 0 restores the old ceiling and is for smoke tests only.
+PER_NAME_CAP = int(os.environ.get("PER_NAME_CAP", "0"))
 
 
 def clean_title_name(raw):
@@ -376,7 +401,14 @@ def stage1_units(units, progress_every=40):
         if progress_every and ui and ui % progress_every == 0:
             print(f"  [{round(time.time()-T0)}s] stage1 {ui}/{len(units)} unit(s), "
                   f"{len(cands)} window(s) so far", flush=True)
-        text = get_text(u["r2_key"])
+        # One unhealthy volume (unreadable key, pathological text) must not take
+        # the whole shard down with it -- at 5631 volumes a single uncaught
+        # exception would cost the run every book after it in this shard.
+        try:
+            text = get_text(u["r2_key"])
+        except Exception as e:
+            print(f"  WARN unit {text_id}/{vol_no}: {type(e).__name__}:{str(e)[:80]}, skip", flush=True)
+            continue
         if not text:
             continue
         struct_spans = [(m.start(), m.end()) for m in STRUCT_HEAD_RE.finditer(text)]
@@ -417,22 +449,35 @@ def stage1_units(units, progress_every=40):
                           "aliases_hint": [], "src": "generic", "window": win})
             seen_pos.add(pos // 40)
             n_generic += 1
-    # \u540c\u4e66\u540c\u65b9\u540d cap(\u7ed3\u6784\u5316\u4f18\u5148\u4fdd\u7559,\u518d\u6309\u6587\u4e2d\u987a\u5e8f)
-    # NB: the cap key is (text_id, name) -- the pilot ran one book per call so a
-    # bare name sufficed; this function now spans books, and a bare name here
-    # would cap \u6842\u679d\u6c64 to 3 windows *across the entire corpus* and throw away
-    # every other book's version of the same famous formula. Sort is stable, so
-    # struct-titled candidates win the cap slots and in-text order is preserved.
+    # Dedup by CONTENT, not by a counter. Two candidates that normalize to the
+    # same CJK string are the same passage (a table of contents echoing the
+    # body, a duplicated OCR block) and only one of them is worth an LLM call.
+    # Two candidates that differ by a single character are two different
+    # records and both are kept, no matter how many times the name recurs --
+    # that is the whole point of dropping the old PER_NAME_CAP ceiling. The
+    # key is (text_id, name, window-hash), so the same passage reprinted in a
+    # different book is still mined once per book.
+    # Sort is stable, so a struct-titled candidate survives in preference to a
+    # generic one when both hash the same, and in-text order is preserved.
     cands.sort(key=lambda c: (0 if c["src"] == "struct" else 1,))
-    kept, cnt = [], {}
+    kept, cnt, seen_sig = [], {}, set()
+    n_dup = 0
     for c in cands:
-        k = (c["text_id"], c["name_hint"])
-        if cnt.get(k, 0) >= PER_NAME_CAP:
+        sig = (c["text_id"], c["name_hint"],
+               hashlib.sha1(norm(c["window"]).encode("utf-8")).hexdigest())
+        if sig in seen_sig:
+            n_dup += 1
             continue
-        cnt[k] = cnt.get(k, 0) + 1
+        seen_sig.add(sig)
+        if PER_NAME_CAP > 0:                 # smoke-test throttle only
+            k = (c["text_id"], c["name_hint"])
+            if cnt.get(k, 0) >= PER_NAME_CAP:
+                continue
+            cnt[k] = cnt.get(k, 0) + 1
         kept.append(c)
     return kept, {"struct": n_struct, "generic": n_generic,
-                  "raw": n_struct + n_generic, "after_cap": len(kept)}
+                  "raw": n_struct + n_generic, "dup_windows": n_dup,
+                  "after_cap": len(kept)}
 
 # ---------------------------------------------------------------------------
 # stage-2: 3-provider LLM chain + verbatim pilot prompt/gates
@@ -582,8 +627,10 @@ CHAIN = [("agnes", _call_agnes), ("xf", _call_xf), ("zhipu", _call_zhipu)]
 # well-formed JSON cut off mid-composition on formulas with long herb lists,
 # and the big compendia this pipeline now targets are exactly where long
 # formulas cluster. The budget is per-response so raising it costs nothing on
-# the (majority) short answers.
-MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "1400"))
+# the (majority) short answers -- and a truncated response is a silent ceiling
+# on exactly the longest, most valuable formulas, so 1400 -> 2000 on
+# 2026-07-25 alongside dropping the window caps.
+MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "2000"))
 
 
 def llm_call(system, user, max_tokens=MAX_TOKENS, timeout=120):
@@ -674,14 +721,26 @@ def build_units(segment):
                           "book": item.get("book", ""), "vol_no": item.get("vol", 1),
                           "r2_key": item["key"]})
         return units
+    # Two chunked bulk lookups, not two queries per book. The per-book loop was
+    # fine for a 50-book segment; at whole-corpus scale it is 2 x 570 = 1140
+    # sequential HTTPS round-trips before a shard does any work, repeated in
+    # every shard of the matrix. D1 caps a statement at 100 bound variables, so
+    # ids go out in chunks of 90.
+    names, vols_by_id = {}, {}
+    for i in range(0, len(segment), D1_PARAM_CHUNK):
+        grp = list(segment[i: i + D1_PARAM_CHUNK])
+        ph = ",".join(["?"] * len(grp))
+        for r in q(f"SELECT text_id, clean_name FROM books_text WHERE text_id IN ({ph})", grp):
+            names[r["text_id"]] = r["clean_name"]
+        for r in q(f"SELECT text_id, vol_no, r2_key FROM books_text_volumes "
+                   f"WHERE text_id IN ({ph}) ORDER BY text_id, vol_no", grp):
+            vols_by_id.setdefault(r["text_id"], []).append(r)
     for text_id in segment:
-        rows = q("SELECT clean_name FROM books_text WHERE text_id = ?", [text_id])
-        if not rows:
+        if text_id not in names:
             print(f"  WARN {text_id}: not found in books_text, skip", flush=True)
             continue
-        book_name = rows[0]["clean_name"]
-        vols = q("SELECT vol_no, r2_key FROM books_text_volumes WHERE text_id = ? ORDER BY vol_no",
-                 [text_id])
+        book_name = names[text_id]
+        vols = vols_by_id.get(text_id) or []
         if not vols:
             print(f"  WARN {text_id} ({book_name}): no volumes, skip", flush=True)
             continue
@@ -718,9 +777,17 @@ def interleave_by_book(units):
 def main():
     with open(WORKLIST_PATH, encoding="utf-8") as f:
         worklist = json.load(f)
-    segment = worklist[OFFSET: OFFSET + LIMIT]
+    segment = worklist[OFFSET: OFFSET + LIMIT] if LIMIT > 0 else worklist[OFFSET:]
     print(f"[{round(time.time()-T0)}s] source={SOURCE} worklist={len(worklist)} "
-          f"segment=[{OFFSET}:{OFFSET+LIMIT}]={len(segment)} item(s)", flush=True)
+          f"segment=[{OFFSET}:{OFFSET + LIMIT if LIMIT > 0 else len(worklist)}]"
+          f"={len(segment)} item(s)", flush=True)
+
+    if SKIP_DONE and SOURCE == "d1":
+        done_books = {r["text_id"] for r in q("SELECT DISTINCT text_id FROM sue_formulas")}
+        before = len(segment)
+        segment = [t for t in segment if t not in done_books]
+        print(f"[{round(time.time()-T0)}s] SKIP_DONE: {before} -> {len(segment)} book(s) "
+              f"({len(done_books)} already have rows in sue_formulas)", flush=True)
 
     units = interleave_by_book(build_units(segment))
     mine = units[SHARD::TOTAL]
@@ -744,7 +811,8 @@ def main():
 
     all_cands, st = stage1_units(mine)
     print(f"[{round(time.time()-T0)}s] stage1 done: struct={st['struct']} generic={st['generic']} "
-          f"raw={st['raw']} after name-cap({PER_NAME_CAP})={st['after_cap']}", flush=True)
+          f"raw={st['raw']} dup_windows={st['dup_windows']} "
+          f"name_cap={PER_NAME_CAP or 'off'} kept={st['after_cap']}", flush=True)
 
     todo = [c for c in all_cands if c["wid"] not in done_wids]
     print(f"[{round(time.time()-T0)}s] total candidates={len(all_cands)} todo={len(todo)} conc={CONC}", flush=True)
