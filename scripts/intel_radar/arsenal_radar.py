@@ -235,6 +235,20 @@ def scan_plan():
 
         # ---- category: FULL TEXT, not topics. This is the block that fixes the
         # structural blindness -- 4 of the 5 missed repos carry no topics. ----
+        # Pure-star catch-all: no keyword, no topic, no category guess at all.
+        # Measured 2026-07-26 -- obra/superpowers (261421 stars) slipped past
+        # every other query in this plan. Its name carries neither "skill" nor
+        # "awesome", and its topics (ai, skills, coding) match no topic query
+        # here. A repo can be among the loudest things on GitHub and still be
+        # invisible to a radar that only ever asks by name or by tag, so the
+        # last line of defence must ask by nothing but size. stars:>100000 +
+        # pushed:>30d matched exactly 94 repos worldwide: the whole set fits in
+        # one page, so this costs a single call and can never be truncated away
+        # by per_page the way stars:>50000 was (that one overflowed 100 and
+        # dropped superpowers again -- both were tried, this is the one that
+        # holds).
+        # PROVEN obra/superpowers (261421 stars, rank 59 of 94)
+        ("category", "stars:>100000 pushed:>%s" % d30, "updated"),
         ("category", "skill in:name stars:>500 pushed:>%s" % d90, "stars"),
         # PROVEN alchaincyf/zhangxuefeng-skill (9991 stars, topics=[])
         ("category", "skills in:name stars:>500 pushed:>%s" % d90, "stars"),
