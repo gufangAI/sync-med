@@ -18,6 +18,8 @@ Usage: python fangji_ai_refine.py --supplier modelscope --shard 0 --total 7 --li
 import argparse, json, os, re, sys, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
+from model_fleet import resolve as fleet_resolve
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 GATE = "https://gufangai.com/api/gateway/chat"
@@ -61,8 +63,9 @@ SYS = """\u4f60\u662f\u4e2d\u533b\u53e4\u7c4d\u65b9\u5242\u6821\u5bf9\u5458\u300
 {"ok": true/false, "name": "\u65b9\u540d", "herbs": ["\u836f\u67501","\u836f\u67502"]}"""
 
 def ask(item, supplier):
+    sup, model = fleet_resolve(supplier)
     body = json.dumps({
-        "supplier": supplier, "fallback": False, "json": True,
+        "supplier": sup, "model": model, "fallback": False, "json": True,
         "temperature": 0.1, "max_tokens": 500,
         "messages": [{"role": "system", "content": SYS},
                      {"role": "user", "content":
@@ -71,7 +74,8 @@ def ask(item, supplier):
     req = urllib.request.Request(GATE, body,
         {"Content-Type": "application/json", "User-Agent": UA, "Referer": "https://gufangai.com/"})
     r = json.loads(OP.open(req, timeout=90).read())
-    txt = r.get("content") or r.get("text") or ((r.get("data") or {}).get("content")) or ""
+    # \u7f51\u5173\u8fd4\u56de\u5b57\u6bb5\u662f text;\u66fe\u56e0\u53ea\u8bfb content \u5f97\u51fa"\u6a21\u578b\u5168\u5e9f"\u7684\u9519\u8bef\u7ed3\u8bba
+    txt = r.get("text") or r.get("content") or ""
     m = re.search(r"\{[\s\S]*\}", str(txt))
     return json.loads(m.group(0)) if m else None
 
@@ -95,7 +99,7 @@ def verify(res, item):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--supplier", required=True)
+    ap.add_argument("--supplier", required=True, help="fleet id, e.g. nvidia-gemma-4-31b")
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--total", type=int, default=1)
     ap.add_argument("--limit", type=int, default=3000)
