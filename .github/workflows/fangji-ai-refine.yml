@@ -1,0 +1,64 @@
+name: fangji-ai-refine
+
+# Formula library AI refinement.
+#
+# Why: the regex miner grounds every field in the source text, but grounding is not
+# semantics -- "with four sheng of water" IS in the source yet is a decoction step,
+# not a herb. Roughly half the composition fields hold procedure text, not herbs.
+#
+# Model race (measured 2026-07-26, 15 rows each, pass = every returned token found
+# verbatim in the source quote):
+#   xf_qwen 15/15 100% 15s | agnes 14/15 93% 11s | modelscope 13/15 87% 20s
+#   zhipu 8/15 | siliconflow 6/15 | nvidia 1/15 177s | cerebras 0/15
+# Only the top three run here. Picking a supplier without racing them would have
+# wasted the whole pass.
+#
+# Cost: zero. All three are free tiers reached through the platform's own gateway,
+# so no credentials live in this public repo.
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: rows per shard
+        default: '25000'
+      workers:
+        description: concurrency per shard
+        default: '5'
+  schedule:
+    - cron: '20 */6 * * *'   # keeps up with newly mined formulas; script is idempotent
+
+concurrency:
+  group: fangji-ai-refine
+  cancel-in-progress: false
+
+jobs:
+  refine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - supplier: xf_qwen
+            shard: 0
+          - supplier: agnes
+            shard: 1
+          - supplier: modelscope
+            shard: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: refine shard
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+        run: |
+          python scripts/fangji_ai_refine.py \
+            --supplier ${{ matrix.supplier }} \
+            --shard ${{ matrix.shard }} --total 3 \
+            --limit ${{ github.event.inputs.limit || 25000 }} \
+            --workers ${{ github.event.inputs.workers || 5 }}
