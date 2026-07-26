@@ -2027,6 +2027,16 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
         body_lines.append(selfcheck_md)
     if top3_md:
         body_lines.append(top3_md)
+    # Arsenal sits ahead of the blindspot block deliberately. Measured on the
+    # 2026-07-26 issue: the blindspot table ran 73 lines and pushed the arsenal
+    # section -- the one the council actually eats, and the only place newly
+    # found repos are named -- down to line 166 of a 266-line issue. That day
+    # the founder had pushed six repos by hand and read the report as having
+    # caught none of them; five were in fact in it, below the fold. A finding
+    # nobody scrolls to is indistinguishable from a finding nobody made, so
+    # this section is placed where it actually gets read.
+    if arsenal_md:
+        body_lines.append(arsenal_md)
     if synthesis_md:
 
         body_lines.append(synthesis_md)
@@ -2036,8 +2046,6 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
         body_lines.append(action_flags_md)
     if blindspot_md:
         body_lines.append(blindspot_md)
-    if arsenal_md:
-        body_lines.append(arsenal_md)
     body_lines += [
         '### \u7cbe\u534e TOP 15',
         "",
