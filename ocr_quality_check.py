@@ -24,13 +24,30 @@ s3 = boto3.client("s3", endpoint_url=EP, aws_access_key_id=AK, aws_secret_access
 random.seed(SEED)
 
 
+def _manifest_pc(v):
+    """Page count out of a manifest value, old shape or new. See ocr.py."""
+    if isinstance(v, dict):
+        try:
+            return int(v.get("pc") or 0)
+        except (TypeError, ValueError):
+            return 0
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
+
 def load_books():
     """书目 {bid: page_count}。优先 R2 manifest,失败再 D1 兜底。"""
     try:
         m = json.loads(s3.get_object(Bucket=BUCKET, Key=PAGES_KEY)["Body"].read().decode("utf-8"))
         if m:
             print(f"manifest 载入 {len(m)} 本(源:{PAGES_KEY})", flush=True)
-            return {k: int(v) for k, v in m.items() if int(v) > 0}
+            # 同 ocr.py 的 _pagecount:2026-07-22 起 sync.py 把 manifest 的值从
+            # 页数改成 {"pc": 页数, "pdid": 123文件夹id},此处原样 int(v) 会抛
+            # TypeError。ocr.py 因此全线挂了五天;这里是同一个雷的另一处,一并拆。
+            # 两种形状都收——D1 兜底路径至今仍写裸整数,只认新形状会在兜底时再炸。
+            return {k: pc for k, pc in ((k, _manifest_pc(v)) for k, v in m.items()) if pc > 0}
     except Exception as e:
         print(f"manifest 不可读({str(e)[:80]})-> 转 D1 兜底", flush=True)
     acc = os.environ.get("CF_ACCOUNT_ID"); db = os.environ.get("D1_DATABASE_ID"); tok = os.environ.get("D1_API_TOKEN")
