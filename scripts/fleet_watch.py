@@ -15,11 +15,20 @@ REPO = "gufangAI/sync-med"
 TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
 
+# 2026-07-27: two blind spots added back. On 2026-07-25 the OCR_WORKFLOW pointer
+# was moved from ocr.yml to ocr_ndl.yml, but ocr.yml was never re-added to this
+# table -- so when its 2026-07-22 run failed 256 of 257 jobs on a TypeError, the
+# watch said nothing and 168GB of Siku Quanshu sat idle for five days. Moving a
+# monitor's pointer does not retire the old target; it only stops anyone looking.
+# council.yml has the same exposure: it produces the daily agenda, and if it dies
+# nobody finds out. 30h window because it runs once a day.
 WORKFLOWS = {
     "ocr_ndl.yml":     {"name": "OCR(NDL主力线)", "alert_hours": 8},
+    "ocr.yml":         {"name": 'OCR(四库全书线)', "alert_hours": 8},
     "sync.yml":        {"name": "sync",         "alert_hours": 24},
     "guji_sync.yml":   {"name": 'guji-sync(\u53e4\u7c4d\u8fc1\u79fb)', "alert_hours": 6},
     "clean-embed.yml": {"name": 'clean-embed(clean\u7d22\u5f15\u704c\u5e93)', "alert_hours": 10},
+    "council.yml":     {"name": 'council(SueAI议事会)', "alert_hours": 30},
 }
 
 
