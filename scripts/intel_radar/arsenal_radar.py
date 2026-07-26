@@ -30,6 +30,21 @@ MEASURED ROOT CAUSE (probed against the live API on 2026-07-26, not guessed):
   With those four corrections the scan plan below hits 5/5. Each query that
   proved a target is tagged `# PROVEN <repo>` and MUST NOT be "tidied away".
 
+  5. THE PLAN ONLY SPOKE ENGLISH -- added 2026-07-27, founder: "it has to search
+     Chinese and English, multilingual". The four fixes above are all about HOW
+     we ask; this one is about WHAT LANGUAGE we ask in, and it is the same class
+     of structural blindness. Until now every technical query was English, and
+     the only CJK in the plan was domain vocabulary (medicine, classics). A tool
+     named, described and documented in Chinese therefore could not be returned
+     by any technical query we ran, no matter how popular it was -- measured:
+     harry0703/MoneyPrinterTurbo, 99373 stars and squarely on our video line,
+     had never once been surfaced. Its description is Chinese. The CJK technical
+     block in scan_plan() is the fix, and it is not a translation of the English
+     queries: the two halves return substantially different repos, which is the
+     whole point of running both. Query wording IS the radar's eyesight, not
+     configuration -- the same lesson as `stars:>100000` finding a 261k-star
+     repo that every topic query missed.
+
 WHAT THIS MODULE DELIBERATELY DOES NOT DO -- founder's correction, same day:
     "push it to SueAI, not to me ... free models, race, expert mechanism, they
      hold a discussion, decide what we actually need, then it comes to the CTO"
@@ -77,6 +92,26 @@ ZH = {
     "Q_guji": "\u53e4\u7c4d",
     "Q_agent": "\u667a\u80fd\u4f53",
     "Q_nvwa": "\u5973\u5a32",
+    # Technical-vocabulary half of the CJK plan, added 2026-07-27. Until now
+    # every technical query in scan_plan() was English-only, so a Chinese
+    # developer who names the repo, writes the description and writes the README
+    # in Chinese was invisible for the same structural reason topic-only queries
+    # missed the original five. Glossed here in English so the file stays
+    # readable without decoding: free-api / api-relay / large-model / ocr /
+    # fine-tune / rag-knowledge-base / knowledge-graph / short-video /
+    # auto-publish / digital-human / prompt-word / tcm-large-model.
+    "Q_freeapi": "\u514d\u8d39 API",
+    "Q_relay": "API \u4e2d\u8f6c",
+    "Q_llm": "\u5927\u6a21\u578b",
+    "Q_ocr": "OCR \u8bc6\u522b",
+    "Q_finetune": "\u5fae\u8c03",
+    "Q_ragkb": "RAG \u77e5\u8bc6\u5e93",
+    "Q_kg": "\u77e5\u8bc6\u56fe\u8c31",
+    "Q_shortvid": "\u77ed\u89c6\u9891",
+    "Q_autopub": "\u81ea\u52a8 \u53d1\u5e03",
+    "Q_avatar": "\u6570\u5b57\u4eba",
+    "Q_prompt": "\u63d0\u793a\u8bcd",
+    "Q_tcmllm": "\u4e2d\u533b \u5927\u6a21\u578b",
     "SEC_H": "## \U0001f9ed \u519b\u706b\u5019\u9009 (\u5582\u8bae\u4e8b\u4f1a\u7684\u8f93\u5165\uff0c\u975e\u7ed3\u8bba)",
     "SEC_NOTE": "> \u672c\u6bb5\u53ea\u5199\u5ba2\u89c2\u4e8b\u5b9e\u4e0e\u5019\u9009\u9879\uff0c**\u4e0d\u505a\u91c7\u4e0d\u91c7\u7528\u7684\u5224\u65ad**\u3002\u5224\u65ad\u5728 SueAI \u8bae\u4e8b\u4f1a\u3002\u673a\u5668\u53ef\u8bfb\u5168\u91cf\uff1a`reports/arsenal/candidates.json`\uff1b\u53f0\u8d26\uff1a`reports/arsenal/arsenal.json`\u3002",
     "SEC_TBL": "| \u9879\u76ee | \u661f | \u80fd\u529b(\u5ba2\u89c2) | \u53ef\u8fc1\u79fb\u5f62\u6001\u5019\u9009 | \u7591\u4f3c\u5bf9\u5e94\u7ebf | \u8bb8\u53ef\u8bc1 | \u53d1\u73b0\u7ef4\u5ea6 |",
@@ -104,7 +139,21 @@ SCHEMA_VERSION = 1
 # to take the daily report down with it.
 SEARCH_MIN_INTERVAL_AUTH = 2.2     # 60/2.2 = ~27 req/min, under the 30 ceiling
 SEARCH_MIN_INTERVAL_ANON = 6.5     # 60/6.5 = ~9 req/min, under the 10 ceiling
-SEARCH_BUDGET = int(os.environ.get("ARSENAL_SEARCH_BUDGET", "34"))
+# 34 -> 44 on 2026-07-27, when the CJK technical block took the plan from 27
+# queries to 39. Raised rather than paid for by pruning, and the reasoning is
+# worth keeping because "budget" reads like "cost" and here it is not:
+#   * This budget is a RUNAWAY GUARD, not a quota. GitHub search costs nothing;
+#     the ceiling that actually binds is 30 requests/MINUTE, and that is enforced
+#     by SEARCH_MIN_INTERVAL_AUTH above (~27/min), not by this number. Raising
+#     the budget cannot breach the rate limit -- it only buys wall time:
+#     39 calls x 2.2s = ~86s, against ~59s for the old 27-query plan.
+#   * 44 not 39, i.e. five spare, ON PURPOSE. When the budget is spent gh_search
+#     returns empty and the plan is consumed IN ORDER, so a plan sized exactly to
+#     its budget silently truncates from the TAIL -- and the tail is the CJK
+#     block. Sizing it flush would have made the Chinese queries the first thing
+#     to die on any future addition, which is the failure being fixed here.
+# The env override stays the escape hatch if a run ever needs to be cut short.
+SEARCH_BUDGET = int(os.environ.get("ARSENAL_SEARCH_BUDGET", "44"))
 CORE_MIN_INTERVAL = 0.8
 
 _state = {"search_calls": 0, "core_calls": 0, "last_search": 0.0, "last_core": 0.0,
@@ -274,16 +323,104 @@ def scan_plan():
          "stars"),
         ("category", "prompts in:name stars:>300 pushed:>%s" % d30, "updated"),
 
-        # ---- chinese ecosystem: GitHub's relevance ranking is poor for CJK, so
-        # topic-based queries carry the weight and the CJK literals are
-        # best-effort. Queries returning 0 are reported by --selftest so a dead
-        # one is pruned on evidence rather than on taste. ----
+        # ---- chinese ecosystem. Domain half (below) plus a TECHNICAL half that
+        # did not exist before 2026-07-27: every technical query above this block
+        # is English-only, so a project named, described and documented in
+        # Chinese was structurally invisible for exactly the same reason the
+        # original five were -- we were only ever asking in one language.
+        #
+        # THREE THINGS WERE MEASURED on 2026-07-27, all against the live API, and
+        # they overturn the "CJK literals are best-effort" note that stood here:
+        #
+        #  1. `pushed:` IS THE CJK NOISE FILTER, and it is not optional. GitHub
+        #     matches CJK loosely, so a handful of enormous, ABANDONED awesome
+        #     lists sit at the top of nearly every CJK result set -- funNLP
+        #     (82061 stars, no push in >90d) headed 11 of the 16 queries first
+        #     tried. Adding `pushed:>d90` evicts them: `Q_ocr` went 93 results
+        #     headed by funNLP -> 18 results that are all genuinely OCR. The
+        #     filter buys precision, not freshness, which is why it is on almost
+        #     every line below.
+        #
+        #  2. RESULT COUNT IS NOT QUALITY. The single highest-yielding CJK query
+        #     tried, the classical-Chinese term for literary Chinese at
+        #     `stars:>20`, returned 862 -- and was pure noise: rust-course and
+        #     gpt_academic matched it. It is REJECTED despite out-yielding every
+        #     query that was kept. Same verdict, same evidence standard, for the
+        #     generic words for "skill" (107 results, all Android/admin/interview
+        #     repos) and "workflow" (74, all Java ERP frameworks): a CJK word
+        #     common in ordinary software prose cannot be a radar dimension.
+        #
+        #  3. `Q_tcmllm` DELIBERATELY CARRIES NO `pushed:` FILTER, and that is
+        #     the one real exception to point 1. Measured both ways: without it,
+        #     30 results led by ShenNong-TCM-LLM / TCMLLM / HuangDI; WITH
+        #     `pushed:>d90`, 7 results whose stars are 3, 0, 0, 0, 0. The good
+        #     work in this niche is finished research, not a live project, so
+        #     here the freshness filter deletes precisely the rows we want.
+        #     Do not "make it consistent" with the lines around it.
+        #
+        # Every query below was run against the live API on 2026-07-27 and is
+        # tagged with what it actually returned. None was kept on taste; a query
+        # that answers 0 is reported by --selftest and pruned, never left as
+        # decoration. ----
         ("chinese", "topic:chinese stars:>500 pushed:>%s" % d30, "updated"),
         ("chinese", "topic:chinese-nlp stars:>200 pushed:>%s" % d90, "stars"),
         ("chinese", ZH["Q_tcm"] + " in:name,description stars:>50", "stars"),
         ("chinese", ZH["Q_guji"] + " in:name,description stars:>20", "stars"),
         ("chinese", ZH["Q_agent"] + " in:name,description stars:>200", "stars"),
         ("chinese", ZH["Q_nvwa"] + " in:name,description stars:>100", "stars"),
+
+        # -- free / cheap model access: the pool the batch work actually runs on
+        # ret=30 PROVEN chatanywhere/GPT_API_free (39052), fangzesheng/free-api (16168)
+        ("chinese", ZH["Q_freeapi"] + " in:name,description stars:>100 pushed:>%s" % d90,
+         "stars"),
+        # ret=12 PROVEN Wei-Shaw/sub2api (34434), qixing-jk/all-api-hub (4554),
+        # zzsting88/relayAPI (3550) -- the Chinese-language relay/aggregator
+        # category, which no English query in this plan returns.
+        ("chinese", ZH["Q_relay"] + " in:name,description stars:>100 pushed:>%s" % d90,
+         "stars"),
+        # ret=59 PROVEN harry0703/MoneyPrinterTurbo (99373), jingyaogong/minimind (53861)
+        # -- a 99k-star content-production repo the radar had never once seen.
+        ("chinese", ZH["Q_llm"] + " in:name,description stars:>1000 pushed:>%s" % d30,
+         "stars"),
+
+        # -- OCR / models: 650k pages of scanned classics are waiting on this
+        # ret=18 PROVEN tisfeng/Easydict (13999), DayBreak-u/chineseocr_lite (12327)
+        ("chinese", ZH["Q_ocr"] + " in:name,description stars:>100 pushed:>%s" % d90,
+         "stars"),
+        # ret=24 PROVEN datawhalechina/self-llm (31429), AiHubCN/Awesome-Chinese-LLM (22699)
+        ("chinese", ZH["Q_finetune"] + " in:name,description stars:>300 pushed:>%s" % d90,
+         "stars"),
+
+        # -- RAG / knowledge graph / document parsing
+        # ret=19 PROVEN zhimaAi/chatwiki (2016), moyangzhan/langchain4j-aideepin (1341)
+        ("chinese", ZH["Q_ragkb"] + " in:name,description stars:>200", "stars"),
+        # ret=12 PROVEN xerrors/Yuxi (6264), honeyandme/RAGQnASystem (1370)
+        ("chinese", ZH["Q_kg"] + " in:name,description stars:>200 pushed:>%s" % d90,
+         "stars"),
+
+        # -- AI content production: classics -> video / graphics
+        # ret=35 PROVEN harry0703/MoneyPrinterTurbo (99373), ATH-MaaS/Pixelle-Video (26056)
+        ("chinese", ZH["Q_shortvid"] + " in:name,description stars:>100 pushed:>%s" % d90,
+         "stars"),
+        # ret=30 PROVEN white0dew/XiaohongshuSkills (3231), liyown/ai-trend-publish (3080)
+        # -- the Chinese half of the auto-publish category that AiToEarn sits in.
+        ("chinese", ZH["Q_autopub"] + " in:name,description stars:>100 pushed:>%s" % d90,
+         "stars"),
+        # ret=19 PROVEN xszyou/Fay (13352), modstart-lib/aigcpanel (5354). Avatar
+        # synthesis is a separate category from Q_shortvid (video assembly);
+        # measured overlap between the two result sets was near zero.
+        ("chinese", ZH["Q_avatar"] + " in:name,description stars:>100 pushed:>%s" % d90,
+         "stars"),
+
+        # -- agent / skill / prompt engineering
+        # ret=41 PROVEN langgptai/LangGPT (12378), rockbenben/ChatGPT-Shortcut (8640)
+        ("chinese", ZH["Q_prompt"] + " in:name,description stars:>200 pushed:>%s" % d90,
+         "stars"),
+        # ret=30 PROVEN michael-wzhu/ShenNong-TCM-LLM (499), 2020MEAI/TCMLLM (261),
+        # Zlasejd/HuangDI (160). Lowest star counts in the plan and the most
+        # on-mission query in it: 100% of the first page is TCM-specific LLM
+        # work. See point 3 above before adding a `pushed:` filter here.
+        ("chinese", ZH["Q_tcmllm"] + " in:name,description", "stars"),
     ]
 
 
