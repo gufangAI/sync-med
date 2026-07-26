@@ -1,6 +1,6 @@
 {
  "extra": {},
- "generated_at": "2026-07-26T00:58:31.582145+08:00",
+ "generated_at": "2026-07-26T23:36:51.127382+08:00",
  "key": "2026-07-26",
  "metrics": {
   "cand_pending": {
@@ -25,15 +25,15 @@
   },
   "graph_edges": {
    "err": null,
-   "value": 3026
+   "value": 259686
   },
   "graph_edges_tier1": {
    "err": null,
-   "value": 1069
+   "value": 257729
   },
   "graph_nodes": {
    "err": null,
-   "value": 1823
+   "value": 69555
   },
   "gufang_lib": {
    "err": null,
@@ -45,7 +45,7 @@
   },
   "med_visible": {
    "err": null,
-   "value": 45084
+   "value": 45097
   }
  },
  "period": "daily",
@@ -53,7 +53,7 @@
   "2026-07-26",
   "2026-07-26"
  ],
- "run_id": "30163934243",
+ "run_id": "30208562001",
  "tables": {
   "daodu_by_ver": {
    "err": null,
@@ -86,6 +86,10 @@
     {
      "k": "fojing",
      "n": 273
+    },
+    {
+     "k": "nonmed_junk",
+     "n": 13
     }
    ]
   }
