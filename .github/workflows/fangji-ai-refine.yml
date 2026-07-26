@@ -58,22 +58,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - supplier: cerebras-gemma-4-31b
+          - supplier: deepseek-v4-flash
             shard: 0
           - supplier: nvidia-gemma-4-31b
             shard: 1
           - supplier: nvidia-mistral-nemotron
             shard: 2
-          - supplier: xf-qwen-qwen36v35b
-            shard: 3
-          - supplier: agnes-agnes-2.0-flash
-            shard: 4
-          - supplier: modelscope-qwen3-14b
-            shard: 5
           - supplier: nvidia-gemma-3n-e4b
+            shard: 3
+          - supplier: agnes-2.0-flash
+            shard: 4
+          - supplier: zhipu-glm-4-flash
+            shard: 5
+          - supplier: sensenova-flash
             shard: 6
-          - supplier: zhipu-glm-5.1
-            shard: 7
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -84,9 +82,15 @@ jobs:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          NVIDIA_KEYS: ${{ secrets.NVIDIA_KEYS }}
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          ZHIPU_KEY: ${{ secrets.ZHIPU_KEY }}
+          CEREBRAS_KEYS: ${{ secrets.CEREBRAS_KEYS }}
+          SENSENOVA_KEYS: ${{ secrets.SENSENOVA_KEYS }}
         run: |
           python scripts/fangji_ai_refine.py \
             --supplier ${{ matrix.supplier }} \
-            --shard ${{ matrix.shard }} --total 8 \
+            --shard ${{ matrix.shard }} --total 7 \
             --limit ${{ github.event.inputs.limit || 25000 }} \
             --workers ${{ github.event.inputs.workers || 5 }}
