@@ -66,6 +66,13 @@ jobs:
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ github.event.inputs.total || '256' }}
           PILOT: ${{ github.event.inputs.pilot }}
+          # 123 pan credentials. book/ imagery left R2 on 2026-07-17, so without
+          # these pan_fetch.available() is False and every shard falls back to the
+          # 07-22 stop-gap and exits -- which is exactly the five days of zero
+          # output this is meant to end. An absent secret must read as a missing
+          # capability in the log, not as "nothing to do".
+          CTEXT_PAN_CID: ${{ secrets.CTEXT_PAN_CID }}
+          CTEXT_PAN_SEC: ${{ secrets.CTEXT_PAN_SEC }}
       - name: save ledger cache
         if: always()
         uses: actions/cache/save@v4
