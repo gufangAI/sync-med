@@ -61,11 +61,37 @@ except Exception as e:
     except Exception as e2:
         print(f"WARNING: cache-back failed ({e2}) -> next run will rebuild again, not fatal", flush=True)
 
+def _pagecount(v):
+    """Read a page count out of a manifest value, whichever shape it is in.
+
+    The manifest used to map book_id -> page_count. On 2026-07-22 sync.py began
+    writing book_id -> {"pc": count, "pdid": <123 folder id>} so pages could be
+    fetched from the pan instead of R2 (see its rebuild query). This file kept
+    reading the old shape and died on int(dict): 256 of 257 jobs, every run, for
+    five days, with 168GB of scans waiting behind it. Nobody noticed because the
+    fleet watch pointer had been moved to ocr_ndl.yml three days later.
+
+    Accepting BOTH shapes rather than pinning the new one is deliberate -- the
+    two writers still disagree. sync.py writes the dict, while the D1 fallback
+    a few lines above writes bare ints, so a reader that only understood the
+    newer shape would break again the first time that fallback ran."""
+    if isinstance(v, dict):
+        try:
+            return int(v.get("pc") or 0)
+        except (TypeError, ValueError):
+            return 0
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
+
 imgs = []
-for bid, pc in PAGES.items():
-    if (allow is not None and reqof(bid) not in allow) or int(pc) <= 0:
+for bid, _pv in PAGES.items():
+    pc = _pagecount(_pv)
+    if (allow is not None and reqof(bid) not in allow) or pc <= 0:
         continue
-    imgs += [f"book/{bid}/page_{n:04d}.webp" for n in range(1, int(pc) + 1)]
+    imgs += [f"book/{bid}/page_{n:04d}.webp" for n in range(1, pc + 1)]
 imgs.sort()
 mine = [k for i, k in enumerate(imgs) if i % TOTAL == SHARD]
 _pilot = os.environ.get("PILOT", "").strip()
