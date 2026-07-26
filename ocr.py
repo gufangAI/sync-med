@@ -6,7 +6,8 @@ import os, io, re, json, sys, boto3, requests, numpy as np
 from PIL import Image
 from botocore.exceptions import ClientError
 from rapidocr_onnxruntime import RapidOCR
-import ocr_quality   # OCR 质量闸:重复短语/整行复读/乱码率检测(纯规则),不合格标记不入库
+import ocr_quality
+import pan_fetch   # OCR 质量闸:重复短语/整行复读/乱码率检测(纯规则),不合格标记不入库
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKET = os.environ["S_BUCKET"]
 SHARD = int(os.environ.get("SHARD", "0")); TOTAL = int(os.environ.get("TOTAL", "1"))
@@ -112,6 +113,8 @@ if os.path.exists(LEDGER):
 print(f"ledger已有 {len(ledger)} 条记录", flush=True)
 
 done = 0; skipped = 0; rejected = 0
+USE_PAN = False
+pan_miss = 0
 # 2026-07-22 止血: book/ 影像已于 2026-07-17 迁 123、R2 里已删空,直读会全部 NoSuchKey。
 # 进逐页 OCR 循环前先 HEAD 探测本 shard 首个 key,不在(=R2 book/ 已空)则整 shard 跳过,
 # 避免逐个 GET 全 404 烧 Class B(2026-07-21 sync+ocr 共刷 566万次≈$2.08)。
@@ -122,15 +125,44 @@ if mine:
     except ClientError as _he:
         if _he.response.get("Error", {}).get("Code") in ("NoSuchKey", "404", "NotFound"):
             print(f"=== shard {SHARD} R2 book/ 已空(已迁123),整 shard 跳过,不烧 Class B ===", flush=True)
-            json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
-            sys.exit(0)
+            # 2026-07-27: R2 empty is the expected steady state now, not an error --
+            # book/ moved to the 123 pan on 2026-07-17 and sync.py has been reading
+            # it from there ever since. Exiting here was correct as a bleed stop on
+            # 07-22, but five days of zero output is not a resting state for the OCR
+            # line. Switch to the pan when credentials exist; keep the old exit when
+            # they do not, so a missing secret can never re-open the Class B bleed.
+            if pan_fetch.available():
+                USE_PAN = True
+                print(f"=== shard {SHARD} R2 book/ empty -> reading pages from 123 pan ===", flush=True)
+            else:
+                print(f"=== shard {SHARD} R2 empty and no pan credentials -> skip ===", flush=True)
+                json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
+                sys.exit(0)
         raise
 for k in mine:
     txtkey = "_ocr/" + k[len("book/"):].rsplit(".", 1)[0] + ".txt"
     if txtkey in ledger:
         skipped += 1; continue
     try:
-        b = s3.get_object(Bucket=BUCKET, Key=k)["Body"].read()
+        if USE_PAN:
+            # k == book/{bid}/page_{NNNN}.webp
+            _rest = k[len("book/"):]
+            _bid, _fn = _rest.split("/", 1)
+            _pno = int(_fn.rsplit(".", 1)[0].split("_")[-1])
+            _pv = PAGES.get(_bid)
+            _pdid = _pv.get("pdid") if isinstance(_pv, dict) else None
+            if not _pdid:
+                # The D1 fallback manifest carries bare page counts and no folder
+                # id, so a pan read is impossible for that book. Count it rather
+                # than failing the shard -- the fix is to refresh the R2 manifest.
+                pan_miss += 1
+                continue
+            b = pan_fetch.fetch_page(_pdid, _pno)
+            if not b:
+                pan_miss += 1
+                continue
+        else:
+            b = s3.get_object(Bucket=BUCKET, Key=k)["Body"].read()
         im = np.array(Image.open(io.BytesIO(b)).convert("RGB"))[:, :, ::-1]  # PIL decodes webp->RGB; RapidOCR wants BGR (cv2)
         res, _ = engine(im)
         txt = "\n".join(l[1] for l in (res or []))   # res = [[box, text, score], ...]
