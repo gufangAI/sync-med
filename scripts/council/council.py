@@ -87,7 +87,37 @@ def hhmmss(sec):
 # ---------------------------------------------------------------------------
 # stage 1 -- triage
 # ---------------------------------------------------------------------------
-def triage(metrics, n_topics, manual_topic=""):
+def _intel_topic(c, gen_date):
+    """Turn one radar candidate into a debatable topic.
+
+    The distiller deliberately ships description + capability + transfer_forms
+    + line_candidates and NO recommendation, because deciding is the council's
+    job. So the topic states what the thing is and asks what it is worth to us
+    -- it must not smuggle in an answer, or there is nothing left to argue."""
+    found = c.get("found_by") or {}
+    return {
+        "organ": t("organ_intel"),
+        "title": t("topic_intel_tpl", repo=c.get("repo", "?"),
+                   stars=c.get("stars", 0), cap=(c.get("capability") or "")[:60]),
+        "current": t("intel_current_tpl", stars=c.get("stars", 0),
+                     lang=c.get("lang") or "-", lic=c.get("license") or "-",
+                     age=c.get("age_days", "-"), pushed=c.get("pushed_at") or "-"),
+        "target": t("intel_target_tpl",
+                    forms="/".join(c.get("transfer_forms") or []) or "-"),
+        "basis": t("basis_intel_tpl", date=gen_date,
+                   dim=found.get("dimension") or "-",
+                   lines="/".join(c.get("line_candidates") or []) or "-"),
+        # Above every D1 gap on purpose: the founder's instruction on
+        # 2026-07-26 was that this council exists to find new technology and
+        # new trends, not to relitigate our own order count. D1 keeps the
+        # remaining seat so the system can still notice it is bleeding.
+        "sev": 5.0 + min(1.0, (c.get("stars") or 0) / 100000.0),
+        "sql": "",
+        "intel": c,
+    }
+
+
+def triage(metrics, n_topics, manual_topic="", intel=None):
     scored = sorted(
         ({"m": m, "sev": probes.severity(m)} for m in metrics),
         key=lambda x: -x["sev"],
@@ -103,6 +133,18 @@ def triage(metrics, n_topics, manual_topic=""):
             "sev": 9.99,
             "sql": "",
         })
+    # Outward-looking topics take the majority of the seats, D1 keeps at least
+    # one. Reserving a seat rather than sorting everything together is
+    # deliberate: a single quiet day on GitHub must not silently turn this back
+    # into the inward-only council it used to be, and a loud one must not bury
+    # a real internal fire.
+    rows = list(intel or [])
+    if rows:
+        room = max(0, n_topics - len(topics))
+        n_intel = max(1, (room * 2) // 3) if room else 0
+        gen_date = (rows[0].get("_generated") or "")[:10]
+        for c in rows[:n_intel]:
+            topics.append(_intel_topic(c, gen_date))
     for row in scored:
         if len(topics) >= n_topics:
             break
@@ -549,7 +591,11 @@ def main():
         log("  SKIPPED %s" % s)
     radar = probes.fetch_radar_selfcheck()
     log("  eagle-eye issue: %s" % (("#%s (%s)" % (radar[0], radar[1])) if radar[0] else "none"))
-    topics = triage(metrics, args.topics, args.topic)
+    intel = probes.fetch_arsenal_candidates()
+    log("  external intel: %d distilled candidate(s)%s" %
+        (len(intel), (" | top=%s" % intel[0].get("repo")) if intel else
+         " -- council falls back to D1-only topics"))
+    topics = triage(metrics, args.topics, args.topic, intel=intel)
     st["triage"] = time.time() - t1
     if not topics:
         log("no topic above threshold -- nothing to convene about")
