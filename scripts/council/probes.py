@@ -277,3 +277,47 @@ def fetch_radar_selfcheck(max_scan=30):
         if sect:
             return it["number"], (it.get("created_at") or "")[:10], sect[:4000]
     return None, None, ""
+
+
+_ARSENAL_JSON = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "reports", "arsenal", "candidates.json")
+
+
+def fetch_arsenal_candidates(limit=12):
+    """Read the radar's machine file -- the OUTSIDE world, as opposed to
+    collect_metrics() which reads our own D1.
+
+    Why this exists (founder, 2026-07-26): "what they should be doing is
+    discovering new technology, new trends, things happening in the industry --
+    not monetisation." Until now triage ranked topics purely off internal D1
+    shortfalls, so four models spent every session arguing about our own order
+    count while 1132 external findings sat unread one directory away. A council
+    that only ever looks inward is an expensive mirror.
+
+    Only distilled rows are returned: those carry capability / transfer_forms /
+    line_candidates, which is what makes a repo arguable. An undistilled row is
+    just a name and a star count -- nothing to hold a debate about.
+
+    Returns [] on any failure. An unreadable intel file must degrade the council
+    back to its old D1-only behaviour, never take the run down.
+    """
+    try:
+        with open(_ARSENAL_JSON, "r", encoding="utf-8") as f:
+            doc = json.load(f)
+    except Exception as e:
+        print("  [arsenal] intel file unreadable (%s: %s) -- falling back to D1 only"
+              % (type(e).__name__, str(e)[:80]), flush=True)
+        return []
+    rows = [r for r in (doc.get("candidates") or [])
+            if r.get("distilled") and r.get("capability")]
+    # Stamp each row with the scan date so a topic can cite when its intel was
+    # gathered. Without it a stale candidates.json would silently present
+    # week-old findings as today's.
+    gen = str(doc.get("generated") or "")[:10]
+    for r in rows:
+        r["_generated"] = gen
+    # new_to_us first, then by size. Anything already in the arsenal ledger has
+    # been seen before and makes a poor headline topic.
+    rows.sort(key=lambda r: (0 if r.get("new_to_us") else 1, -(r.get("stars") or 0)))
+    return rows[:limit]
