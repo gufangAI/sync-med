@@ -69,6 +69,14 @@ GITHUB_MAX       = 300
 PUBMED_DAYS      = 30     
 PUBMED_MAX       = 50
 HF_TRENDING_MAX  = 100
+HF_DATASETS_MAX  = 30     # datasets rank lower than models for us: kept small on purpose
+
+# OpenRouter: how far back a zero-price model still counts as "new", and the
+# hard cap on how many we hand the scorer. 30d matches PUBMED_DAYS and the
+# github-freebies window already used in this file.
+OPENROUTER_NEW_DAYS = 30
+OPENROUTER_MAX      = 40
+PRODUCTHUNT_MAX     = 30
 
 
 BATCH_SIZE       = 30     
@@ -553,33 +561,185 @@ def fetch_hf_papers() -> list:
     return papers
 
 
-def fetch_hf_trending_models() -> list:
-    '\u6293\u53d6 HuggingFace trending models (API)'
-    print(f"[\u6293\u53d6] HuggingFace Trending Models (≤{HF_TRENDING_MAX}) ...", end=" ", flush=True)
-    
-    url = f"https://huggingface.co/api/models?sort=likes&limit={HF_TRENDING_MAX}&direction=-1"
+# ============================================================
+# HuggingFace trending (models + datasets)
+#
+# sort=trendingScore, NOT sort=likes. This fetcher shipped on `sort=likes`
+# while being named "trending", and that was measurably the wrong board.
+# Side-by-side probe of both endpoints, 100 items each, 2026-07-26:
+#
+#   sort=likes         top5: FLUX.1-dev, DeepSeek-R1, stable-diffusion-xl-base,
+#                            stable-diffusion-v1-4, Meta-Llama-3-8B
+#                      -> 0 of 100 were created in the last 30 days.
+#   sort=trendingScore top5: baidu/Unlimited-OCR (trendingScore 972, created
+#                            2026-06-19, image-text-to-text), poolside/Laguna-S-2.1,
+#                            upstage/Solar-Open2-250B, ...
+#                      -> 60 of 100 were created in the last 30 days.
+#
+# So `likes` is an all-time hall of fame: by construction it can never surface
+# a model published this week, and in a DAILY report it spent the entire
+# 50-item HF analysis budget (hf_models_sample in main) re-scoring the same
+# famous models every morning. It is REPLACED rather than kept alongside --
+# the two boards are near-disjoint at the head (top-20 overlap 0, whole-list
+# overlap 12/100), so running both would not have bought a cheap extra angle,
+# it would have doubled the budget to re-buy the exact stale list we are
+# dropping. The first trendingScore hit lands straight on our own OCR backlog,
+# which is the kind of signal this radar exists to catch.
+# ============================================================
+
+def _fetch_hf_trending(kind: str, limit: int, source: str) -> list:
+    """Shared fetcher for /api/models and /api/datasets -- same query params
+    and same JSON shape, so the two differ only by endpoint and label."""
+    print(f"[Fetch] HuggingFace Trending {kind} (<={limit}) ...", end=" ", flush=True)
+    url = (f"https://huggingface.co/api/{kind}"
+           f"?sort=trendingScore&limit={limit}&direction=-1")
     try:
-        raw = fetch_url(url, timeout=30)
-        data = json.loads(raw)
+        data = json.loads(fetch_url(url, timeout=30))
     except (RuntimeError, json.JSONDecodeError) as e:
-        print(f"\u5931\u8d25: {e}")
+        print(f"failed: {e}")
+        return []
+    if not isinstance(data, list):
+        print("failed: unexpected payload shape (expected a JSON array)")
         return []
 
-    models = []
+    prefix = "datasets/" if kind == "datasets" else ""
+    out = []
     for item in data:
-        mid   = item.get("modelId", item.get("id", ""))
-        tags  = ", ".join(item.get("tags", []))
-        likes = item.get("likes", 0)
-        dl    = item.get("downloads", 0)
-        models.append({
-            "id": mid,
-            "title": mid,
-            "abstract": f"\u6807\u7b7e: {tags} | 👍{likes} | ⬇{dl}",
-            "url": f"https://huggingface.co/{mid}",
-            "source": "HF Trending Models",
+        rid = item.get("modelId") or item.get("id") or ""
+        if not rid:
+            continue
+        # createdAt rides along in the abstract on purpose: freshness is the
+        # entire point of the sort change, and the scorer only sees this text.
+        bits = [f"trending={item.get('trendingScore', 0)}",
+                f"likes={item.get('likes', 0)}",
+                f"downloads={item.get('downloads', 0)}"]
+        created = str(item.get("createdAt", ""))[:10]
+        if created:
+            bits.append(f"created={created}")
+        if item.get("pipeline_tag"):
+            bits.append(f"task={item['pipeline_tag']}")
+        tags = ", ".join(item.get("tags", [])[:8])
+        out.append({
+            "id": rid,
+            "title": rid,
+            "abstract": f"{' | '.join(bits)} | tags: {tags}",
+            "url": f"https://huggingface.co/{prefix}{rid}",
+            "source": source,
         })
-    print(f"OK, {len(models)} \u6761")
-    return models
+    print(f"OK, {len(out)}")
+    return out
+
+
+def fetch_hf_trending_models() -> list:
+    'HuggingFace trending models -- see the sort=trendingScore note above.'
+    return _fetch_hf_trending("models", HF_TRENDING_MAX, "HF Trending Models")
+
+
+def fetch_hf_trending_datasets() -> list:
+    """HuggingFace trending datasets: same API family as the models board, so
+    it costs one extra GET and zero new parsing code. Narrower value than
+    models (corpus / eval-set selection for RAG, rather than something we can
+    run), which is why HF_DATASETS_MAX is deliberately smaller."""
+    return _fetch_hf_trending("datasets", HF_DATASETS_MAX, "HF Trending Datasets")
+
+
+OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
+
+
+def _openrouter_is_free(model: dict) -> bool:
+    """Zero-price test done on `pricing`, NOT on the ':free' id suffix.
+
+    2026-07-26 probe of all 345 listed models: 18 have pricing.prompt == "0",
+    and none of those charge on completion while being free on prompt, so the
+    pair test below never disagrees with reality today -- it is belt-and-braces
+    against a future half-free tier. Three of the 18 do NOT carry a ':free'
+    suffix (google/lyria-3-pro-preview, google/lyria-3-clip-preview,
+    openrouter/free), so suffix matching would have silently missed them.
+    Prices arrive as decimal STRINGS ("0", "0.000002"), hence float().
+    """
+    pricing = model.get("pricing") or {}
+    try:
+        return (float(pricing.get("prompt", "1")) == 0.0
+                and float(pricing.get("completion", "1")) == 0.0)
+    except (TypeError, ValueError):
+        return False
+
+
+def fetch_openrouter_free_models() -> list:
+    """Newly listed FREE models on OpenRouter.
+
+    Why this source: we run batch work on free model pools, so "somebody just
+    opened a zero-cost model to the public" is directly actionable capacity,
+    and this is the only structured, key-less feed that states price as data
+    rather than prose.
+
+    Why a created-time window instead of the day-over-day diff the survey
+    proposed: this script runs on a fresh Actions checkout, so there is no
+    previous run's list on disk to diff against. A state file would add a
+    failure mode (missing/stale state => every model looks new, or nothing
+    does) for no gain, since `created` is a server-side timestamp present on
+    all 345 listed models. "Appeared in the last N days" is the same signal
+    with nothing to keep in sync.
+
+    Only free models are emitted: the catalogue is ~345 entries and the paid
+    ones would drown the scoring budget in models we cannot use for free.
+    """
+    print(f"[Fetch] OpenRouter free models (new in {OPENROUTER_NEW_DAYS}d) ...",
+          end=" ", flush=True)
+    try:
+        payload = json.loads(fetch_url(OPENROUTER_MODELS_URL, timeout=30))
+    except (RuntimeError, json.JSONDecodeError) as e:
+        print(f"failed: {e}")
+        return []
+    catalogue = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(catalogue, list):
+        print("failed: unexpected payload shape (expected {'data': [...]})")
+        return []
+
+    free = [m for m in catalogue if _openrouter_is_free(m)]
+    cutoff = time.time() - OPENROUTER_NEW_DAYS * 86400
+    fresh = [m for m in free if (m.get("created") or 0) >= cutoff]
+    fresh.sort(key=lambda m: -(m.get("created") or 0))
+
+    out = []
+    for m in fresh[:OPENROUTER_MAX]:
+        mid = m.get("id", "")
+        if not mid:
+            continue
+        try:
+            listed = datetime.datetime.fromtimestamp(
+                m.get("created") or 0, datetime.timezone.utc).strftime("%Y-%m-%d")
+        except (OverflowError, OSError, ValueError):
+            listed = "?"
+        desc = (m.get("description") or "").replace("\n", " ").strip()
+        out.append({
+            "id": mid,
+            "title": f"{m.get('name') or mid} [FREE]",
+            "abstract": (f"listed={listed} | context={m.get('context_length', 0)} | "
+                         f"price=0/0 prompt/completion | {desc[:300]}"),
+            "url": f"https://openrouter.ai/{mid}",
+            "source": "OpenRouter Free",
+        })
+    # Print the denominators even when the answer is 0: a quiet day and a
+    # broken fetch must not look identical in the log.
+    print(f"OK, {len(out)} new ({len(free)} free of {len(catalogue)} listed)")
+    return out
+
+
+PRODUCTHUNT_FEED = "https://www.producthunt.com/feed"
+
+
+def fetch_producthunt() -> list:
+    """Product Hunt daily launches (Atom), for the "new AI tool just shipped"
+    direction that nothing else here covers.
+
+    Deliberately NOT keyword-filtered for "is this AI?" at this layer: the feed
+    is mixed-topic, and the existing scoring pass already grades every item 1-5
+    on relevance to this platform and drops the rest. A keyword guess here
+    would only add a way to lose a relevant launch before the scorer sees it.
+    """
+    print("[Fetch] Product Hunt launches ...", flush=True)
+    return fetch_rss(PRODUCTHUNT_FEED, "ProductHunt", max_items=PRODUCTHUNT_MAX)
 
 
 def fetch_pubmed() -> list:
@@ -1568,7 +1728,11 @@ def main():
     parser.add_argument("--cloud", action="store_true",
                         help='\u4e91\u7aef\u6a21\u5f0f: \u8df3\u8fc7\u672c\u5730\u7f51\u5173,\u7528 ZHIPU/NVIDIA env key')
     parser.add_argument("--no-github", action="store_true", help='\u8df3\u8fc7 GitHub \u6293\u53d6(\u7701\u901f\u7387)')
-    parser.add_argument("--no-hf-models", action="store_true", help='\u8df3\u8fc7 HF trending models')
+    parser.add_argument("--no-hf-models", action="store_true", help='\u8df3\u8fc7 HF trending models + datasets')
+    parser.add_argument("--no-openrouter", action="store_true",
+                        help="skip the OpenRouter free-model feed")
+    parser.add_argument("--no-producthunt", action="store_true",
+                        help="skip the Product Hunt launch feed")
     parser.add_argument("--dry-run", action="store_true",
                         help='\u53ea\u6293\u53d6\u4e0d\u5206\u6790(\u6d4b\u8bd5\u6293\u53d6\u91cf)')
     parser.add_argument("--top", type=int, default=50, help='\u7cbe\u534e TOP N (\u9ed8\u8ba4 50)')
@@ -1628,11 +1792,20 @@ def main():
     hf_papers     = fetch_hf_papers()
     raw_counts["HF Daily"] = len(hf_papers)
 
+    hf_models = []
+    hf_datasets = []
     if not args.no_hf_models:
-        hf_models = fetch_hf_trending_models()
+        # Both HF trending boards share one fetcher and one kill switch.
+        # Isolated exactly like the blindspot radar below: a trending board
+        # misbehaving must never be able to take the daily report down.
+        try:
+            hf_models = fetch_hf_trending_models()
+            hf_datasets = fetch_hf_trending_datasets()
+        except Exception as e:
+            print(f"  [HF Trending] unexpected error (caught, non-fatal): "
+                  f"{type(e).__name__}: {e}", flush=True)
         raw_counts["HF Trending Models"] = len(hf_models)
-    else:
-        hf_models = []
+        raw_counts["HF Trending Datasets"] = len(hf_datasets)
 
     pubmed_papers = fetch_pubmed()
     raw_counts["PubMed"] = len(pubmed_papers)
@@ -1658,7 +1831,29 @@ def main():
     hn_items = fetch_hn_intel()
     raw_counts["Hacker News"] = len(hn_items)
 
-    all_items = arxiv_papers + hf_papers + hf_models + pubmed_papers + github_repos + freebies + cn_items + hn_items
+    # New free model pools are directly actionable capacity for us, so this
+    # gets its own line in raw_counts even on days when it finds nothing.
+    openrouter_items = []
+    if not args.no_openrouter:
+        try:
+            openrouter_items = fetch_openrouter_free_models()
+        except Exception as e:
+            print(f"  [OpenRouter] unexpected error (caught, non-fatal): "
+                  f"{type(e).__name__}: {e}", flush=True)
+    raw_counts["OpenRouter Free"] = len(openrouter_items)
+
+    ph_items = []
+    if not args.no_producthunt:
+        try:
+            ph_items = fetch_producthunt()
+        except Exception as e:
+            print(f"  [ProductHunt] unexpected error (caught, non-fatal): "
+                  f"{type(e).__name__}: {e}", flush=True)
+    raw_counts["ProductHunt"] = len(ph_items)
+
+    all_items = (arxiv_papers + hf_papers + hf_models + hf_datasets + pubmed_papers
+                 + github_repos + freebies + cn_items + hn_items
+                 + openrouter_items + ph_items)
     total_raw = len(all_items)
 
     print(f"\n[\u6293\u53d6\u6c47\u603b] \u603b\u8ba1: {total_raw} \u6761")
@@ -1686,7 +1881,8 @@ def main():
     freebies = prefilter_dedup(freebies)
 
     analyze_items = (arxiv_papers + hf_papers + pubmed_papers + github_repos
-                     + hf_models_sample + freebies + cn_items + hn_items)
+                     + hf_models_sample + hf_datasets + freebies + cn_items
+                     + hn_items + openrouter_items + ph_items)
     analyze_items = prefilter_dedup(analyze_items)
     total_analyzed = len(analyze_items)
     print(f"  \u5b9e\u9645\u5206\u6790: {total_analyzed} \u6761 (HF Models \u622a\u53d6\u524d 50)")
