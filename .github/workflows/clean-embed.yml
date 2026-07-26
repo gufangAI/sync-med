@@ -76,6 +76,16 @@ jobs:
           R2_SECRET_KEY:     ${{ secrets.VEC_R2_SECRET_KEY }}
           XF_KEYS:           ${{ secrets.XF_KEYS }}
           VEC_INDEX: "tcm-rag-clean-768"
+          # Semantic gate credentials (free pools only, per standing rule).
+          # Without these sem_gate degrades to keep-everything -- it never
+          # blocks the run, but the gate silently does nothing, so an absent
+          # secret must read as a missing gate, not as a clean corpus.
+          NVIDIA_API_KEY:    ${{ secrets.NVIDIA_API_KEY }}
+          AGNES_API_KEY:     ${{ secrets.AGNES_API_KEY }}
+          AGNES_API_BASE:    ${{ secrets.AGNES_API_BASE }}
+          AGNES_TEXT_MODEL:  ${{ secrets.AGNES_TEXT_MODEL }}
+          CEREBRAS_KEYS:     ${{ secrets.CEREBRAS_KEYS }}
+          SEM_GATE: "1"
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ github.event.inputs.total || '20' }}
       - name: save ledger cache
