@@ -6,12 +6,19 @@ name: fangji-ai-refine
 # semantics -- "with four sheng of water" IS in the source yet is a decoction step,
 # not a herb. Roughly half the composition fields hold procedure text, not herbs.
 #
-# Model race (measured 2026-07-26, 15 rows each, pass = every returned token found
-# verbatim in the source quote):
-#   xf_qwen 15/15 100% 15s | agnes 14/15 93% 11s | modelscope 13/15 87% 20s
-#   zhipu 8/15 | siliconflow 6/15 | nvidia 1/15 177s | cerebras 0/15
-# Only the top three run here. Picking a supplier without racing them would have
-# wasted the whole pass.
+# Model race, redone 2026-07-26 12:2x on a FIXED shared sample (the first race was
+# invalid: each supplier drew a different batch because the worker filters on
+# ai_ok IS NULL, so whoever ran first consumed the rows -- seven suppliers graded on
+# seven different exam papers. That bad comparison is what got NVIDIA cut at "7%").
+#
+# Fair numbers, same 20 rows for everyone, counting hallucinations rather than
+# "pass" (a correct "this is not a formula" verdict is a success, not a failure):
+#   nvidia   20/20 valid, 0 hallucinations   <- best
+#   xf_qwen  19/20 valid, 1 hallucination    <- fastest, 18429 rows done in 2h
+#   zhipu    10/20 valid, 10 hallucinations
+#   agnes / modelscope: fail inside Actions (14 and 39 rows in two hours)
+#   siliconflow / cerebras: malformed output
+# So: xf_qwen + nvidia. agnes/modelscope dropped for non-delivery, not for quality.
 #
 # Cost: zero. All three are free tiers reached through the platform's own gateway,
 # so no credentials live in this public repo.
@@ -42,10 +49,8 @@ jobs:
         include:
           - supplier: xf_qwen
             shard: 0
-          - supplier: agnes
+          - supplier: nvidia
             shard: 1
-          - supplier: modelscope
-            shard: 2
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -59,6 +64,6 @@ jobs:
         run: |
           python scripts/fangji_ai_refine.py \
             --supplier ${{ matrix.supplier }} \
-            --shard ${{ matrix.shard }} --total 3 \
+            --shard ${{ matrix.shard }} --total 2 \
             --limit ${{ github.event.inputs.limit || 25000 }} \
             --workers ${{ github.event.inputs.workers || 5 }}
