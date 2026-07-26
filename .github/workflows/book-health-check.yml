@@ -1,0 +1,60 @@
+name: book-health-check
+
+# Which shelved books can a visitor actually open?
+#
+# Founder, 2026-07-26: "the online books need to line up exactly -- some just won't
+# display". Two independent samples (270 books, then 40) both landed on ~21% of
+# shelved books returning 404 on page one. A visitor clicking those gets a blank page.
+#
+# The one distinction that makes this check meaningful:
+#   403 = the paywall working  -> healthy
+#   404 = the book is broken   -> record it
+# An earlier check reported 84% healthy covers by counting HTTP 200 + byte size, which
+# scored the fallback SVG placeholder as a pass. Content-Type is the only honest test.
+#
+# Records only. It writes health_note and never touches frontend_visible -- three
+# confident conclusions turned out wrong on 2026-07-26 alone, so nothing gets hidden
+# until the numbers are checked against real books by hand.
+#
+# Request budget: one request per book, ~45k total against our own Pages Functions,
+# whose free tier is 100k/day. Probing covers too would have doubled that for a
+# non-fatal cosmetic issue.
+
+on:
+  workflow_dispatch:
+    inputs:
+      write:
+        description: record verdicts into D1 (yes/no)
+        default: 'yes'
+      workers:
+        description: concurrency per shard
+        default: '12'
+
+concurrency:
+  group: book-health-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: check shard
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+        run: |
+          python scripts/book_health_check.py \
+            --shard ${{ matrix.shard }} --total 8 \
+            --limit 8000 \
+            --workers ${{ github.event.inputs.workers || 12 }} \
+            ${{ (github.event.inputs.write || 'yes') == 'yes' && '--write' || '' }}
