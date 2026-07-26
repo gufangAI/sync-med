@@ -567,6 +567,68 @@ def create_issue(title, body, date_str):
 
 
 # ---------------------------------------------------------------------------
+# stage 5b -- hand the verdict back to the radar (the fifth ring)
+# ---------------------------------------------------------------------------
+# The radar has been ready to receive this since 2026-07-26: arsenal_radar's
+# apply_council_decisions() reads reports/council/decisions.json and moves
+# ledger entries out of `pending`, and its docstring says outright that the file
+# is "written by the council, NOT by this file". The file did not exist. So the
+# council met daily and the radar never learned what came of anything it
+# surfaced -- it re-proposed into a void, with no way to get better at choosing.
+# That missing file is the whole difference between a loop and a circle.
+#
+# What is deliberately NOT done here: infer "adopt" from the judge's prose. The
+# verdict is free text; pattern-matching approval out of it would manufacture
+# decisions the founder never made, and the standing rule is that a human gates
+# adoption. So every debated item is recorded as `hold` -- meaning "argued, not
+# yet ruled on". That alone is the memory the radar lacked: it can stop
+# re-proposing what has already been to committee. Promotion to adopt/drop is a
+# separate, human act.
+_DECISIONS_KEEP = 400
+
+
+def write_decisions(results, date_str, issue_num, outdir):
+    """Append this session's debated intel items to reports/council/decisions.json.
+
+    Appends rather than overwrites: the radar's memory is the whole point, and a
+    file rewritten each morning would remember exactly one day. Re-running the
+    same day replaces that day's rows so a retry cannot double-count."""
+    rows = []
+    for r in results:
+        cand = (r.get("topic") or {}).get("intel")
+        if not cand or not cand.get("repo"):
+            continue
+        rows.append({
+            "source": "arsenal:%s" % cand["repo"],
+            "decision": "hold",
+            "date": date_str,
+            "issue": issue_num,
+            "topic": (r["topic"].get("title") or "")[:120],
+            "verdict_ok": bool((r.get("verdict") or "").strip()),
+        })
+    if not rows:
+        log("no intel topic this session -- decisions.json unchanged")
+        return
+    # Own the directory rather than inheriting it. main() happens to mkdir it
+    # first today, but that coupling is invisible and a local test caught it as
+    # a FileNotFoundError the moment this was called on its own.
+    os.makedirs(outdir, exist_ok=True)
+    path = os.path.join(outdir, "decisions.json")
+    try:
+        with io.open(path, encoding="utf-8") as f:
+            old = json.load(f).get("decisions", [])
+    except Exception:
+        old = []
+    kept = [d for d in old if d.get("date") != date_str]
+    merged = (kept + rows)[-_DECISIONS_KEEP:]
+    with io.open(path, "w", encoding="utf-8", newline="\n") as f:
+        json.dump({"schema": 1, "updated": date_str, "decisions": merged},
+                  f, ensure_ascii=False, indent=1)
+    log("wrote %s (+%d this session, %d total) -- radar will apply on its next run"
+        % (path, len(rows), len(merged)))
+
+
+# ---------------------------------------------------------------------------
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--topics", type=int, default=int(os.environ.get("N_TOPICS", "3")))
@@ -677,14 +739,24 @@ def main():
     log("wrote %s (%d bytes)" % (path, len(body.encode("utf-8"))))
 
     title = t("issue_title_prefix") + date_str
+    issue_num = None
     if args.dry_run:
         log("dry-run: no Issue created")
     else:
         try:
-            num = create_issue(title, body, date_str)
-            log("issue #%s created" % num)
+            issue_num = create_issue(title, body, date_str)
+            log("issue #%s created" % issue_num)
         except Exception as e:
             log("issue creation FAILED: %s: %s" % (type(e).__name__, str(e)[:200]))
+
+    # Fifth ring. Deliberately runs even when the Issue failed or this was a dry
+    # run: the radar's memory of what has been to committee must not hinge on
+    # GitHub's issue API having been reachable that minute. Wrapped because a
+    # ledger write is never worth losing a completed council session over.
+    try:
+        write_decisions(results, date_str, issue_num, outdir)
+    except Exception as e:
+        log("write_decisions FAILED (non-fatal): %s: %s" % (type(e).__name__, str(e)[:160]))
 
     snap = roster.budget_snapshot()
     log("DONE calls=%d fails=%d neurons=%.0f elapsed=%s"
