@@ -40,23 +40,27 @@
   "failed_queries": []
  },
  "distill": {
-  "seat": "zhipu",
-  "calls": 30,
+  "seat": "agnes",
+  "calls": 33,
   "ok": 3
  },
  "count": 60,
  "candidates": [
   {
-   "repo": "laravel/prompts",
-   "url": "https://github.com/laravel/prompts",
-   "description": "Beautiful and user-friendly forms for your command-line PHP applications.",
-   "stars": 720,
-   "topics": [],
-   "lang": "PHP",
-   "created_at": "2023-03-20",
-   "pushed_at": "2026-07-24",
-   "age_days": 1224,
-   "stars_per_day_lifetime": 0.59,
+   "repo": "xianyu110/awesome-nanobananapro-prompts",
+   "url": "https://github.com/xianyu110/awesome-nanobananapro-prompts",
+   "description": "基于 Google Gemini 2.5 Flash Image Preview 模型打造的精美 AI 图像生成与编辑 Web应用，使用 Next.js 构建",
+   "stars": 801,
+   "topics": [
+    "gemini",
+    "nanobanana",
+    "nanobananapro"
+   ],
+   "lang": "HTML",
+   "created_at": "2025-11-21",
+   "pushed_at": "2026-07-07",
+   "age_days": 247,
+   "stars_per_day_lifetime": 3.24,
    "license": "MIT",
    "license_family": "permissive",
    "found_by": {
@@ -64,274 +68,50 @@
     "query": "prompts in:name stars:>300 pushed:>2026-06-26",
     "sort": "updated",
     "query_breadth": 20,
-    "position": 9
+    "position": 18
    },
    "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "提供美观友好的命令行PHP应用程序表单",
-   "evidence": "Beautiful and user-friendly forms for your command-line PHP applications.",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "nuwa-skills/awesome-nuwa",
-   "url": "https://github.com/nuwa-skills/awesome-nuwa",
-   "description": "Awesome list of 女娲.skill — 用女娲蒸馏的人物思维框架合集 | Distilled human thinking frameworks for Claude Code",
-   "stars": 239,
-   "topics": [
-    "agent-skills",
-    "awesome-list",
-    "claude-code",
-    "claude-code-skills",
-    "digital-life",
-    "human-distillation"
-   ],
-   "lang": "Ruby",
-   "created_at": "2026-04-11",
-   "pushed_at": "2026-07-25",
-   "age_days": 106,
-   "stars_per_day_lifetime": 2.25,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "女娲 in:name,description stars:>100",
-    "sort": "stars",
-    "query_breadth": 19,
-    "position": 11
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供女娲.skill的人物思维框架合集",
-   "evidence": "Awesome list of 女娲.skill — 用女娲蒸馏的人物思维框架合集",
-   "transfer_forms": [
-    "skill"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "Hao0321/video-autopilot-kit",
-   "url": "https://github.com/Hao0321/video-autopilot-kit",
-   "description": "Fill-in-your-own-data framework for YouTube / short-form video automation: CapCut JSON + ffmpeg tooling + an onboarding questionnaire. Ships with zero private data.",
-   "stars": 1523,
-   "topics": [
-    "capcut",
-    "content-creation",
-    "creator-tools",
-    "ffmpeg",
-    "python",
-    "shorts",
-    "video-automation",
-    "youtube"
-   ],
-   "lang": "Python",
-   "created_at": "2026-06-01",
-   "pushed_at": "2026-07-25",
-   "age_days": 55,
-   "stars_per_day_lifetime": 27.69,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:content-creation stars:>1000 pushed:>2026-04-27",
-    "sort": "stars",
-    "query_breadth": 14,
-    "position": 10
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供YouTube/短视频自动化框架",
-   "evidence": "Fill-in-your-own-data framework for YouTube / short-form video automation",
+   "capability": "基于 Google Gemini 2.5 Flash Image Preview 模型的 AI 图像生成与编辑 Web 应用，使用 Next.js 构建。",
+   "evidence": "topics: gemini, nanobanana, nanobananapro; description: AI 图像生成与编辑 Web 应用",
    "transfer_forms": [
     "deploy"
    ],
    "line_candidates": [
-    "video"
+    "image"
    ],
    "distilled": true
   },
   {
-   "repo": "mrwogu/promptscript",
-   "url": "https://github.com/mrwogu/promptscript",
-   "description": "Prompt-as-Code for Enterprise AI. Standardize, audit, and deploy instructions across any AI coding assistant.",
-   "stars": 476,
-   "topics": [
-    "ai-tools",
-    "antigravity",
-    "claude",
-    "cli",
-    "cursor",
-    "developer-experience",
-    "devtools",
-    "enterprise",
-    "github-copilot",
-    "governance",
-    "llm",
-    "prompt-as-code"
-   ],
-   "lang": "TypeScript",
-   "created_at": "2026-01-19",
-   "pushed_at": "2026-07-23",
-   "age_days": 188,
-   "stars_per_day_lifetime": 2.53,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "prompts in:name stars:>300 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 20,
-    "position": 10
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供企业级AI的Prompt-as-Code工具",
-   "evidence": "Prompt-as-Code for Enterprise AI",
-   "transfer_forms": [
-    "library"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "alchaincyf/feynman-skill",
-   "url": "https://github.com/alchaincyf/feynman-skill",
-   "description": "费曼.skill — 理查德·费曼的认知操作系统。由女娲.skill生成。",
-   "stars": 224,
+   "repo": "zpc1314521/PCL2",
+   "url": "https://github.com/zpc1314521/PCL2",
+   "description": "[stays mad] 反PCL宣传库。Anti PCL propaganda. 大陆修宪香港恶法台湾武统朝鲜毁约美中冷战等都是王沪宁愚弄习思想极左命运共同体的大策划中共窃国这半个多世纪所犯下的滔天罪恶，前期是毛泽东策划的，中期6.4前后是邓小平策划的，黄牛数据分析后期是毛的极左追随者三朝罪恶元凶王沪宁策划的。王沪宁高小肆业因文革政治和情报需要保送“学院外语班“红色仕途翻身，所以王的本质是极左的。他是在上海底层弄堂长大的，因其本性也促成其瘪三下三滥个性，所以也都说他有易主“变色龙”哈巴狗“的天性。大陆像王沪宁这样学马列政治所谓\"法学\"专业的人，在除朝鲜古巴所有国家特别是在文明发达国家是无法找到专业对口工作必定失业，唯独在大陆却是重用的紧缺“人才”，6.4后中共信仰大危机更是最重用的救党“人才”。这也就是像王沪宁此类工农兵假“大学生”平步青云的原因，他们最熟悉毛泽东历次运动的宫庭内斗经验手段",
+   "stars": 117,
    "topics": [],
    "lang": "",
-   "created_at": "2026-04-05",
-   "pushed_at": "2026-05-28",
-   "age_days": 112,
-   "stars_per_day_lifetime": 2.0,
+   "created_at": "2022-08-22",
+   "pushed_at": "2022-08-12",
+   "age_days": 1434,
+   "stars_per_day_lifetime": 0.08,
    "license": "MIT",
    "license_family": "permissive",
    "found_by": {
     "dimension": "chinese",
-    "query": "女娲 in:name,description stars:>100",
+    "query": "古籍 in:name,description stars:>20",
     "sort": "stars",
-    "query_breadth": 19,
-    "position": 12
+    "query_breadth": 44,
+    "position": 19
    },
-   "matched_by_n_queries": 1,
+   "matched_by_n_queries": 2,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "提供理查德·费曼的认知操作系统",
-   "evidence": "费曼.skill — 理查德·费曼的认知操作系统",
-   "transfer_forms": [
-    "skill"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "AgriciDaniel/claude-blog",
-   "url": "https://github.com/AgriciDaniel/claude-blog",
-   "description": "Claude Code blog skill suite: 30 sub-skills, 5 agents, 5-gate v1.9.0 Blog Delivery Contract, dual-optimized for Google rankings and AI citations. Active development at AI-Marketing-Hub/claude-blog (AI Marketing Hub Pro community); public releases ship here.",
-   "stars": 1485,
-   "topics": [
-    "agent-skills",
-    "ai",
-    "ai-citations",
-    "ai-content",
-    "ai-marketing",
-    "ai-marketing-hub",
-    "blog",
-    "blog-writing",
-    "claude-code",
-    "claude-code-skill",
-    "claude-plugin",
-    "claude-skill"
-   ],
-   "lang": "Python",
-   "created_at": "2026-02-17",
-   "pushed_at": "2026-07-23",
-   "age_days": 159,
-   "stars_per_day_lifetime": 9.34,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:content-creation stars:>1000 pushed:>2026-04-27",
-    "sort": "stars",
-    "query_breadth": 14,
-    "position": 11
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供Claude Code博客技能套件",
-   "evidence": "Claude Code blog skill suite",
-   "transfer_forms": [
-    "skill"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "artemnovichkov/xcode-27-system-prompts",
-   "url": "https://github.com/artemnovichkov/xcode-27-system-prompts",
-   "description": "Xcode 27 beta 4 system prompts and internal documentation",
-   "stars": 476,
-   "topics": [
-    "ios26",
-    "macos26",
-    "visionos26",
-    "watchos26",
-    "xcode26",
-    "xcode27"
-   ],
-   "lang": "Python",
-   "created_at": "2025-08-29",
-   "pushed_at": "2026-07-21",
-   "age_days": 331,
-   "stars_per_day_lifetime": 1.44,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "category",
-    "query": "prompts in:name stars:>300 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 20,
-    "position": 11
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供Xcode 27 beta 4系统提示和内部文档",
-   "evidence": "Xcode 27 beta 4 system prompts and internal documentation",
+   "capability": "反 PCL 宣传库，包含政治相关内容。",
+   "evidence": "description: 反PCL宣传库；topics: -",
    "transfer_forms": [
     "unknown"
    ],
@@ -341,320 +121,31 @@
    "distilled": true
   },
   {
-   "repo": "alchaincyf/naval-skill",
-   "url": "https://github.com/alchaincyf/naval-skill",
-   "description": "纳瓦尔.skill — Naval Ravikant的认知操作系统。由女娲.skill生成。",
-   "stars": 217,
-   "topics": [],
-   "lang": "",
-   "created_at": "2026-04-05",
-   "pushed_at": "2026-05-28",
-   "age_days": 112,
-   "stars_per_day_lifetime": 1.94,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "女娲 in:name,description stars:>100",
-    "sort": "stars",
-    "query_breadth": 19,
-    "position": 13
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供纳瓦尔·拉维坎特的认知操作系统",
-   "evidence": "纳瓦尔.skill — Naval Ravikant的认知操作系统",
-   "transfer_forms": [
-    "skill"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "limecloud/lime",
-   "url": "https://github.com/limecloud/lime",
-   "description": "AI content workspace for Chinese creators: desktop writing, research, prompt   library, knowledge base, and multi-model workflows.",
-   "stars": 1462,
+   "repo": "lobehub/lobehub",
+   "url": "https://github.com/lobehub/lobehub",
+   "description": "🤯 LobeHub is your Chief Agent Operator, organizing your agents into 7×24 operations by hiring, scheduling, and reporting on your entire AI team.",
+   "stars": 80831,
    "topics": [
     "agent",
     "agent-collaboration",
     "agent-harness",
-    "agentic-ai",
     "ai",
-    "claw",
-    "content-creation",
-    "creators",
-    "deepseek",
-    "desktop-app",
-    "knowledge-base",
-    "mcp"
-   ],
-   "lang": "TypeScript",
-   "created_at": "2025-12-13",
-   "pushed_at": "2026-07-26",
-   "age_days": 225,
-   "stars_per_day_lifetime": 6.5,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:content-creation stars:>1000 pushed:>2026-04-27",
-    "sort": "stars",
-    "query_breadth": 14,
-    "position": 12
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供AI内容工作空间，适用于中国创作者",
-   "evidence": "AI content workspace for Chinese creators",
-   "transfer_forms": [
-    "mcp",
-    "skill",
-    "architecture",
-    "deploy"
-   ],
-   "line_candidates": [
-    "modelpool",
-    "video"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "pnp/copilot-prompts",
-   "url": "https://github.com/pnp/copilot-prompts",
-   "description": "Examples of prompts for Microsoft Copilot",
-   "stars": 827,
-   "topics": [
-    "github-copilot",
-    "microsoft-copilot",
-    "prompt-engineering",
-    "prompt-toolkit",
-    "prompts"
-   ],
-   "lang": "",
-   "created_at": "2024-04-25",
-   "pushed_at": "2026-07-21",
-   "age_days": 822,
-   "stars_per_day_lifetime": 1.01,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "prompts in:name stars:>300 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 20,
-    "position": 12
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供Microsoft Copilot的提示示例",
-   "evidence": "Examples of prompts for Microsoft Copilot",
-   "transfer_forms": [
-    "library"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "THMAIL/nvwaGroupController",
-   "url": "https://github.com/THMAIL/nvwaGroupController",
-   "description": "女娲群控，局域网内手机控制工具，所有系统版本免root",
-   "stars": 189,
-   "topics": [],
-   "lang": "Vue",
-   "created_at": "2020-01-26",
-   "pushed_at": "2023-02-28",
-   "age_days": 2373,
-   "stars_per_day_lifetime": 0.08,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "女娲 in:name,description stars:>100",
-    "sort": "stars",
-    "query_breadth": 19,
-    "position": 14
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "局域网内手机控制工具，免root",
-   "evidence": "女娲群控，局域网内手机控制工具，所有系统版本免root",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "Jamailar/Beav",
-   "url": "https://github.com/Jamailar/Beav",
-   "description": "小红书全域解决方案，开箱即用，一键安装，小红书AI工作台，自媒体素材库，AI写作+图片自动编排，小红书版OpenClaw、自媒体资产底座+AI工作台，支持小红书图文+小红书评论区下载、小红书AI创作、自媒体AI创作、小红书爬虫数据采集｜你桌面盒子里的AI小河狸🦫",
-   "stars": 1289,
-   "topics": [
-    "ai",
-    "ai-agents",
-    "claude-design",
-    "content-creation",
-    "gpt-image-2",
-    "harness-engineering",
-    "hermes",
-    "hermes-agent",
-    "openclaw",
-    "skills",
-    "xiaohongshu-scraper"
-   ],
-   "lang": "TypeScript",
-   "created_at": "2025-06-04",
-   "pushed_at": "2026-07-24",
-   "age_days": 417,
-   "stars_per_day_lifetime": 3.09,
-   "license": "NOASSERTION",
-   "license_family": "unknown",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:content-creation stars:>1000 pushed:>2026-04-27",
-    "sort": "stars",
-    "query_breadth": 14,
-    "position": 13
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "小红书全域解决方案，AI工作台，自媒体素材库",
-   "evidence": "小红书全域解决方案，开箱即用，一键安装，小红书AI工作台，自媒体素材库，AI写作+图片自动编排",
-   "transfer_forms": [
-    "skill",
-    "architecture"
-   ],
-   "line_candidates": [
-    "image",
-    "modelpool"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "deanpeters/product-manager-prompts",
-   "url": "https://github.com/deanpeters/product-manager-prompts",
-   "description": "A repository of Generative AI prompts for product managers using agents such as ChatGPT, Claude, & Gemini",
-   "stars": 1001,
-   "topics": [
-    "agile",
+    "cao",
     "chatgpt",
-    "documentation-generator",
-    "generative-ai",
-    "product-management",
-    "product-owner"
+    "chief-agent-operator",
+    "claude",
+    "deepseek",
+    "fable",
+    "gemini",
+    "glm"
    ],
-   "lang": "Python",
-   "created_at": "2024-03-14",
-   "pushed_at": "2026-07-17",
-   "age_days": 864,
-   "stars_per_day_lifetime": 1.16,
+   "lang": "TypeScript",
+   "created_at": "2023-05-21",
+   "pushed_at": "2026-07-26",
+   "age_days": 1162,
+   "stars_per_day_lifetime": 69.56,
    "license": "NOASSERTION",
    "license_family": "unknown",
-   "found_by": {
-    "dimension": "category",
-    "query": "prompts in:name stars:>300 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 20,
-    "position": 13
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "产品经理Generative AI提示词库",
-   "evidence": "A repository of Generative AI prompts for product managers using agents such as ChatGPT, Claude, & Gemini",
-   "transfer_forms": [
-    "library"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "alchaincyf/sun-yuchen-perspective",
-   "url": "https://github.com/alchaincyf/sun-yuchen-perspective",
-   "description": "孙宇晨.skill — 注意力收割操作系统 | Justin Sun Perspective Skill for Claude Code | 由女娲.skill蒸馏",
-   "stars": 170,
-   "topics": [],
-   "lang": "",
-   "created_at": "2026-04-07",
-   "pushed_at": "2026-05-28",
-   "age_days": 110,
-   "stars_per_day_lifetime": 1.55,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "女娲 in:name,description stars:>100",
-    "sort": "stars",
-    "query_breadth": 19,
-    "position": 15
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "孙宇晨视角Claude Code技能",
-   "evidence": "孙宇晨.skill — 注意力收割操作系统 | Justin Sun Perspective Skill for Claude Code | 由女娲.skill蒸馏",
-   "transfer_forms": [
-    "skill"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "t8y2/dbx",
-   "url": "https://github.com/t8y2/dbx",
-   "description": "20 MB lightweight cross-platform database client for 70+ databases, including MySQL, PostgreSQL, SQLite, Redis, MongoDB, DuckDB, SQL Server, and Dameng. Built-in AI, MCP Server, CLI, desktop and Docker. | 轻量级跨平台数据库管理工具，支持 MySQL、PostgreSQL、SQLite、Redis、MongoDB、达梦等 70+ 数据库，提供桌面端、Docker、CLI、内置 AI 助手和 MCP Server。",
-   "stars": 11735,
-   "topics": [
-    "ai",
-    "cli",
-    "clickhouse",
-    "database",
-    "database-client",
-    "database-management",
-    "docker",
-    "gui",
-    "mcp",
-    "mongodb",
-    "mysql",
-    "postgresql"
-   ],
-   "lang": "Rust",
-   "created_at": "2026-04-29",
-   "pushed_at": "2026-07-26",
-   "age_days": 88,
-   "stars_per_day_lifetime": 133.35,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
    "found_by": {
     "dimension": "stock",
     "query": "topic:mcp stars:>2000 pushed:>2026-06-26",
@@ -662,85 +153,15 @@
     "query_breadth": 100,
     "position": 0
    },
-   "matched_by_n_queries": 2,
+   "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "轻量级跨平台数据库管理工具，内置AI",
-   "evidence": "20 MB lightweight cross-platform database client for 70+ databases, including MySQL, PostgreSQL, SQLite, Redis, MongoDB,",
+   "capability": "AI 代理协作平台，组织和管理 AI 团队进行 7×24 小时操作。",
+   "evidence": "topics: agent, agent-collaboration, ai, chatgpt, claude, deepseek, gemini, glm; description: LobeHub is your Chief Agent",
    "transfer_forms": [
     "mcp",
-    "deploy"
-   ],
-   "line_candidates": [
-    "modelpool"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "masoncl/review-prompts",
-   "url": "https://github.com/masoncl/review-prompts",
-   "description": "AI review prompts",
-   "stars": 886,
-   "topics": [],
-   "lang": "Python",
-   "created_at": "2025-09-17",
-   "pushed_at": "2026-07-16",
-   "age_days": 312,
-   "stars_per_day_lifetime": 2.84,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "prompts in:name stars:>300 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 20,
-    "position": 14
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "AI review prompts",
-   "evidence": "AI review prompts",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "alchaincyf/zhang-yiming-skill",
-   "url": "https://github.com/alchaincyf/zhang-yiming-skill",
-   "description": "张一鸣的认知操作系统。不是语录合集，是可运行的思维框架。Made with 女娲.skill",
-   "stars": 146,
-   "topics": [],
-   "lang": "",
-   "created_at": "2026-04-06",
-   "pushed_at": "2026-05-28",
-   "age_days": 111,
-   "stars_per_day_lifetime": 1.32,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "女娲 in:name,description stars:>100",
-    "sort": "stars",
-    "query_breadth": 19,
-    "position": 16
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "张一鸣认知操作系统，思维框架",
-   "evidence": "张一鸣的认知操作系统。不是语录合集，是可运行的思维框架。Made with 女娲.skill",
-   "transfer_forms": [
     "skill"
    ],
    "line_candidates": [
@@ -749,131 +170,75 @@
    "distilled": true
   },
   {
-   "repo": "boxlite-ai/boxlite",
-   "url": "https://github.com/boxlite-ai/boxlite",
-   "description": "The micro-VM for AI agents — light enough to embed on your laptop, elastic enough to power an agentic cloud.",
-   "stars": 2198,
-   "topics": [
-    "agentic",
-    "ai-agent",
-    "embedded",
-    "rust",
-    "sandbox",
-    "security",
-    "self-hosted",
-    "serverless",
-    "virtualization"
-   ],
-   "lang": "Rust",
-   "created_at": "2025-12-07",
-   "pushed_at": "2026-07-26",
-   "age_days": 231,
-   "stars_per_day_lifetime": 9.52,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:ai-agent stars:>2000 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 0
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "AI代理的轻量级微虚拟机",
-   "evidence": "The micro-VM for AI agents — light enough to embed on your laptop, elastic enough to power an agentic cloud.",
-   "transfer_forms": [
-    "mcp",
-    "deploy",
-    "skill"
-   ],
-   "line_candidates": [
-    "modelpool",
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "x1xhlol/system-prompts-and-models-of-ai-tools",
-   "url": "https://github.com/x1xhlol/system-prompts-and-models-of-ai-tools",
-   "description": "FULL Augment Code, Claude Code, Cluely, CodeBuddy, Comet, Cursor, Devin AI, Junie, Kiro, Leap.new, Lovable, Manus, NotionAI, Orchids.app, Perplexity, Poke, Qoder, Replit, Same.dev, Trae, Traycer AI, VSCode Agent, Warp.dev, Windsurf, Xcode, Z.ai Code, Dia & v0. (And other Open Sourced) System Prompts, Internal Tools & AI Models",
-   "stars": 142312,
+   "repo": "yaojingang/yao-open-prompts",
+   "url": "https://github.com/yaojingang/yao-open-prompts",
+   "description": "Yao Open Prompts: A Chinese-language AI prompt library for work, learning, content, marketing, and everyday life.",
+   "stars": 2667,
    "topics": [
     "ai",
-    "bolt",
-    "cluely",
-    "copilot",
-    "cursor",
-    "cursorai",
-    "devin",
-    "github-copilot",
-    "lovable",
-    "open-source",
-    "perplexity",
-    "replit"
+    "chinese-prompts",
+    "geo",
+    "prompt-engineering",
+    "prompts"
    ],
-   "lang": "",
-   "created_at": "2025-03-05",
-   "pushed_at": "2026-07-12",
-   "age_days": 508,
-   "stars_per_day_lifetime": 280.14,
-   "license": "GPL-3.0",
-   "license_family": "copyleft",
+   "lang": "Python",
+   "created_at": "2026-05-06",
+   "pushed_at": "2026-06-27",
+   "age_days": 81,
+   "stars_per_day_lifetime": 32.93,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
    "found_by": {
     "dimension": "category",
     "query": "prompts in:name stars:>300 pushed:>2026-06-26",
     "sort": "updated",
     "query_breadth": 20,
-    "position": 15
+    "position": 19
    },
-   "matched_by_n_queries": 2,
+   "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "多种AI工具的代码增强和模型库",
-   "evidence": "FULL Augment Code, Claude Code, Cluely, CodeBuddy, Comet, Cursor, Devin AI, Junie, Kiro, Leap.new, Lovable, Manus, Notio",
+   "capability": "中文 AI 提示词库，适用于工作、学习、内容创作等场景。",
+   "evidence": "topics: ai, chinese-prompts, prompt-engineering, prompts; description: A Chinese-language AI prompt library",
    "transfer_forms": [
     "dataset"
    ],
    "line_candidates": [
-    "modelpool",
-    "unknown"
+    "image"
    ],
    "distilled": true
   },
   {
-   "repo": "Yeadon8888/cangjie-skill",
-   "url": "https://github.com/Yeadon8888/cangjie-skill",
-   "description": "仓颉 · 认知植入式思维蒸馏引擎 — 不是让AI说得像他，是让AI想得像他。基于女娲架构升级。",
-   "stars": 126,
+   "repo": "mahavivo/core-books",
+   "url": "https://github.com/mahavivo/core-books",
+   "description": "中國古代基本典籍",
+   "stars": 103,
    "topics": [],
-   "lang": "Python",
-   "created_at": "2026-04-10",
-   "pushed_at": "2026-04-12",
-   "age_days": 107,
-   "stars_per_day_lifetime": 1.18,
-   "license": "MIT",
-   "license_family": "permissive",
+   "lang": "",
+   "created_at": "2022-08-06",
+   "pushed_at": "2025-05-05",
+   "age_days": 1450,
+   "stars_per_day_lifetime": 0.07,
+   "license": "NONE",
+   "license_family": "none",
    "found_by": {
     "dimension": "chinese",
-    "query": "女娲 in:name,description stars:>100",
+    "query": "古籍 in:name,description stars:>20",
     "sort": "stars",
-    "query_breadth": 19,
-    "position": 17
+    "query_breadth": 44,
+    "position": 20
    },
    "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "仓颉认知植入式思维蒸馏引擎",
-   "evidence": "仓颉 · 认知植入式思维蒸馏引擎 — 不是让AI说得像他，是让AI想得像他。基于女娲架构升级",
+   "capability": "中国古代基本典籍集合。",
+   "evidence": "description: 中國古代基本典籍；topics: -",
    "transfer_forms": [
-    "skill"
+    "unknown"
    ],
    "line_candidates": [
     "unknown"
@@ -881,31 +246,31 @@
    "distilled": true
   },
   {
-   "repo": "diegosouzapw/OmniRoute",
-   "url": "https://github.com/diegosouzapw/OmniRoute",
-   "description": "Never stop coding. Free MIT AI gateway: one endpoint, 290+ providers (90+ free), 500+ models — Kimi, Claude, GPT, OpenAI, Gemini, GLM, DeepSeek, MiniMax. Works with Claude Code, Codex, Cursor, OpenCode, Cline & Copilot. Quota-aware auto-fallback, RTK+Caveman compression saves 15-95% tokens, MCP/A2A, Desktop/PWA. Built by 500+ contributors",
-   "stars": 30632,
+   "repo": "screenpipe/screenpipe",
+   "url": "https://github.com/screenpipe/screenpipe",
+   "description": "YC (S26) | Record your screen 24/7 and plug into your agents. Local, private, secure. Connect to OpenClaw, Hermes agent and 100+ apps",
+   "stars": 20543,
    "topics": [
-    "a2a",
-    "ai-agents",
-    "ai-gateway",
-    "anthropic",
-    "claude",
-    "claude-code",
-    "cline",
-    "codex",
-    "copilot",
-    "cursor",
-    "deepseek",
-    "free-ai"
+    "agents",
+    "agi",
+    "ai",
+    "ai-memory",
+    "audio-recording",
+    "computer-vision",
+    "hermes",
+    "hermes-agent",
+    "llm",
+    "local-ai",
+    "local-first",
+    "machine-learning"
    ],
-   "lang": "TypeScript",
-   "created_at": "2026-02-13",
+   "lang": "Rust",
+   "created_at": "2024-06-19",
    "pushed_at": "2026-07-26",
-   "age_days": 163,
-   "stars_per_day_lifetime": 187.93,
-   "license": "MIT",
-   "license_family": "permissive",
+   "age_days": 767,
+   "stars_per_day_lifetime": 26.78,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
    "found_by": {
     "dimension": "stock",
     "query": "topic:mcp stars:>2000 pushed:>2026-06-26",
@@ -918,401 +283,126 @@
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "提供超过290个AI模型接入端点，支持多种AI服务",
-   "evidence": "290+ providers (90+ free), 500+ models",
+   "capability": "24/7 屏幕录制工具，支持本地隐私安全，可连接多种 AI 代理和应用程序。",
+   "evidence": "topics: agents, agi, ai, ai-memory, computer-vision, hermes, llm, local-ai; description: Record your screen 24/7 and plu",
    "transfer_forms": [
-    "mcp",
-    "skill",
-    "architecture",
     "deploy"
    ],
    "line_candidates": [
-    "modelpool"
+    "unknown"
    ],
    "distilled": true
   },
   {
-   "repo": "kesslernity/awesome-microsoft-copilot-prompts",
-   "url": "https://github.com/kesslernity/awesome-microsoft-copilot-prompts",
-   "description": "The definitive Microsoft 365 Copilot prompt library for business teams. 400+ prompts for Office apps, Copilot Studio, security operations, and enterprise deployment. Battle-tested in production environments",
-   "stars": 461,
+   "repo": "Agents365-ai/video-podcast-maker",
+   "url": "https://github.com/Agents365-ai/video-podcast-maker",
+   "description": "Topic → 4K narrated video for coding agents. v4.0: all TTS via the ttsCN engine component (11 platforms incl. MiniMax voice clone, native word-level subtitle sync), manifest-based Asset Engine, Remotion composition, cost-gated AI generation",
+   "stars": 1494,
    "topics": [
-    "ai-productivity",
-    "ai-prompts",
-    "automation",
-    "awesome-list",
-    "copilot-studio",
-    "enterprise-ai",
-    "m365",
-    "microsoft-copilot",
-    "office-365",
-    "productivity",
-    "prompt-engineering",
-    "workplace-automation"
+    "agent-skill",
+    "ai-video",
+    "bilibili",
+    "claude-code",
+    "hyperframes",
+    "idea-to-video",
+    "remotion",
+    "text-to-speech",
+    "video-generation"
    ],
-   "lang": "",
-   "created_at": "2026-02-03",
-   "pushed_at": "2026-07-09",
-   "age_days": 173,
-   "stars_per_day_lifetime": 2.66,
+   "lang": "Python",
+   "created_at": "2026-02-16",
+   "pushed_at": "2026-07-26",
+   "age_days": 160,
+   "stars_per_day_lifetime": 9.34,
    "license": "NOASSERTION",
    "license_family": "unknown",
    "found_by": {
     "dimension": "category",
-    "query": "prompts in:name stars:>300 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 20,
-    "position": 16
+    "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
+    "sort": "stars",
+    "query_breadth": 32,
+    "position": 13
    },
    "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "提供400+个Microsoft 365 Copilot提示词，用于企业级应用",
-   "evidence": "400+ prompts for Office apps, Copilot Studio, security operations, and enterprise deployment",
+   "capability": "将主题转化为 4K 叙述视频的 AI 视频制作工具，支持多平台 TTS 和字幕同步。",
+   "evidence": "topics: ai-video, bilibili, hyperframes, idea-to-video, remotion, text-to-speech, video-generation; description: Topic →",
    "transfer_forms": [
-    "library"
+    "deploy"
    ],
    "line_candidates": [
-    "unknown"
+    "video"
    ],
    "distilled": true
   },
   {
-   "repo": "alchaincyf/taleb-skill",
-   "url": "https://github.com/alchaincyf/taleb-skill",
-   "description": "塔勒布.skill — Nassim Taleb的认知操作系统。由女娲.skill生成。",
-   "stars": 106,
+   "repo": "ndl-lab/ndlkotenocr_cli",
+   "url": "https://github.com/ndl-lab/ndlkotenocr_cli",
+   "description": "NDL古典籍OCRのアプリケーション（ソースコードを含む）",
+   "stars": 98,
    "topics": [],
-   "lang": "",
-   "created_at": "2026-04-05",
-   "pushed_at": "2026-05-28",
-   "age_days": 112,
-   "stars_per_day_lifetime": 0.95,
-   "license": "MIT",
-   "license_family": "permissive",
+   "lang": "Python",
+   "created_at": "2023-01-19",
+   "pushed_at": "2025-10-14",
+   "age_days": 1284,
+   "stars_per_day_lifetime": 0.08,
+   "license": "CC-BY-4.0",
+   "license_family": "unknown",
    "found_by": {
     "dimension": "chinese",
-    "query": "女娲 in:name,description stars:>100",
+    "query": "古籍 in:name,description stars:>20",
     "sort": "stars",
-    "query_breadth": 19,
-    "position": 18
+    "query_breadth": 44,
+    "position": 21
    },
    "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "提供塔勒布的认知操作系统，由女娲.skill生成",
-   "evidence": "Nassim Taleb的认知操作系统。由女娲.skill生成",
+   "capability": "NDL 古典籍 OCR 应用程序（含源代码）。",
+   "evidence": "description: NDL古典籍OCRのアプリケーション；topics: -",
    "transfer_forms": [
-    "skill"
+    "deploy"
    ],
    "line_candidates": [
-    "unknown"
+    "ocr"
    ],
    "distilled": true
   },
   {
-   "repo": "HKUDS/nanobot",
-   "url": "https://github.com/HKUDS/nanobot",
-   "description": "Lightweight, open-source AI agent for your tools, chats, and workflows.",
-   "stars": 46259,
+   "repo": "xbtlin/ai-berkshire",
+   "url": "https://github.com/xbtlin/ai-berkshire",
+   "description": "AI 时代的伯克希尔：基于 Claude Code / Codex 的价值投资研究框架。巴菲特·芒格·段永平·李录四大师方法论 + 多Agent并行研究。| AI-era Berkshire: a value investing research framework built for Claude Code / Codex. 4 masters' methodologies + multi-agent adversarial analysis.",
+   "stars": 14182,
    "topics": [
     "ai",
     "ai-agent",
-    "ai-agents",
     "anthropic",
-    "chatgpt",
+    "berkshire-hathaway",
+    "charlie-munger",
+    "china-stock",
     "claude",
     "claude-code",
-    "codex",
-    "codex-cli",
-    "llm",
-    "nanobot",
-    "openai"
+    "financial-analysis",
+    "fintech",
+    "fundamental-analysis",
+    "investment"
    ],
    "lang": "Python",
-   "created_at": "2026-02-01",
+   "created_at": "2026-04-07",
    "pushed_at": "2026-07-26",
-   "age_days": 175,
-   "stars_per_day_lifetime": 264.34,
+   "age_days": 110,
+   "stars_per_day_lifetime": 128.93,
    "license": "MIT",
    "license_family": "permissive",
    "found_by": {
     "dimension": "stock",
     "query": "topic:ai-agent stars:>2000 pushed:>2026-06-26",
     "sort": "updated",
-    "query_breadth": 100,
-    "position": 2
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供轻量级、开源的AI代理，用于工具、聊天和工作流程",
-   "evidence": "Lightweight, open-source AI agent for your tools, chats, and workflows",
-   "transfer_forms": [
-    "skill",
-    "architecture"
-   ],
-   "line_candidates": [
-    "modelpool"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "YouMind-OpenLab/awesome-gpt-image-2",
-   "url": "https://github.com/YouMind-OpenLab/awesome-gpt-image-2",
-   "description": "🚀 World's largest GPT Image 2 prompt library, updated daily — 2000+ curated prompts with preview images, 16 languages. OpenAI's next-gen image model with pixel-perfect text rendering, cross-image consistency, and commercial-grade illustration. Free & open source.",
-   "stars": 8797,
-   "topics": [
-    "ai-image-generation",
-    "ai-prompts",
-    "awesome",
-    "awesome-list",
-    "commercial-illustration",
-    "duct-tape",
-    "gpt",
-    "gpt-image",
-    "gpt-image-2",
-    "image-generation",
-    "multilingual",
-    "openai"
-   ],
-   "lang": "TypeScript",
-   "created_at": "2026-04-16",
-   "pushed_at": "2026-07-26",
-   "age_days": 101,
-   "stars_per_day_lifetime": 87.1,
-   "license": "NOASSERTION",
-   "license_family": "unknown",
-   "found_by": {
-    "dimension": "category",
-    "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
-    "sort": "stars",
-    "query_breadth": 32,
-    "position": 4
-   },
-   "matched_by_n_queries": 2,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供GPT Image 2的提示词库，支持多种语言",
-   "evidence": "World's largest GPT Image 2 prompt library, updated daily — 2000+ curated prompts with preview images, 16 languages",
-   "transfer_forms": [
-    "dataset",
-    "library"
-   ],
-   "line_candidates": [
-    "image"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "momozi1996/awesome-ai-persona-skills",
-   "url": "https://github.com/momozi1996/awesome-ai-persona-skills",
-   "description": "全网最全的、持续更新的、最火爆的 100+ 人格 蒸馏skills 合集｜ 多agent系统 ｜名人/导演/天涯大神/古籍/二次元/职场/情感全品类",
-   "stars": 461,
-   "topics": [
-    "agent",
-    "agent-skills",
-    "agentic",
-    "agents",
-    "ai",
-    "ai-agents",
-    "ai-model",
-    "ai-tools",
-    "aigc",
-    "hermes-agent",
-    "llm",
-    "llm-agents"
-   ],
-   "lang": "Shell",
-   "created_at": "2026-04-10",
-   "pushed_at": "2026-05-23",
-   "age_days": 107,
-   "stars_per_day_lifetime": 4.31,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "古籍 in:name,description stars:>20",
-    "sort": "stars",
-    "query_breadth": 44,
-    "position": 10
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供100+个人格蒸馏skills集合，适用于多agent系统",
-   "evidence": "全网最全的、持续更新的、最火爆的 100+ 人格 蒸馏skills 合集｜ 多agent系统",
-   "transfer_forms": [
-    "skill",
-    "library"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "neomjs/neo",
-   "url": "https://github.com/neomjs/neo",
-   "description": "Neo.mjs is a self-evolving software organism: a professional end-to-end AI engineering team whose cross-model swarm inhabits live apps via Neural Link, Active Hybrid GraphRAG, DreamService, and self-healing loops.",
-   "stars": 3243,
-   "topics": [
-    "agent-memory",
-    "ai",
-    "ai-agent",
-    "ai-memory",
-    "context-engineering",
-    "frontend",
-    "frontend-runtime",
-    "graph-rag",
-    "javascript",
-    "json",
-    "knowledge-graph",
-    "llm"
-   ],
-   "lang": "JavaScript",
-   "created_at": "2019-11-10",
-   "pushed_at": "2026-07-26",
-   "age_days": 2450,
-   "stars_per_day_lifetime": 1.32,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:mcp stars:>2000 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 2
-   },
-   "matched_by_n_queries": 3,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供自进化的软件有机体，结合多种AI技术和知识图谱",
-   "evidence": "self-evolving software organism: a professional end-to-end AI engineering team whose cross-model swarm inhabits live app",
-   "transfer_forms": [
-    "architecture"
-   ],
-   "line_candidates": [
-    "modelpool"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "shiaho777/web-to-app",
-   "url": "https://github.com/shiaho777/web-to-app",
-   "description": "The most full featured web-to-app toolkit on Android, a complete APK workshop that runs entirely on your phone",
-   "stars": 5258,
-   "topics": [
-    "android",
-    "app",
-    "web"
-   ],
-   "lang": "Kotlin",
-   "created_at": "2025-11-26",
-   "pushed_at": "2026-07-26",
-   "age_days": 242,
-   "stars_per_day_lifetime": 21.73,
-   "license": "Unlicense",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
-    "sort": "stars",
-    "query_breadth": 32,
-    "position": 6
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供Android平台上的Web到App转换工具",
-   "evidence": "The most full featured web-to-app toolkit on Android, a complete APK workshop that runs entirely on your phone",
-   "transfer_forms": [
-    "deploy"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "timdao888/JavaBookClub",
-   "url": "https://github.com/timdao888/JavaBookClub",
-   "description": "本藏馆主要珍藏Java体系核心技术书籍：涵盖Java核心基石（Java核心技术，并发编程，JVM）Java助辅要员（设计模式，linux内核，TCP/IP协议，Netty，Tomcat，Mysql） 上古单体架构 分布式朝代 微服务纪元 云原生前沿 架构演进  自动化运维",
-   "stars": 456,
-   "topics": [],
-   "lang": "Java",
-   "created_at": "2019-08-24",
-   "pushed_at": "2022-12-10",
-   "age_days": 2528,
-   "stars_per_day_lifetime": 0.18,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "古籍 in:name,description stars:>20",
-    "sort": "stars",
-    "query_breadth": 44,
-    "position": 11
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供Java体系核心技术书籍的收藏和分类",
-   "evidence": "本藏馆主要珍藏Java体系核心技术书籍：涵盖Java核心基石（Java核心技术，并发编程，JVM）Java助辅要员（设计模式，linux内核，TCP/IP协议，Netty，Tomcat，Mysql） 上古单体架构 分布式朝代 微服务纪元 云",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "D4Vinci/Scrapling",
-   "url": "https://github.com/D4Vinci/Scrapling",
-   "description": "🕷️ An adaptive Web Scraping framework that handles everything from a single request to a full-scale crawl!",
-   "stars": 71314,
-   "topics": [
-    "ai",
-    "ai-scraping",
-    "automation",
-    "crawler",
-    "crawling",
-    "crawling-python",
-    "data",
-    "data-extraction",
-    "mcp",
-    "mcp-server",
-    "playwright",
-    "python"
-   ],
-   "lang": "Python",
-   "created_at": "2024-10-13",
-   "pushed_at": "2026-07-26",
-   "age_days": 651,
-   "stars_per_day_lifetime": 109.55,
-   "license": "BSD-3-Clause",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:mcp-server stars:>1000 pushed:>2026-06-26",
-    "sort": "stars",
     "query_breadth": 100,
     "position": 3
    },
@@ -1321,11 +411,10 @@
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "提供自适应的Web抓取框架，支持单次请求到大规模爬取",
-   "evidence": "🕷️ An adaptive Web Scraping framework that handles everything from a single request to a full-scale crawl!",
+   "capability": "基于 Claude Code / Codex 的价值投资研究框架，整合多位大师方法论和多 Agent 并行研究。",
+   "evidence": "topics: ai-agent, anthropic, berkshire-hathaway, financial-analysis, fintech, fundamental-analysis, investment; descript",
    "transfer_forms": [
-    "mcp",
-    "deploy"
+    "architecture"
    ],
    "line_candidates": [
     "unknown"
@@ -1333,21 +422,16 @@
    "distilled": true
   },
   {
-   "repo": "cporter202/scraping-apis-for-devs",
-   "url": "https://github.com/cporter202/scraping-apis-for-devs",
-   "description": "This GitHub repo is a powerhouse collection of scraping APIs for developers that you can start using immediately to build everything from simple automations to full-scale applications.",
-   "stars": 3794,
-   "topics": [
-    "api-library",
-    "api-list",
-    "developer-api",
-    "scraping-api"
-   ],
-   "lang": "JavaScript",
-   "created_at": "2025-12-10",
-   "pushed_at": "2026-01-20",
-   "age_days": 228,
-   "stars_per_day_lifetime": 16.64,
+   "repo": "uhub/awesome-python",
+   "url": "https://github.com/uhub/awesome-python",
+   "description": "A curated list of awesome Python frameworks, libraries and software.",
+   "stars": 1190,
+   "topics": [],
+   "lang": "",
+   "created_at": "2015-08-12",
+   "pushed_at": "2026-07-25",
+   "age_days": 4001,
+   "stars_per_day_lifetime": 0.3,
    "license": "NONE",
    "license_family": "none",
    "found_by": {
@@ -1355,7 +439,84 @@
     "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
     "sort": "stars",
     "query_breadth": 32,
-    "position": 7
+    "position": 14
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "精选 Python 框架、库和软件的列表。",
+   "evidence": "description: A curated list of awesome Python frameworks, libraries and software; topics: -",
+   "transfer_forms": [
+    "library"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "b0LBwZ7r5HOeh6CBMuQIhVu3-s-random-fork/PCL2",
+   "url": "https://github.com/b0LBwZ7r5HOeh6CBMuQIhVu3-s-random-fork/PCL2",
+   "description": "[stays mad] 反PCL宣传库。Anti PCL propaganda. 大陆修宪香港恶法台湾武统朝鲜毁约美中冷战等都是王沪宁愚弄习思想极左命运共同体的大策划中共窃国这半个多世纪所犯下的滔天罪恶，前期是毛泽东策划的，中期6.4前后是邓小平策划的，黄牛数据分析后期是毛的极左追随者三朝罪恶元凶王沪宁策划的。王沪宁高小肆业因文革政治和情报需要保送“学院外语班“红色仕途翻身，所以王的本质是极左的。他是在上海底层弄堂长大的，因其本性也促成其瘪三下三滥个性，所以也都说他有易主“变色龙”哈巴狗“的天性。大陆像王沪宁这样学马列政治所谓\"法学\"专业的人，在除朝鲜古巴所有国家特别是在文明发达国家是无法找到专业对口工作必定失业，唯独在大陆却是重用的紧缺“人才”，6.4后中共信仰大危机更是最重用的救党“人才”。这也就是像王沪宁此类工农兵假“大学生”平步青云的原因，他们最熟悉毛泽东历次运动的宫庭内斗经验手段",
+   "stars": 90,
+   "topics": [],
+   "lang": "C#",
+   "created_at": "2022-08-12",
+   "pushed_at": "2022-08-12",
+   "age_days": 1444,
+   "stars_per_day_lifetime": 0.06,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "古籍 in:name,description stars:>20",
+    "sort": "stars",
+    "query_breadth": 44,
+    "position": 22
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "该仓库是一个反PCL宣传库，包含大量政治相关内容。",
+   "evidence": "topics为空，描述为反PCL宣传库，无明确技术能力描述",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "ChatLab/ChatLab",
+   "url": "https://github.com/ChatLab/ChatLab",
+   "description": "Local-first chat history analyzer with AI. | 本地优先的 AI 聊天记录分析工具",
+   "stars": 7028,
+   "topics": [
+    "ai-agent",
+    "ai-agents",
+    "chat-analyzer",
+    "chat-history",
+    "data-analysis",
+    "data-visualization"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2025-11-26",
+   "pushed_at": "2026-07-26",
+   "age_days": 242,
+   "stars_per_day_lifetime": 29.04,
+   "license": "AGPL-3.0",
+   "license_family": "copyleft",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:ai-agent stars:>2000 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 4
    },
    "matched_by_n_queries": 1,
    "known_in_arsenal": false,
@@ -1373,106 +534,16 @@
    "distilled": false
   },
   {
-   "repo": "cirosantilli/china-dictatroship-7",
-   "url": "https://github.com/cirosantilli/china-dictatroship-7",
-   "description": "反中共政治宣传库。Anti Chinese government propaganda. https://github.com/cirosantilli/china-dictatorship 的备份backup. 住在中国真名用户的网友请别给星星，不然你要被警察请喝茶。常见问答集，新闻集和饭店和音乐建议。卐习万岁卐。冠状病毒审查郝海东新疆改造中心六四事件法轮功 996.ICU709大抓捕巴拿马文件邓家贵低端人口西藏骚乱。Friends who live in China and have real name on account, please don't star this repo, or else the police might pay you a visit.  Home to the mega-FAQ, news compilation, restaurant and musi",
-   "stars": 359,
+   "repo": "OranAi-Ltd/oransim",
+   "url": "https://github.com/OranAi-Ltd/oransim",
+   "description": "Causal Digital Twin for Marketing at Scale · Predict any marketing decision before you spend a dollar.",
+   "stars": 1168,
    "topics": [],
-   "lang": "HTML",
-   "created_at": "2021-08-18",
-   "pushed_at": "2026-02-05",
-   "age_days": 1803,
-   "stars_per_day_lifetime": 0.2,
-   "license": "CC-BY-SA-4.0",
-   "license_family": "unknown",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "古籍 in:name,description stars:>20",
-    "sort": "stars",
-    "query_breadth": 44,
-    "position": 12
-   },
-   "matched_by_n_queries": 2,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "holaboss-ai/holaOS",
-   "url": "https://github.com/holaboss-ai/holaOS",
-   "description": "Your super agent for work: learn your working context in mins and never forget it.",
-   "stars": 5521,
-   "topics": [
-    "agent",
-    "agent-harness",
-    "agent-os",
-    "agentic",
-    "ai",
-    "ai-agent",
-    "ai-agents",
-    "artificial-intelligence",
-    "electron",
-    "holaboss",
-    "holaos",
-    "llm"
-   ],
-   "lang": "TypeScript",
-   "created_at": "2026-03-22",
-   "pushed_at": "2026-07-26",
-   "age_days": 126,
-   "stars_per_day_lifetime": 43.82,
-   "license": "NOASSERTION",
-   "license_family": "unknown",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:mcp stars:>2000 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 4
-   },
-   "matched_by_n_queries": 2,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "rohitg00/awesome-claude-code-toolkit",
-   "url": "https://github.com/rohitg00/awesome-claude-code-toolkit",
-   "description": "The most comprehensive toolkit for Claude Code -- 135 agents, 35 curated skills, 42 commands, 176+ plugins, 20 hooks, 15 rules, 7 templates, 14 MCP configs, 26 companion apps, 52 ecosystem entries, and more.",
-   "stars": 2387,
-   "topics": [
-    "claude",
-    "claude-code",
-    "claudecode",
-    "claudecode-hooks",
-    "plugins",
-    "skills"
-   ],
-   "lang": "JavaScript",
-   "created_at": "2026-02-04",
-   "pushed_at": "2026-05-12",
-   "age_days": 172,
-   "stars_per_day_lifetime": 13.88,
+   "lang": "Python",
+   "created_at": "2026-04-18",
+   "pushed_at": "2026-07-17",
+   "age_days": 99,
+   "stars_per_day_lifetime": 11.8,
    "license": "Apache-2.0",
    "license_family": "permissive",
    "found_by": {
@@ -1480,7 +551,7 @@
     "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
     "sort": "stars",
     "query_breadth": 32,
-    "position": 8
+    "position": 15
    },
    "matched_by_n_queries": 1,
    "known_in_arsenal": false,
@@ -1498,16 +569,16 @@
    "distilled": false
   },
   {
-   "repo": "cirosantilli/cirosantilli",
-   "url": "https://github.com/cirosantilli/cirosantilli",
-   "description": "小粉红小朋友们，新issue 在这儿开： https://github.com/cirosantilli/china-dictatorship/issues # 21世纪新政宣言（2020年4月5曰笫四次修改稿)（2020年6月19曰第七次修改，以下“【】”内文字为非正文内容的说明）20世纪苏联的消亡和东欧的大变革，使这21世纪初的现中国大陆成为世界关注的最主要焦点和影响新世纪文明发展的关键。特别是大陆这些年对外意识形态渗透，震撼整个世界。美中贸易战实际已打响人类意识形态领域最后的冷战，海峡两岸关系恶化，香港不断的百万人游行，南海邻国关系紧张。大陆经济急速下滑衰退，内外矛盾激化高端深感前所未有的生存危机。包括中共上下在内的几乎所有人都很清楚，大陆已到非政治体制改革而不可的时候了，大变革将是民意世潮下的必然结局。中国大陆内外即全球正合力促成这人口第一大国的大变革，这也为中国开创新政提供了一次",
-   "stars": 294,
+   "repo": "yanlinPeng-code/RenShu-AI",
+   "url": "https://github.com/yanlinPeng-code/RenShu-AI",
+   "description": "仁术AI,一个基于 FastAPI + Vue 3 + LangGraph 构建的前后端分离多智能体中医问诊系统，支持 DeepSeek（中医微调版）、TCM-LLM 等中医领域大模型，融合 Agent 动态推理与 GraphRAG 中医知识检索能力，解决中医问诊场景下**意图识别准确率低**、**结构化 / 非结构化数据割裂**、**辨证推理不严谨**等核心痛点，覆盖中医辨证、古籍查询、医案参考、药材咨询、养生指导等全场景需求。",
+   "stars": 79,
    "topics": [],
-   "lang": "JavaScript",
-   "created_at": "2020-07-15",
-   "pushed_at": "2025-12-02",
-   "age_days": 2202,
-   "stars_per_day_lifetime": 0.13,
+   "lang": "Python",
+   "created_at": "2025-10-12",
+   "pushed_at": "2026-03-11",
+   "age_days": 287,
+   "stars_per_day_lifetime": 0.28,
    "license": "NONE",
    "license_family": "none",
    "found_by": {
@@ -1515,7 +586,7 @@
     "query": "古籍 in:name,description stars:>20",
     "sort": "stars",
     "query_breadth": 44,
-    "position": 13
+    "position": 25
    },
    "matched_by_n_queries": 2,
    "known_in_arsenal": false,
@@ -1533,35 +604,166 @@
    "distilled": false
   },
   {
-   "repo": "sansan0/TrendRadar",
-   "url": "https://github.com/sansan0/TrendRadar",
-   "description": "⭐AI-driven public opinion & trend monitor with multi-platform aggregation, RSS, and smart alerts.🎯 告别信息过载，你的 AI 舆情监控助手与热点筛选工具！聚合多平台热点 +  RSS 订阅，支持关键词精准筛选。AI 智能筛选新闻 + AI 翻译 +  AI 分析简报直推手机，也支持接入 MCP 架构，赋能 AI 自然语言对话分析、情感洞察与趋势预测等。支持 Docker ，数据本地/云端自持。集成微信/飞书/钉钉/Telegram/邮件/ntfy/bark/slack 等渠道智能推送。",
-   "stars": 60901,
+   "repo": "repowise-dev/repowise",
+   "url": "https://github.com/repowise-dev/repowise",
+   "description": "Codebase intelligence for AI and humans: code health scores, auto-generated docs, git analytics, dead code detection, and architectural decisions via MCP.",
+   "stars": 4239,
    "topics": [
     "ai",
-    "bark",
-    "data-analysis",
-    "docker",
-    "hot-news",
-    "llm",
-    "mail",
+    "code-complexity",
+    "code-health",
+    "code-intelligence",
+    "code-quality",
+    "dead-code",
+    "developer-tools",
+    "documentation",
+    "git-analytics",
     "mcp",
-    "mcp-server",
-    "news",
-    "ntfy",
+    "open-source",
     "python"
    ],
    "lang": "Python",
-   "created_at": "2025-04-28",
-   "pushed_at": "2026-07-17",
-   "age_days": 454,
-   "stars_per_day_lifetime": 134.14,
-   "license": "GPL-3.0",
+   "created_at": "2026-03-23",
+   "pushed_at": "2026-07-26",
+   "age_days": 125,
+   "stars_per_day_lifetime": 33.91,
+   "license": "AGPL-3.0",
    "license_family": "copyleft",
    "found_by": {
     "dimension": "stock",
-    "query": "topic:mcp-server stars:>1000 pushed:>2026-06-26",
+    "query": "topic:mcp stars:>2000 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 4
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "superiorlu/AITreasureBox",
+   "url": "https://github.com/superiorlu/AITreasureBox",
+   "description": "🤖 Automatically collected AI repos, tools, websites, papers & tutorials. 实用AI百宝箱 💎",
+   "stars": 839,
+   "topics": [
+    "agentic",
+    "agi",
+    "ai",
+    "ai-gents",
+    "ai-prompts",
+    "ai-tools",
+    "alpaca",
+    "awesome-list",
+    "deep-learning",
+    "deepseek",
+    "gpt",
+    "harness"
+   ],
+   "lang": "Ruby",
+   "created_at": "2023-03-16",
+   "pushed_at": "2026-07-26",
+   "age_days": 1228,
+   "stars_per_day_lifetime": 0.68,
+   "license": "GPL-3.0",
+   "license_family": "copyleft",
+   "found_by": {
+    "dimension": "category",
+    "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
     "sort": "stars",
+    "query_breadth": 32,
+    "position": 16
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "zaohmeing/21-",
+   "url": "https://github.com/zaohmeing/21-",
+   "description": "召赫名推荐：“21世纪新政宣言”和“三朝罪恶元凶王沪宁” ----推崇一篇见解温和奇特不左不右极罕见难得而又解困可行很有现实意义的文章《21世纪新政宣言》，和介绍一篇见解也独特但观点很强硬的《三朝罪恶元凶王沪宁》供比较和参考：                        21世纪新政宣言【让香港先行是唯一圆满解决现难题的双赢方案！】        20世纪苏联的消亡和东欧的大变革，使这21世纪初的现中国大陆成为世界关注的最主要焦点和影响新世纪文明发展的关键。特别是大陆这些年对外意识形态渗透，震撼整个世界。美中贸易战实际已打响人类意识形态领域最后的冷战，海峡两岸关系恶化，香港不断的百万人游行，南海邻国关系紧张。大陆经济急速下滑衰退，内外矛盾激化高端深感前所未有的生存危机。包括中共上下在内的几乎所有人都很清楚，大陆已到非政治体制改革而不可的时候了，大变革将是民意世潮下的必然结局。中国大陆内外",
+   "stars": 78,
+   "topics": [],
+   "lang": "",
+   "created_at": "2019-10-30",
+   "pushed_at": "2021-03-07",
+   "age_days": 2461,
+   "stars_per_day_lifetime": 0.03,
+   "license": "NONE",
+   "license_family": "none",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "古籍 in:name,description stars:>20",
+    "sort": "stars",
+    "query_breadth": 44,
+    "position": 26
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "trycua/cua",
+   "url": "https://github.com/trycua/cua",
+   "description": "Scale computer-use 2.0 with open-source drivers, cross-OS fleets, and benchmarks for training, evaluation, and data generation.",
+   "stars": 20641,
+   "topics": [
+    "agent",
+    "ai-agent",
+    "apple",
+    "computer-use",
+    "computer-use-agent",
+    "containerization",
+    "cua",
+    "desktop-automation",
+    "hacktoberfest",
+    "lume",
+    "macos",
+    "manus"
+   ],
+   "lang": "HTML",
+   "created_at": "2025-01-31",
+   "pushed_at": "2026-07-26",
+   "age_days": 541,
+   "stars_per_day_lifetime": 38.15,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:ai-agent stars:>2000 pushed:>2026-06-26",
+    "sort": "updated",
     "query_breadth": 100,
     "position": 5
    },
@@ -1581,257 +783,21 @@
    "distilled": false
   },
   {
-   "repo": "cporter202/social-media-scraping-apis",
-   "url": "https://github.com/cporter202/social-media-scraping-apis",
-   "description": "A curated collection of social media scraping APIs and tools for Instagram, LinkedIn, Twitter/X, TikTok, YouTube, Facebook, and more. Extract posts, profiles, videos, comments, and engagement metrics.",
-   "stars": 2076,
+   "repo": "thinkwee/AwesomeOPD",
+   "url": "https://github.com/thinkwee/AwesomeOPD",
+   "description": "Awesome List for On-Policy Distillation",
+   "stars": 765,
    "topics": [
-    "facebook-api",
-    "facebook-scraping",
-    "linkedin-bot",
-    "linkedin-scraping",
-    "social",
-    "social-media",
-    "social-media-automation"
+    "awesome-list",
+    "distillation",
+    "large-language-model",
+    "on-policy-distillation"
    ],
-   "lang": "JavaScript",
-   "created_at": "2026-01-20",
-   "pushed_at": "2026-01-20",
-   "age_days": 187,
-   "stars_per_day_lifetime": 11.1,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "category",
-    "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
-    "sort": "stars",
-    "query_breadth": 32,
-    "position": 9
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "mRFWq7LwNPZjaVv5v6eo/cihna-dictattorshrip-8",
-   "url": "https://github.com/mRFWq7LwNPZjaVv5v6eo/cihna-dictattorshrip-8",
-   "description": "反中共政治宣传库。Anti Chinese government propaganda. https://github.com/cirosantilli/china-dictatorship 的备份backup. 住在中国真名用户的网友请别给星星，不然你要被警察请喝茶。常见问答集，新闻集和饭店和音乐建议。卐习万岁卐。冠状病毒审查郝海东新疆改造中心六四事件法轮功 996.ICU709大抓捕巴拿马文件邓家贵低端人口西藏骚乱。Friends who live in China and have real name on account, please don't star this repo, or else the police might pay you a visit.  Home to the mega-FAQ, news compilation, restaurant and musi",
-   "stars": 205,
-   "topics": [],
-   "lang": "HTML",
-   "created_at": "2022-02-07",
-   "pushed_at": "2026-02-05",
-   "age_days": 1630,
-   "stars_per_day_lifetime": 0.13,
-   "license": "CC-BY-SA-4.0",
-   "license_family": "unknown",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "古籍 in:name,description stars:>20",
-    "sort": "stars",
-    "query_breadth": 44,
-    "position": 14
-   },
-   "matched_by_n_queries": 2,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "upstash/context7",
-   "url": "https://github.com/upstash/context7",
-   "description": "Context7 Platform -- Up-to-date code documentation for LLMs and AI code editors",
-   "stars": 59779,
-   "topics": [
-    "llm",
-    "mcp",
-    "mcp-server",
-    "vibe-coding"
-   ],
-   "lang": "TypeScript",
-   "created_at": "2025-03-26",
-   "pushed_at": "2026-07-25",
-   "age_days": 487,
-   "stars_per_day_lifetime": 122.75,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:mcp-server stars:>1000 pushed:>2026-06-26",
-    "sort": "stars",
-    "query_breadth": 100,
-    "position": 6
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "ZeroLu/awesome-gpt-image",
-   "url": "https://github.com/ZeroLu/awesome-gpt-image",
-   "description": "A curated collection of the best GPT Image 2 prompts and examples. The prompts come from top creators on X.",
-   "stars": 1932,
-   "topics": [
-    "gpt-image",
-    "gpt-image-2",
-    "image-generator",
-    "prompt-engineering"
-   ],
-   "lang": "Python",
-   "created_at": "2026-04-07",
-   "pushed_at": "2026-07-26",
-   "age_days": 110,
-   "stars_per_day_lifetime": 17.56,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
-    "sort": "stars",
-    "query_breadth": 32,
-    "position": 10
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "panbinibn/OpenPacketFix_",
-   "url": "https://github.com/panbinibn/OpenPacketFix_",
-   "description": "大陆修宪香港恶法台湾武统朝鲜毁约美中冷战等都是王沪宁愚弄习思想极左命运共同体的大策划中共窃国这半个多世纪所犯下的滔天罪恶，前期是毛泽东策划的，中期6.4前后是邓小平策划的，黄牛数据分析后期是毛的极左追随者三朝罪恶元凶王沪宁策划的。王沪宁高小肆业因文革政治和情报需要保送“学院外语班“红色仕途翻身，所以王的本质是极左的。他是在上海底层弄堂长大的，因其本性也促成其瘪三下三滥个性，所以也都说他有易主“变色龙”哈巴狗“的天性。大陆像王沪宁这样学马列政治所谓\"法学\"专业的人，在除朝鲜古巴所有国家特别是在文明发达国家是无法找到专业对口工作必定失业，唯独在大陆却是重用的紧缺“人才”，6.4后中共信仰大危机更是最重用的救党“人才”。这也就是像王沪宁此类工农兵假“大学生”平步青云的原因，他们最熟悉毛泽东历次运动的宫庭内斗经验手段和残酷的阶级斗争等暴力恐怖的“政治学”。王沪宁能平步青云靠他这马毛伪“政治学”资本",
-   "stars": 195,
-   "topics": [],
    "lang": "",
-   "created_at": "2022-08-31",
-   "pushed_at": "2022-08-12",
-   "age_days": 1425,
-   "stars_per_day_lifetime": 0.14,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "古籍 in:name,description stars:>20",
-    "sort": "stars",
-    "query_breadth": 44,
-    "position": 15
-   },
-   "matched_by_n_queries": 2,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "bojieli/ai-agent-book",
-   "url": "https://github.com/bojieli/ai-agent-book",
-   "description": "《深入理解 AI Agent：设计原理与工程实践》（李博杰 著）开源主仓库：全书正文、编译版 PDF 与按章配套代码",
-   "stars": 20566,
-   "topics": [
-    "agent",
-    "agent-memory",
-    "ai-agent",
-    "book",
-    "coding-agent",
-    "context-engineering",
-    "large-language-models",
-    "llm",
-    "mcp",
-    "multi-agent",
-    "multimodal",
-    "rag"
-   ],
-   "lang": "Python",
-   "created_at": "2025-09-09",
-   "pushed_at": "2026-07-26",
-   "age_days": 320,
-   "stars_per_day_lifetime": 64.27,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:mcp stars:>2000 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 6
-   },
-   "matched_by_n_queries": 2,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "vectorize-io/self-driving-agents",
-   "url": "https://github.com/vectorize-io/self-driving-agents",
-   "description": "",
-   "stars": 1878,
-   "topics": [],
-   "lang": "TypeScript",
-   "created_at": "2026-04-28",
-   "pushed_at": "2026-06-15",
-   "age_days": 89,
-   "stars_per_day_lifetime": 21.1,
+   "created_at": "2026-04-27",
+   "pushed_at": "2026-07-23",
+   "age_days": 90,
+   "stars_per_day_lifetime": 8.5,
    "license": "NONE",
    "license_family": "none",
    "found_by": {
@@ -1839,41 +805,6 @@
     "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
     "sort": "stars",
     "query_breadth": 32,
-    "position": 11
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "JasonWade001/chtxt",
-   "url": "https://github.com/JasonWade001/chtxt",
-   "description": "中华经典古籍精校、诗词，四书五经、四大名著、诗经、楚辞、全唐诗、全宋词、唐诗三百首、宋詞三百首、二十四史......",
-   "stars": 162,
-   "topics": [],
-   "lang": "",
-   "created_at": "2021-02-19",
-   "pushed_at": "2021-02-19",
-   "age_days": 1983,
-   "stars_per_day_lifetime": 0.08,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "古籍 in:name,description stars:>20",
-    "sort": "stars",
-    "query_breadth": 44,
     "position": 17
    },
    "matched_by_n_queries": 1,
@@ -1892,35 +823,26 @@
    "distilled": false
   },
   {
-   "repo": "ChromeDevTools/chrome-devtools-mcp",
-   "url": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
-   "description": "Chrome DevTools for coding agents",
-   "stars": 47635,
-   "topics": [
-    "browser",
-    "chrome",
-    "chrome-devtools",
-    "debugging",
-    "devtools",
-    "mcp",
-    "mcp-server",
-    "puppeteer"
-   ],
-   "lang": "TypeScript",
-   "created_at": "2025-09-11",
-   "pushed_at": "2026-07-26",
-   "age_days": 318,
-   "stars_per_day_lifetime": 149.8,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
+   "repo": "jaityron/new-pac-wiki",
+   "url": "https://github.com/jaityron/new-pac-wiki",
+   "description": "<!DOCTYPE html> <html lang=\"en\">   <head>     <meta charset=\"utf-8\">   <link rel=\"dns-prefetch\" href=\"https://github.githubassets.com\">   <link rel=\"dns-prefetch\" href=\"https://avatars0.githubusercontent.com\">   <link rel=\"dns-prefetch\" href=\"https://avatars1.githubusercontent.com\">   <link rel=\"dns-prefetch\" href=\"https://avatars2.githubusercontent.com\">   <link rel=\"dns-prefetch\" href=\"https://a",
+   "stars": 76,
+   "topics": [],
+   "lang": "",
+   "created_at": "2019-03-18",
+   "pushed_at": "2023-03-19",
+   "age_days": 2687,
+   "stars_per_day_lifetime": 0.03,
+   "license": "NONE",
+   "license_family": "none",
    "found_by": {
-    "dimension": "stock",
-    "query": "topic:mcp-server stars:>1000 pushed:>2026-06-26",
+    "dimension": "chinese",
+    "query": "古籍 in:name,description stars:>20",
     "sort": "stars",
-    "query_breadth": 100,
-    "position": 7
+    "query_breadth": 44,
+    "position": 27
    },
-   "matched_by_n_queries": 2,
+   "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
@@ -1936,16 +858,327 @@
    "distilled": false
   },
   {
-   "repo": "LearnPrompt/ai-news-radar",
-   "url": "https://github.com/LearnPrompt/ai-news-radar",
-   "description": "24h AI/tech news radar with GitHub Actions, live web UI, and Scout Skill for AI sources.",
-   "stars": 1614,
-   "topics": [],
-   "lang": "Python",
-   "created_at": "2026-02-21",
+   "repo": "cobusgreyling/loop-engineering",
+   "url": "https://github.com/cobusgreyling/loop-engineering",
+   "description": "Practical patterns, starters & CLI tools for loop engineering with AI coding agents. Design systems that prompt and orchestrate agents (inspired by Addy Osmani and Boris Cherny). Includes loop-audit, loop-init, loop-cost.",
+   "stars": 9429,
+   "topics": [
+    "agentic-ai",
+    "ai-agents",
+    "ai-coding",
+    "anthropic",
+    "automation",
+    "claude",
+    "claude-code",
+    "codex",
+    "coding-agents",
+    "devops-automation",
+    "devtools",
+    "github-actions"
+   ],
+   "lang": "JavaScript",
+   "created_at": "2026-06-09",
    "pushed_at": "2026-07-26",
-   "age_days": 155,
-   "stars_per_day_lifetime": 10.41,
+   "age_days": 47,
+   "stars_per_day_lifetime": 200.62,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:mcp stars:>2000 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 5
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供 AI 编码代理的循环工程模式、启动模板及 CLI 工具，用于设计提示和编排智能体系统。",
+   "evidence": "topics: agentic-ai, ai-agents, automation, claude-code, coding-agents; description: patterns & CLI tools for loop engine",
+   "transfer_forms": [
+    "deploy",
+    "library"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "frangelbarrera/OSINT-BIBLE",
+   "url": "https://github.com/frangelbarrera/OSINT-BIBLE",
+   "description": "Comprehensive 2026 OSINT guide — 450+ tools, AI intelligence, methodologies & ethics across 35 sections for investigation & threat intel.",
+   "stars": 637,
+   "topics": [
+    "cybersecurity",
+    "data-analysis",
+    "ethical-hacking",
+    "forensics",
+    "investigation",
+    "open-source-intelligence",
+    "osint",
+    "privacy",
+    "research-tools",
+    "threat-intelligence"
+   ],
+   "lang": "",
+   "created_at": "2025-12-24",
+   "pushed_at": "2026-07-19",
+   "age_days": 214,
+   "stars_per_day_lifetime": 2.98,
+   "license": "GPL-3.0",
+   "license_family": "copyleft",
+   "found_by": {
+    "dimension": "category",
+    "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
+    "sort": "stars",
+    "query_breadth": 32,
+    "position": 19
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供包含 450+ 工具和伦理方法的开源情报（OSINT）综合指南，涵盖网络安全与威胁情报调查。",
+   "evidence": "topics: cybersecurity, osint, threat-intelligence, investigation; description: Comprehensive OSINT guide — 450+ tools, m",
+   "transfer_forms": [
+    "dataset"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "lxgw/Pengli",
+   "url": "https://github.com/lxgw/Pengli",
+   "description": "彭蠡文楷：基於《霞鶩文楷》系列字體衍生，參考《古籍印刷通用字規範字形表》（GB/Z 40637-2021）收字和調整字形的開源字體。",
+   "stars": 68,
+   "topics": [],
+   "lang": "",
+   "created_at": "2025-05-18",
+   "pushed_at": "2026-06-29",
+   "age_days": 434,
+   "stars_per_day_lifetime": 0.16,
+   "license": "OFL-1.1",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "古籍 in:name,description stars:>20",
+    "sort": "stars",
+    "query_breadth": 44,
+    "position": 28
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "基于霞鶩文楷系列衍生并参考古籍印刷通用字规范字形表的开源中文字体项目。",
+   "evidence": "description: 基於《霞鶩文楷》系列字體衍生，參考《古籍印刷通用字規範字形表》收字和調整字形的開源字體。",
+   "transfer_forms": [
+    "library"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "can1357/oh-my-pi",
+   "url": "https://github.com/can1357/oh-my-pi",
+   "description": "⌥  AI Coding agent for the terminal — hash-anchored edits, optimized tool harness, LSP, Python, browser, subagents, and more",
+   "stars": 19819,
+   "topics": [
+    "ai-agent",
+    "ai-coding-agent",
+    "anthropic",
+    "bun",
+    "claude",
+    "cli",
+    "coding-assistant",
+    "llm",
+    "mcp",
+    "multi-provider",
+    "openai",
+    "rust"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2025-12-31",
+   "pushed_at": "2026-07-26",
+   "age_days": 207,
+   "stars_per_day_lifetime": 95.74,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:ai-agent stars:>2000 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 7
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "支持哈希锚定编辑、LSP 和多提供商的终端 AI 编码助手，具备浏览器访问和子智能体功能。",
+   "evidence": "topics: ai-coding-agent, mcp, multi-provider, rust; description: AI Coding agent for the terminal — hash-anchored edits,",
+   "transfer_forms": [
+    "mcp",
+    "deploy"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "freestylefly/canghe-skills",
+   "url": "https://github.com/freestylefly/canghe-skills",
+   "description": "苍何的技能skills仓库，搜集好用的 skills，辅助提效",
+   "stars": 418,
+   "topics": [],
+   "lang": "TypeScript",
+   "created_at": "2026-02-24",
+   "pushed_at": "2026-06-08",
+   "age_days": 152,
+   "stars_per_day_lifetime": 2.75,
+   "license": "NONE",
+   "license_family": "none",
+   "found_by": {
+    "dimension": "category",
+    "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
+    "sort": "stars",
+    "query_breadth": 32,
+    "position": 20
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "收集和提升效率的技能仓库，辅助用户获取和使用各类技能。",
+   "evidence": "description: 搜集好用的 skills，辅助提效",
+   "transfer_forms": [
+    "skill"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "osfans/trime",
+   "url": "https://github.com/osfans/trime",
+   "description": "同文安卓輸入法平臺3.x/Android-rime/Rime Input Method Engine for Android",
+   "stars": 4508,
+   "topics": [
+    "android",
+    "chinese",
+    "ime",
+    "jni",
+    "opencc",
+    "rime"
+   ],
+   "lang": "Kotlin",
+   "created_at": "2015-05-28",
+   "pushed_at": "2026-07-26",
+   "age_days": 4077,
+   "stars_per_day_lifetime": 1.11,
+   "license": "GPL-3.0",
+   "license_family": "copyleft",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese stars:>500 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 61,
+    "position": 0
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "安卓平台的同文输入法引擎，支持 Rime 输入法和开放中文转换。",
+   "evidence": "topics: android, chinese, ime, rime, opencc; description: Rime Input Method Engine for Android",
+   "transfer_forms": [
+    "deploy"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "Bitterbot-AI/bitterbot-desktop",
+   "url": "https://github.com/Bitterbot-AI/bitterbot-desktop",
+   "description": "A local-first AI agent with persistent memory, emotional intelligence, and a peer-to-peer skills economy.",
+   "stars": 2427,
+   "topics": [
+    "a2a-protocol",
+    "agent-economy",
+    "agent-memory",
+    "ai-agent",
+    "chatbot",
+    "cognitive-architecture",
+    "decentralized-ai",
+    "desktop-app",
+    "dream-engine",
+    "local-first",
+    "multi-channel",
+    "open-source"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2026-03-28",
+   "pushed_at": "2026-07-26",
+   "age_days": 120,
+   "stars_per_day_lifetime": 20.23,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:ai-agent stars:>2000 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 9
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "具有持久记忆和情感智能的本地优先 AI 代理，支持点对点技能经济和多通道交互。",
+   "evidence": "topics: ai-agent, agent-memory, decentralized-ai, local-first; description: A local-first AI agent with persistent memor",
+   "transfer_forms": [
+    "architecture",
+    "deploy"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "metorial/metorial-index",
+   "url": "https://github.com/metorial/metorial-index",
+   "description": "Metorial MCP Index - An ever growing list of open source MCP servers 📁 🎉",
+   "stars": 278,
+   "topics": [
+    "agentic-ai",
+    "agents",
+    "awesome-list",
+    "mcp",
+    "mcp-server"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2025-06-05",
+   "pushed_at": "2025-12-31",
+   "age_days": 416,
+   "stars_per_day_lifetime": 0.67,
    "license": "MIT",
    "license_family": "permissive",
    "found_by": {
@@ -1953,6 +1186,247 @@
     "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
     "sort": "stars",
     "query_breadth": 32,
+    "position": 21
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "持续增长的开源 MCP 服务器索引列表，用于管理和发现 MCP 服务。",
+   "evidence": "topics: mcp, mcp-server; description: Metorial MCP Index - An ever growing list of open source MCP servers",
+   "transfer_forms": [
+    "dataset"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "DrewThomasson/ebook2audiobook",
+   "url": "https://github.com/DrewThomasson/ebook2audiobook",
+   "description": "Generate audiobooks from e-books, voice cloning & 1158+ languages!",
+   "stars": 19572,
+   "topics": [
+    "audiobook",
+    "audiobooks",
+    "chinese",
+    "colab-notebook",
+    "docker",
+    "english",
+    "epub",
+    "gradio",
+    "kaggle",
+    "linux",
+    "mac",
+    "multilingual"
+   ],
+   "lang": "Python",
+   "created_at": "2024-01-22",
+   "pushed_at": "2026-07-26",
+   "age_days": 916,
+   "stars_per_day_lifetime": 21.37,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese stars:>500 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 61,
+    "position": 8
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "从电子书生成有声书，支持语音克隆和 1158 多种语言的跨平台工具。",
+   "evidence": "topics: audiobook, epub, multilingual, docker, colab-notebook; description: Generate audiobooks from e-books, voice clon",
+   "transfer_forms": [
+    "deploy",
+    "dataset"
+   ],
+   "line_candidates": [
+    "video"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "assafelovic/gpt-researcher",
+   "url": "https://github.com/assafelovic/gpt-researcher",
+   "description": "An autonomous agent that conducts deep research on any data using any LLM providers",
+   "stars": 28648,
+   "topics": [
+    "agent",
+    "ai",
+    "automation",
+    "deepresearch",
+    "llms",
+    "mcp",
+    "mcp-server",
+    "python",
+    "research",
+    "search",
+    "webscraping"
+   ],
+   "lang": "Python",
+   "created_at": "2023-05-12",
+   "pushed_at": "2026-07-18",
+   "age_days": 1171,
+   "stars_per_day_lifetime": 24.46,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:mcp-server stars:>1000 pushed:>2026-06-26",
+    "sort": "stars",
+    "query_breadth": 100,
+    "position": 11
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "自主进行深度研究的智能体，利用任何 LLM 提供商对数据进行检索和网络抓取。",
+   "evidence": "topics: agent, deepresearch, search, webscraping, mcp-server; description: An autonomous agent that conducts deep resear",
+   "transfer_forms": [
+    "deploy",
+    "mcp"
+   ],
+   "line_candidates": [
+    "rag"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "HisMax/RedInk",
+   "url": "https://github.com/HisMax/RedInk",
+   "description": "Red Ink - A one-stop Xiaohongshu image-and-text generator based on the 🍌Nano Banana Pro🍌, \"One Sentence, One Image: Generate Xiaohongshu Text and Images.\"",
+   "stars": 5418,
+   "topics": [
+    "ai",
+    "aigc",
+    "content-generator",
+    "docker",
+    "flask",
+    "gemini",
+    "nano-banana-pro",
+    "python",
+    "social-media",
+    "text-to-image",
+    "vue",
+    "xiaohongshu"
+   ],
+   "lang": "Python",
+   "created_at": "2025-11-25",
+   "pushed_at": "2026-06-30",
+   "age_days": 243,
+   "stars_per_day_lifetime": 22.3,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "category",
+    "query": "topic:xiaohongshu stars:>100",
+    "sort": "stars",
+    "query_breadth": 46,
+    "position": 7
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "MrGeDiao/shuorenhua",
+   "url": "https://github.com/MrGeDiao/shuorenhua",
+   "description": "说人话｜中文优先的去 AI 味改写 skill：保事实、分场景、改完可直接发。Chinese-first rewrite skill for Codex / Claude Code / Cursor / ChatGPT — removes AI tone, preserves facts.",
+   "stars": 818,
+   "topics": [
+    "agent-skill",
+    "ai-writing",
+    "anti-slop",
+    "chatgpt",
+    "chinese",
+    "claude-code",
+    "codex",
+    "cursor",
+    "developer-tools",
+    "openclaw",
+    "prompt",
+    "prompt-engineering"
+   ],
+   "lang": "Python",
+   "created_at": "2026-03-22",
+   "pushed_at": "2026-07-26",
+   "age_days": 126,
+   "stars_per_day_lifetime": 6.49,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese stars:>500 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 61,
+    "position": 9
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "oraios/serena",
+   "url": "https://github.com/oraios/serena",
+   "description": "A powerful MCP toolkit for coding, providing semantic retrieval and editing capabilities  - the IDE for your agent",
+   "stars": 26940,
+   "topics": [
+    "agent",
+    "ai",
+    "ai-coding",
+    "claude",
+    "claude-code",
+    "codex",
+    "ide",
+    "jetbrains",
+    "language-server",
+    "mcp-server",
+    "programming",
+    "vibe-coding"
+   ],
+   "lang": "Python",
+   "created_at": "2025-03-23",
+   "pushed_at": "2026-07-26",
+   "age_days": 490,
+   "stars_per_day_lifetime": 54.98,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:mcp-server stars:>1000 pushed:>2026-06-26",
+    "sort": "stars",
+    "query_breadth": 100,
     "position": 12
    },
    "matched_by_n_queries": 1,
@@ -1971,210 +1445,36 @@
    "distilled": false
   },
   {
-   "repo": "Zlasejd/HuangDI",
-   "url": "https://github.com/Zlasejd/HuangDI",
-   "description": "黄帝(Huang-Di)模型仓库，基于Ziya-LLaMA-13B-V1的中医古籍知识问答大模型。",
-   "stars": 160,
+   "repo": "cs-lazy-tools/ChatGPT-On-CS",
+   "url": "https://github.com/cs-lazy-tools/ChatGPT-On-CS",
+   "description": "基于大模型的智能对话客服工具，支持微信、拼多多、千牛、哔哩哔哩、抖音企业号、抖音、抖店、微博聊天、小红书专业号运营、小红书、知乎等平台接入，可选择 GPT3.5/GPT4.0/ 懒人百宝箱 （后续会支持更多平台），能处理文本、语音和图片，通过插件访问操作系统和互联网等外部资源，支持基于自有知识库定制企业 AI 应用。",
+   "stars": 4219,
    "topics": [
-    "ancient-books",
-    "llm",
-    "nlp",
-    "qusetion-answer",
-    "tcm"
-   ],
-   "lang": "Python",
-   "created_at": "2023-07-29",
-   "pushed_at": "2024-12-11",
-   "age_days": 1093,
-   "stars_per_day_lifetime": 0.15,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "古籍 in:name,description stars:>20",
-    "sort": "stars",
-    "query_breadth": 44,
-    "position": 18
-   },
-   "matched_by_n_queries": 2,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "clidey/whodb",
-   "url": "https://github.com/clidey/whodb",
-   "description": "Where data access meets operational intelligence",
-   "stars": 4935,
-   "topics": [
-    "ai-agent",
-    "data-catalog",
-    "data-governance",
-    "data-integration",
-    "data-lineage",
-    "data-pipeline",
-    "data-platform",
-    "database-management",
-    "er-diagram",
-    "internal-tools",
-    "mcp-server",
-    "model-context-protocol"
-   ],
-   "lang": "Go",
-   "created_at": "2024-06-11",
-   "pushed_at": "2026-07-26",
-   "age_days": 775,
-   "stars_per_day_lifetime": 6.37,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:ai-agent stars:>2000 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 7
-   },
-   "matched_by_n_queries": 2,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "putyy/res-downloader",
-   "url": "https://github.com/putyy/res-downloader",
-   "description": "视频号、小程序、抖音、快手、小红书、直播流、m3u8、酷狗、QQ音乐等常见网络资源下载!",
-   "stars": 18806,
-   "topics": [
+    "ai",
+    "autohotkey",
+    "automation",
+    "bilibili",
+    "bot",
+    "chatgpt",
+    "chatgpt4",
+    "customer",
+    "dify",
     "douyin",
-    "kuaishou",
-    "res-downloader",
-    "wechat",
-    "wechat-video",
-    "xiaohongshu"
+    "fastai",
+    "llm"
    ],
-   "lang": "Go",
-   "created_at": "2023-09-01",
-   "pushed_at": "2026-06-18",
-   "age_days": 1059,
-   "stars_per_day_lifetime": 17.76,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
+   "lang": "TypeScript",
+   "created_at": "2024-03-07",
+   "pushed_at": "2026-06-06",
+   "age_days": 871,
+   "stars_per_day_lifetime": 4.84,
+   "license": "AGPL-3.0",
+   "license_family": "copyleft",
    "found_by": {
     "dimension": "category",
     "query": "topic:xiaohongshu stars:>100",
     "sort": "stars",
     "query_breadth": 46,
-    "position": 2
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "powerycy/goutoujunshi",
-   "url": "https://github.com/powerycy/goutoujunshi",
-   "description": "一个先接住情绪、再分析关系并给出可执行策略的 Codex 恋爱军师，内置心理、法律、社会、人文、哲学、婚姻家庭与性学知识库，支持多元关系。",
-   "stars": 925,
-   "topics": [
-    "ai-agent",
-    "chinese",
-    "codex",
-    "codex-skill",
-    "lgbtq",
-    "psychology",
-    "relationship-advice"
-   ],
-   "lang": "Python",
-   "created_at": "2026-07-20",
-   "pushed_at": "2026-07-26",
-   "age_days": 6,
-   "stars_per_day_lifetime": 154.17,
-   "license": "NOASSERTION",
-   "license_family": "unknown",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "topic:chinese stars:>500 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 61,
-    "position": 2
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "bytedance/UI-TARS-desktop",
-   "url": "https://github.com/bytedance/UI-TARS-desktop",
-   "description": "The Open-Source Multimodal AI Agent Stack: Connecting Cutting-Edge AI Models and Agent Infra",
-   "stars": 38297,
-   "topics": [
-    "agent",
-    "agent-tars",
-    "browser-use",
-    "computer-use",
-    "cowork",
-    "gui-agent",
-    "gui-operator",
-    "mcp",
-    "mcp-server",
-    "multimodal",
-    "tars",
-    "ui-tars"
-   ],
-   "lang": "TypeScript",
-   "created_at": "2025-01-19",
-   "pushed_at": "2026-07-01",
-   "age_days": 553,
-   "stars_per_day_lifetime": 69.25,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:mcp-server stars:>1000 pushed:>2026-06-26",
-    "sort": "stars",
-    "query_breadth": 100,
     "position": 8
    },
    "matched_by_n_queries": 1,
@@ -2193,389 +1493,61 @@
    "distilled": false
   },
   {
-   "repo": "JoeanAmier/XHS-Downloader",
-   "url": "https://github.com/JoeanAmier/XHS-Downloader",
-   "description": "小红书（XiaoHongShu、RedNote）链接提取/作品采集工具：提取账号发布、收藏、点赞、专辑作品链接；提取搜索结果作品、用户链接；采集小红书作品信息；提取小红书作品下载地址；下载小红书作品文件",
-   "stars": 12094,
+   "repo": "EasyIME/PIME",
+   "url": "https://github.com/EasyIME/PIME",
+   "description": "Develop input methods for Windows easily with Python and node.js",
+   "stars": 1466,
    "topics": [
-    "api",
-    "docker",
-    "downloader",
-    "fastapi",
-    "httpx",
-    "javascript",
-    "json",
-    "linux",
-    "macos",
+    "chinese",
+    "ime",
+    "tsf",
+    "windows-10"
+   ],
+   "lang": "C++",
+   "created_at": "2014-08-27",
+   "pushed_at": "2026-07-25",
+   "age_days": 4351,
+   "stars_per_day_lifetime": 0.34,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese stars:>500 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 61,
+    "position": 11
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "czlonkowski/n8n-mcp",
+   "url": "https://github.com/czlonkowski/n8n-mcp",
+   "description": "A MCP for Claude Desktop / Claude Code / Windsurf / Cursor to build n8n workflows for you",
+   "stars": 22411,
+   "topics": [
+    "mcp",
     "mcp-server",
-    "pyinstaller",
-    "python"
+    "n8n",
+    "workflows"
    ],
-   "lang": "Python",
-   "created_at": "2023-08-16",
+   "lang": "TypeScript",
+   "created_at": "2025-06-07",
    "pushed_at": "2026-07-26",
-   "age_days": 1075,
-   "stars_per_day_lifetime": 11.25,
-   "license": "GPL-3.0",
-   "license_family": "copyleft",
-   "found_by": {
-    "dimension": "category",
-    "query": "topic:xiaohongshu stars:>100",
-    "sort": "stars",
-    "query_breadth": 46,
-    "position": 4
-   },
-   "matched_by_n_queries": 2,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "OpenMOSS/MOSS-TTS-Nano",
-   "url": "https://github.com/OpenMOSS/MOSS-TTS-Nano",
-   "description": "MOSS-TTS-Nano is an open-source multilingual tiny speech generation model from MOSI.AI and the OpenMOSS team. With only 0.1B parameters, it is designed for realtime speech generation, can run directly on CPU without a GPU, and keeps the deployment stack simple enough for local demos, web serving, and lightweight product integration.",
-   "stars": 4005,
-   "topics": [
-    "audio-tokenizer",
-    "chinese",
-    "english",
-    "multi-modality",
-    "multilingual",
-    "realtime",
-    "streaming-audio",
-    "tts",
-    "voice-clone"
-   ],
-   "lang": "Python",
-   "created_at": "2026-04-10",
-   "pushed_at": "2026-07-26",
-   "age_days": 107,
-   "stars_per_day_lifetime": 37.43,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "topic:chinese stars:>500 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 61,
-    "position": 4
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "ZhuLinsen/daily_stock_analysis",
-   "url": "https://github.com/ZhuLinsen/daily_stock_analysis",
-   "description": "LLM 驱动的多市场股票智能分析系统：多源行情、实时新闻、决策看板与自动推送，支持零成本定时运行。  LLM-powered multi-market stock analysis system with multi-source market data, real-time news, decision dashboard, automated notifications, and cost-free scheduled runs.",
-   "stars": 58944,
-   "topics": [
-    "a-stock",
-    "ai-agent",
-    "aigc",
-    "llm",
-    "quant",
-    "quantitative-finance",
-    "quantitative-trading"
-   ],
-   "lang": "Python",
-   "created_at": "2026-01-10",
-   "pushed_at": "2026-07-26",
-   "age_days": 197,
-   "stars_per_day_lifetime": 299.21,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:ai-agent stars:>2000 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 9
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "nexu-io/html-anything",
-   "url": "https://github.com/nexu-io/html-anything",
-   "description": "✨ The agentic HTML editor — your local AI agent writes the HTML, you ship it. 🚀 75 Skills × 9 Surfaces (magazine · deck · poster · XHS / tweet · prototype · data report · Hyperframes) 🛡️ Sandboxed preview · 📤 1-click to WeChat / X / Zhihu / HTML / PNG 🔑 Zero API key — Claude Code / Cursor / Codex / Gemini / Copilot / OpenCode / Qwen / Aider.",
-   "stars": 7962,
-   "topics": [
-    "agent-skills",
-    "agentic",
-    "ai-agents",
-    "ai-design",
-    "ai-editor",
-    "byok",
-    "claude",
-    "claude-code",
-    "claude-skills",
-    "coding-agents",
-    "generative-ai",
-    "html"
-   ],
-   "lang": "HTML",
-   "created_at": "2026-05-11",
-   "pushed_at": "2026-07-14",
-   "age_days": 76,
-   "stars_per_day_lifetime": 104.76,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "topic:xiaohongshu stars:>100",
-    "sort": "stars",
-    "query_breadth": 46,
-    "position": 5
-   },
-   "matched_by_n_queries": 2,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "TNT-Likely/BeeCount",
-   "url": "https://github.com/TNT-Likely/BeeCount",
-   "description": "Local-first bookkeeping for iOS/Android/Web · Self-hosted cloud + iCloud/WebDAV/S3 sync · AI capture · MCP | 本地优先的跨端记账 · 自建云 + iCloud/WebDAV/S3 同步 · AI 记账 · MCP",
-   "stars": 1983,
-   "topics": [
-    "accounting",
-    "ai",
-    "android",
-    "bookkeeping",
-    "chinese",
-    "expense-tracker",
-    "finance-app",
-    "flutter",
-    "ios",
-    "local-first",
-    "mcp",
-    "offline-first"
-   ],
-   "lang": "Dart",
-   "created_at": "2025-09-06",
-   "pushed_at": "2026-07-26",
-   "age_days": 323,
-   "stars_per_day_lifetime": 6.14,
-   "license": "NOASSERTION",
-   "license_family": "unknown",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "topic:chinese stars:>500 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 61,
-    "position": 5
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "Atmosphere/atmosphere",
-   "url": "https://github.com/Atmosphere/atmosphere",
-   "description": "Real-time transport layer for Java AI agents. Build once with @Agent — deliver over WebSocket, SSE, gRPC, and WebTransport/HTTP3. Talk MCP, A2A and AG-UI.",
-   "stars": 3789,
-   "topics": [
-    "acp",
-    "agentic-ai",
-    "embabel",
-    "event-driven",
-    "java",
-    "koog",
-    "langchain4j",
-    "mcp",
-    "multiagent",
-    "quarkus",
-    "spring-ai",
-    "spring-boot"
-   ],
-   "lang": "Java",
-   "created_at": "2010-06-30",
-   "pushed_at": "2026-07-26",
-   "age_days": 5870,
-   "stars_per_day_lifetime": 0.65,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:mcp stars:>2000 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 9
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "op7418/guizang-social-card-skill",
-   "url": "https://github.com/op7418/guizang-social-card-skill",
-   "description": "🪧 Claude Code / Codex skill — generate Xiaohongshu carousels & WeChat 21:9+1:1 cover pairs. Editorial × Swiss visual systems, 28 layouts, 10 themes, single-file HTML → PNG. 小红书图文 + 公众号封面对",
-   "stars": 5569,
-   "topics": [
-    "agent-skill",
-    "ai-agent",
-    "anthropic",
-    "claude-code",
-    "claude-skill",
-    "codex",
-    "editorial-design",
-    "html-template",
-    "image-generation",
-    "playwright",
-    "rednote",
-    "social-cards"
-   ],
-   "lang": "HTML",
-   "created_at": "2026-05-27",
-   "pushed_at": "2026-07-01",
-   "age_days": 60,
-   "stars_per_day_lifetime": 92.82,
-   "license": "AGPL-3.0",
-   "license_family": "copyleft",
-   "found_by": {
-    "dimension": "category",
-    "query": "topic:xiaohongshu stars:>100",
-    "sort": "stars",
-    "query_breadth": 46,
-    "position": 6
-   },
-   "matched_by_n_queries": 2,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "xuchonglang/investing-for-beginners",
-   "url": "https://github.com/xuchonglang/investing-for-beginners",
-   "description": "小隐寺投资百科官方公开索引：美股、期权与加密货币知识框架",
-   "stars": 2642,
-   "topics": [
-    "chinese",
-    "cryptocurrency",
-    "investing",
-    "options",
-    "xiaoyinsi"
-   ],
-   "lang": "",
-   "created_at": "2026-07-03",
-   "pushed_at": "2026-07-26",
-   "age_days": 23,
-   "stars_per_day_lifetime": 114.87,
-   "license": "NOASSERTION",
-   "license_family": "unknown",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "topic:chinese stars:>500 pushed:>2026-06-26",
-    "sort": "updated",
-    "query_breadth": 61,
-    "position": 6
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "",
-   "evidence": "",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": false
-  },
-  {
-   "repo": "github/github-mcp-server",
-   "url": "https://github.com/github/github-mcp-server",
-   "description": "GitHub's official MCP Server",
-   "stars": 31734,
-   "topics": [
-    "github",
-    "mcp",
-    "mcp-server"
-   ],
-   "lang": "Go",
-   "created_at": "2025-03-04",
-   "pushed_at": "2026-07-24",
-   "age_days": 509,
-   "stars_per_day_lifetime": 62.35,
+   "age_days": 414,
+   "stars_per_day_lifetime": 54.13,
    "license": "MIT",
    "license_family": "permissive",
    "found_by": {
@@ -2583,9 +1555,1085 @@
     "query": "topic:mcp-server stars:>1000 pushed:>2026-06-26",
     "sort": "stars",
     "query_breadth": 100,
-    "position": 10
+    "position": 14
    },
    "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "hanshuaikang/AI-Media2Doc",
+   "url": "https://github.com/hanshuaikang/AI-Media2Doc",
+   "description": "一键将音视频转化为小红书/公众号/知识笔记/思维导图/视频字幕等各种风格的文档。",
+   "stars": 3937,
+   "topics": [
+    "ai",
+    "bilibili",
+    "chatgpt",
+    "openai",
+    "python",
+    "subtitles-generator",
+    "vue",
+    "xiaohongshu",
+    "youtube"
+   ],
+   "lang": "Vue",
+   "created_at": "2025-04-12",
+   "pushed_at": "2026-02-05",
+   "age_days": 470,
+   "stars_per_day_lifetime": 8.38,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "topic:xiaohongshu stars:>100",
+    "sort": "stars",
+    "query_breadth": 46,
+    "position": 9
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "BYVoid/OpenCC",
+   "url": "https://github.com/BYVoid/OpenCC",
+   "description": "Library for conversion between Traditional and Simplified Chinese",
+   "stars": 9853,
+   "topics": [
+    "chinese",
+    "chinese-conversion",
+    "chinese-translation",
+    "simplified-chinese",
+    "traditional-chinese"
+   ],
+   "lang": "C++",
+   "created_at": "2010-07-15",
+   "pushed_at": "2026-07-25",
+   "age_days": 5855,
+   "stars_per_day_lifetime": 1.68,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese stars:>500 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 61,
+    "position": 12
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "siyuan-note/siyuan",
+   "url": "https://github.com/siyuan-note/siyuan",
+   "description": "A privacy-first, self-hosted, fully open source personal knowledge management software, written in typescript and golang.",
+   "stars": 45432,
+   "topics": [
+    "agentic-ai",
+    "ai-agent",
+    "digital-garden",
+    "electron",
+    "knowledge-base",
+    "knowledge-graph",
+    "local-first",
+    "markdown",
+    "mcp",
+    "note-taking",
+    "notebook",
+    "notes-app"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2020-08-30",
+   "pushed_at": "2026-07-26",
+   "age_days": 2156,
+   "stars_per_day_lifetime": 21.07,
+   "license": "AGPL-3.0",
+   "license_family": "copyleft",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:ai-agent stars:>2000 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 15
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "HpWens/MeiWidgetView",
+   "url": "https://github.com/HpWens/MeiWidgetView",
+   "description": "🔥一款汇总了郭霖，鸿洋，以及自己平时收集的自定义控件集合库（小红书）",
+   "stars": 2190,
+   "topics": [
+    "android",
+    "animation",
+    "cropimage",
+    "gesture",
+    "heartview",
+    "jbox2d",
+    "loadingview",
+    "pathview",
+    "photodrag",
+    "radiusview",
+    "rippleview",
+    "rose"
+   ],
+   "lang": "Java",
+   "created_at": "2018-04-28",
+   "pushed_at": "2020-04-26",
+   "age_days": 3011,
+   "stars_per_day_lifetime": 0.73,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "topic:xiaohongshu stars:>100",
+    "sort": "stars",
+    "query_breadth": 46,
+    "position": 10
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "ArchLinuxStudio/ArchLinuxTutorial",
+   "url": "https://github.com/ArchLinuxStudio/ArchLinuxTutorial",
+   "description": "✨Arch Linux安装使用教程 每日实时更新！ | 包含ArchLinux从安装到日常使用、娱乐、编程、媒体制作的各个方面，让Arch成为你的常用系统吧！ | 提供在线网页文档 ✨",
+   "stars": 1885,
+   "topics": [
+    "arch",
+    "arch-linux",
+    "archlinux",
+    "archlinuxinstall",
+    "bitcoin",
+    "blockchain",
+    "censorship-circumvention",
+    "chinese",
+    "cryptocurrency",
+    "ebook",
+    "ethereum",
+    "freedom"
+   ],
+   "lang": "JavaScript",
+   "created_at": "2020-08-31",
+   "pushed_at": "2026-07-25",
+   "age_days": 2155,
+   "stars_per_day_lifetime": 0.87,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese stars:>500 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 61,
+    "position": 13
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "open-metadata/OpenMetadata",
+   "url": "https://github.com/open-metadata/OpenMetadata",
+   "description": "The Open Context Layer for Data and AI ,  OpenMetadata is the open platform for building trusted data context and business semantics for humans, AI assistants, and agents.",
+   "stars": 14575,
+   "topics": [
+    "context",
+    "context-layer",
+    "data-catalog",
+    "data-collaboration",
+    "data-contracts",
+    "data-discovery",
+    "data-governance",
+    "data-lineage",
+    "data-observability",
+    "data-profiling",
+    "data-quality",
+    "data-quality-checks"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2021-08-01",
+   "pushed_at": "2026-07-26",
+   "age_days": 1820,
+   "stars_per_day_lifetime": 8.01,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:mcp stars:>2000 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 16
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "Xiangyu-CAS/xiaohongshu-ops-skill",
+   "url": "https://github.com/Xiangyu-CAS/xiaohongshu-ops-skill",
+   "description": "把Openclaw 变成小红书运营助手，帮你分析、选题、创作、复盘、复刻，甚至全面托管",
+   "stars": 2165,
+   "topics": [
+    "openclaw",
+    "rednote",
+    "skills",
+    "social-media",
+    "xiaohongshu"
+   ],
+   "lang": "",
+   "created_at": "2026-02-16",
+   "pushed_at": "2026-03-19",
+   "age_days": 160,
+   "stars_per_day_lifetime": 13.53,
+   "license": "NONE",
+   "license_family": "none",
+   "found_by": {
+    "dimension": "category",
+    "query": "topic:xiaohongshu stars:>100",
+    "sort": "stars",
+    "query_breadth": 46,
+    "position": 11
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "TakWolf/fusion-pixel-font",
+   "url": "https://github.com/TakWolf/fusion-pixel-font",
+   "description": "开源的泛中日韩像素字体，黑体风格",
+   "stars": 3005,
+   "topics": [
+    "bitmap",
+    "bitmap-font",
+    "bitmap-fonts",
+    "chinese",
+    "chinese-simplified",
+    "chinese-traditional",
+    "cjk",
+    "cjk-font",
+    "cjk-fonts",
+    "font",
+    "fonts",
+    "japanese"
+   ],
+   "lang": "HTML",
+   "created_at": "2022-03-15",
+   "pushed_at": "2026-07-25",
+   "age_days": 1594,
+   "stars_per_day_lifetime": 1.89,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese stars:>500 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 61,
+    "position": 14
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "tirth8205/code-review-graph",
+   "url": "https://github.com/tirth8205/code-review-graph",
+   "description": "Local-first code intelligence graph for MCP and CLI. Builds a persistent map of your codebase so AI coding tools read only what matters, with benchmarked context reductions on reviews and large-repo workflows.",
+   "stars": 26538,
+   "topics": [
+    "ai-coding",
+    "claude",
+    "claude-code",
+    "code-review",
+    "graphrag",
+    "incremental",
+    "knowledge-graph",
+    "llm",
+    "mcp",
+    "python",
+    "static-analysis",
+    "tree-sitter"
+   ],
+   "lang": "Python",
+   "created_at": "2026-02-26",
+   "pushed_at": "2026-07-26",
+   "age_days": 150,
+   "stars_per_day_lifetime": 176.92,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:mcp stars:>2000 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 17
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "BetaStreetOmnis/xhs_ai_publisher",
+   "url": "https://github.com/BetaStreetOmnis/xhs_ai_publisher",
+   "description": "AI-powered Xiaohongshu/Rednote content creation and publishing tool with PyQt desktop UI, FastAPI service, login-state reuse, preview publish, and automated browser workflows.",
+   "stars": 2037,
+   "topics": [
+    "ai",
+    "automation",
+    "fastapi",
+    "playwright",
+    "pyqt5",
+    "rednote",
+    "xiaohongshu"
+   ],
+   "lang": "Python",
+   "created_at": "2024-11-10",
+   "pushed_at": "2026-06-28",
+   "age_days": 623,
+   "stars_per_day_lifetime": 3.27,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "topic:xiaohongshu stars:>100",
+    "sort": "stars",
+    "query_breadth": 46,
+    "position": 12
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "TakWolf/ark-pixel-font",
+   "url": "https://github.com/TakWolf/ark-pixel-font",
+   "description": "开源的泛中日韩像素字体，黑体风格",
+   "stars": 4568,
+   "topics": [
+    "bitmap",
+    "bitmap-font",
+    "bitmap-fonts",
+    "chinese",
+    "chinese-simplified",
+    "chinese-traditional",
+    "cjk",
+    "cjk-font",
+    "cjk-fonts",
+    "font",
+    "fonts",
+    "japanese"
+   ],
+   "lang": "HTML",
+   "created_at": "2021-05-11",
+   "pushed_at": "2026-07-25",
+   "age_days": 1902,
+   "stars_per_day_lifetime": 2.4,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese stars:>500 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 61,
+    "position": 15
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "mksglu/context-mode",
+   "url": "https://github.com/mksglu/context-mode",
+   "description": "Context window optimization for AI coding agents. Sandboxes tool output (98% reduction), persists session memory, and   enforces routing across 17 platforms via MCP + hooks.",
+   "stars": 19338,
+   "topics": [
+    "antigravity",
+    "claude",
+    "claude-code",
+    "claude-code-hooks",
+    "claude-code-plugins",
+    "claude-code-skill",
+    "codex",
+    "codex-cli",
+    "context-mode",
+    "copilot",
+    "cursor-plugin",
+    "kiro"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2026-02-23",
+   "pushed_at": "2026-07-26",
+   "age_days": 153,
+   "stars_per_day_lifetime": 126.39,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:mcp-server stars:>1000 pushed:>2026-06-26",
+    "sort": "stars",
+    "query_breadth": 100,
+    "position": 17
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "lixi5338619/lxSpider",
+   "url": "https://github.com/lixi5338619/lxSpider",
+   "description": "爬虫案例合集。包括但不限于《淘宝、京东、天猫、豆瓣、抖音、快手、微博、微信、阿里、头条、pdd、优酷、爱奇艺、携程、12306、58、搜狐、各种指数、维普万方、Zlibraty、Oalib、小说、招标网、采购网、小红书、大众点评、推特、脉脉、知乎》",
+   "stars": 1958,
+   "topics": [
+    "12306",
+    "andrioid",
+    "crawler",
+    "douban",
+    "douyin",
+    "douyinsignature",
+    "kuaishou",
+    "meituan",
+    "pdd",
+    "signature",
+    "taobao",
+    "toutiao"
+   ],
+   "lang": "Python",
+   "created_at": "2021-01-29",
+   "pushed_at": "2024-05-09",
+   "age_days": 2004,
+   "stars_per_day_lifetime": 0.98,
+   "license": "GPL-3.0",
+   "license_family": "copyleft",
+   "found_by": {
+    "dimension": "category",
+    "query": "topic:xiaohongshu stars:>100",
+    "sort": "stars",
+    "query_breadth": 46,
+    "position": 13
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "fighting41love/funNLP",
+   "url": "https://github.com/fighting41love/funNLP",
+   "description": "中英文敏感词、语言检测、中外手机/电话归属地/运营商查询、名字推断性别、手机号抽取、身份证抽取、邮箱抽取、中日文人名库、中文缩写库、拆字词典、词汇情感值、停用词、反动词表、暴恐词表、繁简体转换、英文模拟中文发音、汪峰歌词生成器、职业名称词库、同义词库、反义词库、否定词库、汽车品牌词库、汽车零件词库、连续英文切割、各种中文词向量、公司名字大全、古诗词库、IT词库、财经词库、成语词库、地名词库、历史名人词库、诗词词库、医学词库、饮食词库、法律词库、汽车词库、动物词库、中文聊天语料、中文谣言数据、百度中文问答数据集、句子相似度匹配算法集合、bert资源、文本生成&摘要相关工具、cocoNLP信息抽取工具、国内电话号码正则匹配、清华大学XLORE:中英文跨语言百科知识图谱、清华大学人工智能技术系列报告、自然语言生成、NLU太难了系列、自动对联数据及机器人、用户名黑名单列表、罪名法务名词及分类模型、",
+   "stars": 82061,
+   "topics": [],
+   "lang": "Python",
+   "created_at": "2018-08-21",
+   "pushed_at": "2024-05-10",
+   "age_days": 2896,
+   "stars_per_day_lifetime": 28.34,
+   "license": "NONE",
+   "license_family": "none",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "中医 in:name,description stars:>50",
+    "sort": "stars",
+    "query_breadth": 100,
+    "position": 0
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "CopilotKit/CopilotKit",
+   "url": "https://github.com/CopilotKit/CopilotKit",
+   "description": "The Frontend Stack for Agents & Generative UI. React, Angular, Mobile, Slack, and more.  Makers of the AG-UI Protocol",
+   "stars": 36294,
+   "topics": [
+    "agent",
+    "agent-native",
+    "agentic-ai",
+    "agents",
+    "ai",
+    "ai-agent",
+    "ai-assistant",
+    "assistant",
+    "assistant-chat-bots",
+    "copilot",
+    "copilot-chat",
+    "generative-ui"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2023-06-19",
+   "pushed_at": "2026-07-26",
+   "age_days": 1133,
+   "stars_per_day_lifetime": 32.03,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:ai-agent stars:>2000 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 18
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "iniwap/AIWriteX",
+   "url": "https://github.com/iniwap/AIWriteX",
+   "description": "AIWriteX - 微信公众号全自动AI工具：全网热搜舆情聚合+趋势分析+爆款选题+文章采集+一键生成排版发布 | AI自动配图 | 去AI味、过朱雀检测 | 支持小红书/百家号/头条等多平台 | 洗稿润色支持多账号 | 专家赛道 | 手机控制 | 小说连载 | 爆文10w+神器",
+   "stars": 1698,
+   "topics": [
+    "agents",
+    "ai-agents",
+    "ai-auto-wxgzh",
+    "ai-wx",
+    "aipy",
+    "aipyapp",
+    "aixiezuo",
+    "baowen",
+    "crewai",
+    "gongzhonghao-a",
+    "openclaw",
+    "qu-ai-wei"
+   ],
+   "lang": "Python",
+   "created_at": "2025-04-02",
+   "pushed_at": "2026-07-24",
+   "age_days": 480,
+   "stars_per_day_lifetime": 3.54,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "topic:xiaohongshu stars:>100",
+    "sort": "stars",
+    "query_breadth": 46,
+    "position": 14
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "666ghj/MiroFish",
+   "url": "https://github.com/666ghj/MiroFish",
+   "description": "A Simple and Universal Swarm Intelligence Engine, Predicting Anything. 简洁通用的群体智能引擎，预测万物",
+   "stars": 69400,
+   "topics": [
+    "agent-memory",
+    "financial-forecasting",
+    "future-prediction",
+    "knowledge-graph",
+    "llms",
+    "multi-agent-simulation",
+    "public-opinion-analysis",
+    "python3",
+    "social-prediction",
+    "swarm-intelligence"
+   ],
+   "lang": "Python",
+   "created_at": "2025-11-26",
+   "pushed_at": "2026-07-23",
+   "age_days": 242,
+   "stars_per_day_lifetime": 286.78,
+   "license": "AGPL-3.0",
+   "license_family": "copyleft",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "智能体 in:name,description stars:>200",
+    "sort": "stars",
+    "query_breadth": 100,
+    "position": 1
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "mastra-ai/mastra",
+   "url": "https://github.com/mastra-ai/mastra",
+   "description": "Mastra is the modern TypeScript framework for AI-powered applications and agents.",
+   "stars": 26591,
+   "topics": [
+    "agents",
+    "ai",
+    "chatbots",
+    "evals",
+    "javascript",
+    "llm",
+    "mcp",
+    "nextjs",
+    "nodejs",
+    "reactjs",
+    "tts",
+    "typescript"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2024-08-06",
+   "pushed_at": "2026-07-26",
+   "age_days": 719,
+   "stars_per_day_lifetime": 36.98,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:mcp stars:>2000 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 18
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "anomalyco/opencode",
+   "url": "https://github.com/anomalyco/opencode",
+   "description": "The open source coding agent.",
+   "stars": 189859,
+   "topics": [],
+   "lang": "TypeScript",
+   "created_at": "2025-04-30",
+   "pushed_at": "2026-07-26",
+   "age_days": 452,
+   "stars_per_day_lifetime": 420.04,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "stars:>100000 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 94,
+    "position": 1
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "datawhalechina/hello-agents",
+   "url": "https://github.com/datawhalechina/hello-agents",
+   "description": "📚 《从零开始构建智能体》——从零开始的智能体原理与实践教程",
+   "stars": 68704,
+   "topics": [
+    "agent",
+    "llm",
+    "rag",
+    "tutorial"
+   ],
+   "lang": "Python",
+   "created_at": "2025-09-07",
+   "pushed_at": "2026-07-17",
+   "age_days": 322,
+   "stars_per_day_lifetime": 213.37,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "智能体 in:name,description stars:>200",
+    "sort": "stars",
+    "query_breadth": 100,
+    "position": 2
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "nukeop/nuclear",
+   "url": "https://github.com/nukeop/nuclear",
+   "description": "Streaming music player that finds free music for you",
+   "stars": 18100,
+   "topics": [
+    "agent",
+    "ai",
+    "desktop-app",
+    "linux",
+    "mac",
+    "mcp",
+    "mcp-server",
+    "music",
+    "music-player",
+    "react",
+    "rust",
+    "spotify"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2016-09-22",
+   "pushed_at": "2026-07-26",
+   "age_days": 3594,
+   "stars_per_day_lifetime": 5.04,
+   "license": "AGPL-3.0",
+   "license_family": "copyleft",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:mcp-server stars:>1000 pushed:>2026-06-26",
+    "sort": "stars",
+    "query_breadth": 100,
+    "position": 18
+   },
+   "matched_by_n_queries": 2,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "openclaw/openclaw",
+   "url": "https://github.com/openclaw/openclaw",
+   "description": "Your own personal AI assistant. Any OS. Any Platform. The lobster way. 🦞",
+   "stars": 384204,
+   "topics": [
+    "ai",
+    "assistant",
+    "crustacean",
+    "molty",
+    "openclaw",
+    "own-your-data",
+    "personal"
+   ],
+   "lang": "TypeScript",
+   "created_at": "2025-11-24",
+   "pushed_at": "2026-07-26",
+   "age_days": 244,
+   "stars_per_day_lifetime": 1574.61,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "category",
+    "query": "stars:>100000 pushed:>2026-06-26",
+    "sort": "updated",
+    "query_breadth": 94,
+    "position": 2
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "liuhuanyong/QASystemOnMedicalKG",
+   "url": "https://github.com/liuhuanyong/QASystemOnMedicalKG",
+   "description": "A tutorial and implement of disease centered Medical knowledge graph and qa system based on it。知识图谱构建，自动问答，基于kg的自动问答。以疾病为中心的一定规模医药领域知识图谱，并以该知识图谱完成自动问答与分析服务。",
+   "stars": 7329,
+   "topics": [],
+   "lang": "Python",
+   "created_at": "2018-10-04",
+   "pushed_at": "2024-08-08",
+   "age_days": 2852,
+   "stars_per_day_lifetime": 2.57,
+   "license": "NONE",
+   "license_family": "none",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "中医 in:name,description stars:>50",
+    "sort": "stars",
+    "query_breadth": 100,
+    "position": 2
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "",
+   "evidence": "",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": false
+  },
+  {
+   "repo": "microsoft/mcp-for-beginners",
+   "url": "https://github.com/microsoft/mcp-for-beginners",
+   "description": "This open-source curriculum introduces the fundamentals of Model Context Protocol (MCP) through real-world, cross-language examples in .NET, Java, TypeScript, JavaScript, Rust and Python. Designed for developers, it focuses on practical techniques for building modular, scalable, and secure AI workflows from session setup to service orchestration.",
+   "stars": 16837,
+   "topics": [
+    "csharp",
+    "java",
+    "javascript",
+    "javascript-applications",
+    "mcp",
+    "mcp-client",
+    "mcp-security",
+    "mcp-server",
+    "model",
+    "model-context-protocol",
+    "modelcontextprotocol",
+    "python"
+   ],
+   "lang": "Jupyter Notebook",
+   "created_at": "2025-04-04",
+   "pushed_at": "2026-07-25",
+   "age_days": 478,
+   "stars_per_day_lifetime": 35.22,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:mcp-server stars:>1000 pushed:>2026-06-26",
+    "sort": "stars",
+    "query_breadth": 100,
+    "position": 19
+   },
+   "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
