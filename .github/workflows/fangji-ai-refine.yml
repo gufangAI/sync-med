@@ -18,7 +18,18 @@ name: fangji-ai-refine
 #   zhipu    10/20 valid, 10 hallucinations
 #   agnes / modelscope: fail inside Actions (14 and 39 rows in two hours)
 #   siliconflow / cerebras: malformed output
-# So: xf_qwen + nvidia. agnes/modelscope dropped for non-delivery, not for quality.
+# Round three (2026-07-26 13:0x) went wider still, on the founder's instruction:
+#   "wire up every model on every platform -- name them NVIDIA-QWEN3, NVIDIA-QWEN3.5,
+#    not just one NVIDIA"
+# Measured, not assumed: 771 models listed across the free platforms -> 75 answer a
+# 1-token probe -> 65 raced on the SAME 8 rows -> 27 with zero hallucination -> the 8
+# below scored >=4/8. Each is its own lane, so throughput scales with models, not with
+# platforms (it used to be one hard-coded model per platform: 2 lanes total).
+#
+# Counter-intuitive findings worth keeping: bigger is not better (Qwen3-235B 1/8 vs
+# gemma-4-31b 7/8), and every llama variant on nvidia hallucinated -- it reads the
+# classical Chinese source as "encoding issues" and then invents a plausible formula.
+# Nationality is not the predictor either: Google's gemma-4-31b topped the board.
 #
 # Cost: zero. All three are free tiers reached through the platform's own gateway,
 # so no credentials live in this public repo.
@@ -47,10 +58,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - supplier: xf_qwen
+          - supplier: cerebras-gemma-4-31b
             shard: 0
-          - supplier: nvidia
+          - supplier: nvidia-gemma-4-31b
             shard: 1
+          - supplier: nvidia-mistral-nemotron
+            shard: 2
+          - supplier: xf-qwen-qwen36v35b
+            shard: 3
+          - supplier: agnes-agnes-2.0-flash
+            shard: 4
+          - supplier: modelscope-qwen3-14b
+            shard: 5
+          - supplier: nvidia-gemma-3n-e4b
+            shard: 6
+          - supplier: zhipu-glm-5.1
+            shard: 7
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -64,6 +87,6 @@ jobs:
         run: |
           python scripts/fangji_ai_refine.py \
             --supplier ${{ matrix.supplier }} \
-            --shard ${{ matrix.shard }} --total 2 \
+            --shard ${{ matrix.shard }} --total 8 \
             --limit ${{ github.event.inputs.limit || 25000 }} \
             --workers ${{ github.event.inputs.workers || 5 }}
