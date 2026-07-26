@@ -1,0 +1,61 @@
+name: fangji-video-render
+
+# Render the formula promo composition to MP4.
+#
+# Why in Actions and not locally: rendering is heavy (headless Chrome per frame + ffmpeg
+# encode) and this project has a standing rule that batch compute never runs on the
+# founder's machine -- it has overheated at 99C before. Ubuntu runners ship ffmpeg, so
+# this costs nothing on a public repo.
+#
+# The composition itself (compositions/fangji-promo/index.html) is data-driven: every
+# number in it -- 133 versions, 89 books, 691 texts, 59414 formulas, 259686 edges --
+# is a measured value from D1, not a marketing figure. That is the whole point of the
+# piece, so the numbers must survive rendering intact.
+#
+# One bug worth remembering: the first version drove the count-up digits from a GSAP
+# onUpdate callback writing textContent. That renders as "0" in every frame, because
+# the renderer seeks frame by frame and seek() suppresses events by default. Numbers
+# must be animated as a real tween property (innerText + snap), never as a side effect.
+
+on:
+  workflow_dispatch:
+    inputs:
+      fps:
+        description: frames per second
+        default: '30'
+
+concurrency:
+  group: fangji-video-render
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-noto-cjk
+          ffmpeg -version | head -1
+
+      - name: render
+        working-directory: compositions/fangji-promo
+        run: |
+          npx --yes hyperframes@latest browser ensure
+          npx --yes hyperframes@latest render \
+            --fps ${{ github.event.inputs.fps || 30 }} \
+            --out out.mp4
+          ls -la out.mp4
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fangji-promo-mp4
+          path: compositions/fangji-promo/out.mp4
+          retention-days: 14
