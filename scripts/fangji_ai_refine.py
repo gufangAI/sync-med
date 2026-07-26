@@ -18,11 +18,10 @@ Usage: python fangji_ai_refine.py --supplier modelscope --shard 0 --total 7 --li
 import argparse, json, os, re, sys, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-from model_fleet import resolve as fleet_resolve
+from direct_fleet import call as fleet_call, LANE_BY_ID
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-GATE = "https://gufangai.com/api/gateway/chat"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 
@@ -63,19 +62,14 @@ SYS = """\u4f60\u662f\u4e2d\u533b\u53e4\u7c4d\u65b9\u5242\u6821\u5bf9\u5458\u300
 {"ok": true/false, "name": "\u65b9\u540d", "herbs": ["\u836f\u67501","\u836f\u67502"]}"""
 
 def ask(item, supplier):
-    sup, model = fleet_resolve(supplier)
-    body = json.dumps({
-        "supplier": sup, "model": model, "fallback": False, "json": True,
-        "temperature": 0.1, "max_tokens": 500,
-        "messages": [{"role": "system", "content": SYS},
-                     {"role": "user", "content":
-                      "\u65b9\u540d:%s\n\u7ec4\u6210:%s\n\u53e4\u7c4d\u539f\u6587:%s" % (item["ns"], item["comp"], (item["q"] or "")[:600])}],
-    }).encode()
-    req = urllib.request.Request(GATE, body,
-        {"Content-Type": "application/json", "User-Agent": UA, "Referer": "https://gufangai.com/"})
-    r = json.loads(OP.open(req, timeout=90).read())
-    # \u7f51\u5173\u8fd4\u56de\u5b57\u6bb5\u662f text;\u66fe\u56e0\u53ea\u8bfb content \u5f97\u51fa"\u6a21\u578b\u5168\u5e9f"\u7684\u9519\u8bef\u7ed3\u8bba
-    txt = r.get("text") or r.get("content") or ""
+    """\u76f4\u8fde\u8be5 lane \u2014\u2014 \u4e0d\u518d\u8d70 /api/gateway/chat\u3002
+    \u8d70\u7f51\u5173\u65f6 48 \u5e76\u53d1\u80fd\u628a\u524d\u53f0\u7684 Pages Function \u538b\u57ae,\u800c\u4e14\u5b83\u628a\u5404\u5bb6\u771f\u5b9e\u9519\u8bef
+    \u7edf\u4e00\u541e\u6210 GATEWAY_ALL_FAILED,\u6392\u969c\u65f6\u53cd\u590d\u8bef\u5224(2026-07-26 \u5f53\u5929\u8bef\u5224\u56db\u4e94\u6b21)\u3002"""
+    txt = fleet_call(supplier,
+        [{"role": "system", "content": SYS},
+         {"role": "user", "content": "\u65b9\u540d:%s\n\u7ec4\u6210:%s\n\u53e4\u7c4d\u539f\u6587:%s"
+          % (item["ns"], item["comp"], (item["q"] or "")[:600])}],
+        temperature=0.1, max_tokens=500)
     m = re.search(r"\{[\s\S]*\}", str(txt))
     return json.loads(m.group(0)) if m else None
 
