@@ -648,7 +648,18 @@ def distill(rows, batch=10):
 # ledgers
 # ---------------------------------------------------------------------------
 STATUS_NEW = "pending"          # \u5f85\u8bc4\u4f30
-VALID_STATUS = ("pending", "verified", "integrated", "dropped")
+# `debated` added 2026-07-26. The first end-to-end test of the council handoff
+# applied ZERO decisions: the council writes `hold` for everything it argued
+# (it must not infer approval from a judge's prose -- a human gates adoption),
+# `hold` mapped to `pending`, and apply_council_decisions skips a row whose
+# status would not change. So "this has already been to committee" had nowhere
+# to live, and the radar would have gone on re-proposing the same repos forever
+# while believing it had a memory. The lifecycle needs a state between "found"
+# and "ruled on", or the loop cannot actually close.
+#   pending -> found, never discussed
+#   debated -> the council argued it; awaiting the founder's call
+#   verified / integrated / dropped -> ruled on
+VALID_STATUS = ("pending", "debated", "verified", "integrated", "dropped")
 
 
 def write_candidates(rows, today, scan_stats, distill_stats):
@@ -723,7 +734,7 @@ COUNCIL_DECISIONS = os.path.join(REPO_ROOT, "reports", "council", "decisions.jso
 _DECISION_TO_STATUS = {
     "adopt": "verified", "integrate": "integrated", "integrated": "integrated",
     "verified": "verified", "drop": "dropped", "reject": "dropped",
-    "dropped": "dropped", "hold": "pending",
+    "dropped": "dropped", "hold": "debated",
 }
 
 
