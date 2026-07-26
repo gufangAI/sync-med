@@ -81,6 +81,15 @@ ZH = {
     "org_corpus": "\U0001f4da \u8bed\u6599",
     "topic_tpl": "{label}:{cur} \u2192 {tgt}",
     "basis_tpl": "\u8be5\u6307\u6807\u7531 D1 \u5b9e\u6d4b SQL \u5f97\u51fa;\u76ee\u6807\u503c\u6765\u81ea\u672c\u9879\u9ed8\u8ba4\u9608\u503c({tgt}),\u7f3a\u53e3\u4e25\u91cd\u5ea6 {sev}",
+    # Outward-looking topics. Added 2026-07-26 when the founder pointed out the
+    # council had been ranking topics off internal D1 gaps only: "what they
+    # should be doing is discovering new technology, new trends, things
+    # happening in the industry -- not monetisation."
+    "organ_intel": "\U0001f52d \u5916\u90e8\u60c5\u62a5",
+    "topic_intel_tpl": "\u65b0\u6280\u672f\u7814\u5224:{repo}({stars}\u661f)\u2014 {cap}",
+    "intel_current_tpl": "{stars}\u661f / {lang} / \u8bb8\u53ef\u8bc1 {lic} / \u5efa\u5e93 {age} \u5929 / \u6700\u8fd1\u63a8\u9001 {pushed}",
+    "intel_target_tpl": "\u7814\u5224:\u8fd9\u4e1c\u897f\u5bf9\u6211\u4eec\u54ea\u6761\u7ebf\u6709\u7528\u3001\u4ee5\u4ec0\u4e48\u5f62\u6001\u8fc1\u79fb({forms})\u3001\u503c\u4e0d\u503c\u5f97\u52a8",
+    "basis_intel_tpl": "\u6765\u81ea\u9e70\u773c candidates.json({date});\u53d1\u73b0\u7ef4\u5ea6 {dim};\u7591\u4f3c\u5bf9\u5e94\u7ebf {lines}\u3002\u672c\u6761\u53ea\u505a\u7814\u5224,\u4e0d\u9884\u8bbe\u91c7\u4e0d\u91c7\u7528",
     "u_times": "\u6b21",
     "u_ge": "\u4e2a",
     "u_tiao": "\u6761",
