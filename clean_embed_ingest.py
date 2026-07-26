@@ -34,6 +34,8 @@ import os, sys, re, json, time, hashlib, io
 from concurrent.futures import ThreadPoolExecutor
 import boto3
 import requests
+
+import sem_gate                     # LLM semantic gate; see that module's header
 from botocore.config import Config
 
 try: sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -243,7 +245,8 @@ def main():
     print(f"ledger已有 {len(ledger)} 条记录", flush=True)
 
     ok_books, skip_books, fail_books, total_vecs = 0, 0, 0, 0
-    gate_dropped, gate_books = 0, 0   # chunks rejected before embedding, and books affected
+    gate_dropped, gate_books = 0, 0
+    sem_total, sem_books = 0, 0       # chunks the semantic gate judged non-medical   # chunks rejected before embedding, and books affected
     t0 = time.time()
 
     for i, item in enumerate(mine, 1):
@@ -295,6 +298,23 @@ def main():
             gate_dropped += dropped
             gate_books += 1
 
+        # Second gate: the rules above only reject degenerate text. A colophon
+        # or a table of contents is perfectly well-formed Chinese and useless
+        # to retrieval, so that judgement goes to a model. Runs before the
+        # sampler for the same reason the rule gate does, and keeps everything
+        # if the classifier cannot be trusted -- see sem_gate for why.
+        kept, sem_dropped = sem_gate.filter_chunks(
+            kept, log=lambda m: print(m, flush=True))
+        if sem_dropped:
+            sem_total += sem_dropped
+            sem_books += 1
+        if not kept:
+            print(f"[{i}/{len(mine)}] ALL_NON_MEDICAL {source}/{key[:40]}", flush=True)
+            s3.put_object(Bucket=BUCKET, Key=done_key, Body=b"")
+            ledger.add(lkey)
+            skip_books += 1
+            continue
+
         if MAX_CHUNKS_PER_BOOK and len(kept) > MAX_CHUNKS_PER_BOOK:
             step = len(kept) / float(MAX_CHUNKS_PER_BOOK)
             picks = sorted(set(int(j * step) for j in range(MAX_CHUNKS_PER_BOOK)))
@@ -345,6 +365,8 @@ def main():
     json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
 
     elapsed = time.time() - t0
+    print(f"[sem] rejected {sem_total} non-medical chunk(s) across {sem_books} book(s) "
+          f"(prefaces / colophons / contents) -- gate on: {sem_gate.GATE_ON}", flush=True)
     print(f"[gate] rejected {gate_dropped} degenerate chunk(s) across {gate_books} book(s) "
           f"before embedding -- these would have become unusable vectors", flush=True)
     print(f"=== shard {SHARD} done: ok={ok_books} skip={skip_books} fail={fail_books} "
