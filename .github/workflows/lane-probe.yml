@@ -1,0 +1,134 @@
+# Model lane liveness probe.
+#
+# Why this workflow exists at all: on 2026-07-27 the highest-scoring lane in our
+# model race (google/gemma-3n-e4b-it, 89% real-formula rate over 4144 rows) was
+# retired by the vendor -- HTTP 410, EOL dated that very day. We were still
+# writing it into commit messages as the workhorse. Separately SiliconFlow had
+# quietly run out of credit (HTTP 402). Neither was noticed by anything; both
+# surfaced only because a person happened to run a probe by hand.
+#
+# The standing rule in this project is blunt about that: a pipeline whose numbers
+# only land in a log is a pipeline nobody reads. So this run does not just record
+# status -- it opens an Issue when a lane goes down, and updates that same Issue
+# rather than filing a new one each morning.
+#
+# probe_lanes.js exits 2 when it finds a gap, 1 on its own failure, 0 when clean.
+name: lane-probe
+
+on:
+  schedule:
+    # 03:20 UTC = 11:20 Beijing. Deliberately offset from intel-radar (00:30) and
+    # council (01:00) so a vendor-side rate limit cannot be blamed on our own
+    # concurrent traffic.
+    - cron: '20 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: lane-probe
+  cancel-in-progress: false
+
+permissions:
+  contents: write     # probe writes status back into sueai/lanes.json
+  issues: write       # the founder-facing deliverable
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: probe every lane
+        id: probe
+        continue-on-error: true      # exit 2 is a finding, not a broken run
+        env:
+          NVIDIA_API_KEY:  ${{ secrets.NVIDIA_API_KEY }}
+          CEREBRAS_KEYS:   ${{ secrets.CEREBRAS_KEYS }}
+          ZHIPU_KEY:       ${{ secrets.ZHIPU_API_KEY }}
+          AGNES_API_KEY:   ${{ secrets.AGNES_API_KEY }}
+          SENSENOVA_KEYS:  ${{ secrets.SENSENOVA_API_KEY }}
+          SILICONFLOW_KEY: ${{ secrets.SILICONFLOW_KEY }}
+        run: |
+          cd sueai
+          node probe_lanes.js 2>&1 | tee probe_out.txt
+          echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: commit updated lane status
+        if: always()
+        run: |
+          cd sueai
+          if git diff --quiet -- lanes.json; then
+            echo "lane status unchanged"
+          else
+            git config user.name  "lane-probe[bot]"
+            git config user.email "lane-probe@users.noreply.github.com"
+            git add lanes.json
+            git commit -m "chore(lanes): probe status $(date -u +%F) [skip ci]"
+            git push
+          fi
+
+      - name: report to the founder
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let out = '';
+            try { out = fs.readFileSync('sueai/probe_out.txt', 'utf8'); } catch {}
+            const lanes = JSON.parse(fs.readFileSync('sueai/lanes.json', 'utf8'));
+            const list = Array.isArray(lanes) ? lanes : (lanes.lanes || []);
+            const rows = list.map(l =>
+              `| ${l.id} | ${l.status} | ${(l.lastError || l.notes || '').slice(0, 60)} |`);
+            const down = list.filter(l => l.status !== 'active');
+            const date = new Date().toISOString().slice(0, 10);
+
+            const body = [
+              `## Model lane probe · ${date}`,
+              '',
+              `**${list.length - down.length} active / ${down.length} down**`,
+              '',
+              '| lane | status | note |',
+              '|---|---|---|',
+              ...rows,
+              '',
+              down.length
+                ? '> A lane that is down stays out of every routing chain until it recovers. ' +
+                  'Replacing a retired lane means re-running the hallucination gate first -- that is a human call.'
+                : '> All lanes answering.',
+              '',
+              '<details><summary>probe output</summary>',
+              '',
+              '```',
+              out.slice(-3000),
+              '```',
+              '',
+              '</details>',
+            ].join('\n');
+
+            const title = '\u{1F50C} Model lane probe';
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'lane-probe', per_page: 5,
+            });
+
+            // Update the existing issue rather than filing a new one daily --
+            // a fresh issue every morning is how alerts become wallpaper.
+            if (open.data.length) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: open.data[0].number,
+                title: `${title} · ${date}`, body,
+              });
+              core.info(`updated #${open.data[0].number}`);
+            } else if (down.length) {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: `${title} · ${date}`, body, labels: ['lane-probe'],
+              });
+              core.info('opened new issue');
+            } else {
+              core.info('all lanes healthy and no open issue -- nothing to file');
+            }
