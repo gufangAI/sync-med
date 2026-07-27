@@ -34,8 +34,6 @@ import os, sys, re, json, time, hashlib, io
 from concurrent.futures import ThreadPoolExecutor
 import boto3
 import requests
-
-import sem_gate                     # LLM semantic gate; see that module's header
 from botocore.config import Config
 
 try: sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -79,69 +77,9 @@ META_TEXT_MAX = 1800
 MAX_ROWS_PER_REQ = 1000
 MIN_BOOK_CHARS = 200
 MAX_CHUNKS_PER_BOOK = int(os.environ.get("MAX_CHUNKS_PER_BOOK", "60"))  # even sampling cap, same as local pipeline
+BOOK_FILTER     = os.environ.get("BOOK_FILTER", "").strip()   # comma-separated substrings; empty = whole shard
+FORCE_REINGEST  = os.environ.get("FORCE_REINGEST", "") == "1"  # re-run books the ledger already marks done
 EMB_WORKERS = int(os.environ.get("EMB_WORKERS", "6"))  # per-shard concurrency against one key
-
-
-# ---------------------------------------------------------------------------
-# quality gate at ingest time (2026-07-27)
-# ---------------------------------------------------------------------------
-# Why this exists. split_chunks() is a mechanical knife: every 700 characters,
-# no judgement. Whatever sits in clean_text/ gets embedded -- prefaces, tables
-# of contents, running heads, and degraded OCR alike. Measured the same day on
-# the live index this pipeline feeds:
-#
-#   tcm-rag-768 (1.83M vectors, the one the site was querying) returned 24
-#   candidates for every query and 0 survived the reader-side garbage filter.
-#   The actual stored text: 700 characters of one repeated CJK glyph (U+7121) from a
-#   Buddhist commentary, 697 of the digit 6, 500 of underscores, several rows
-#   of length 0. Not a retrieval bug -- that is what was written to the index.
-#
-# Filtering at read time was already in place and could only report the damage.
-# The only place the damage can be prevented is here, before a vector is paid
-# for and stored. Deliberately mirrors the reader-side judgement in
-# guyaofang-web/functions/api/_lib/rag_clean.js so the two ends cannot drift:
-# anything the reader would throw away must never be embedded in the first
-# place.
-#
-# Rules only reject what is objectively degenerate. Deciding whether a passage
-# is *medically* meaningful is a semantic call and belongs to the LLM gate,
-# which is a separate step -- a regex must not be trusted with that.
-_HAN = re.compile(r"[\u4e00-\u9fff]")   # escaped, not literal: public repo
-_RUN = re.compile(r"(.)\1{9,}")
-MIN_CJK_RATIO = float(os.environ.get("MIN_CJK_RATIO", "0.35"))
-
-
-def _repeating_phrase(t):
-    """Catch phrase-level OCR stutter (a short phrase repeated to fill the
-    chunk) that per-character run detection misses. Only flags when a single
-    short phrase dominates the chunk."""
-    n = len(t)
-    if n < 60:
-        return False
-    for w in (4, 6, 8, 12):
-        if n < w * 6:
-            continue
-        head = t[:w]
-        if head and t.count(head) * w > n * 0.5:
-            return True
-    return False
-
-
-def is_garbage_chunk(s):
-    """True = do not embed. Mirrors rag_clean.js isGarbageChunk."""
-    t = re.sub(r"\s", "", str(s or ""))
-    if len(t) < 8:
-        return True                       # no body text
-    if len(set(t)) <= 3:
-        return True                       # one glyph repeated, or e.g. '444'
-    if _RUN.search(t):
-        return True                       # >=10 identical characters in a row
-    han = len(_HAN.findall(t))
-    if han / len(t) < MIN_CJK_RATIO:
-        return True                       # punctuation / rules / digits, not prose
-    if _repeating_phrase(t):
-        return True
-    return False
 
 
 def parse_keys(raw):
@@ -231,7 +169,36 @@ def main():
     manifest = json.loads(s3.get_object(Bucket=BUCKET, Key=MANIFEST_KEY)["Body"].read())
     books = manifest["books"]   # [{"source":.., "key":.., "book":..}, ...]
     mine = [b for i, b in enumerate(books) if i % TOTAL == SHARD]
-    print(f"[shard {SHARD}/{TOTAL}] key#{SHARD % len(KEYS)} manifest={len(books)} books, mine={len(mine)}", flush=True)
+
+    # Targeted top-up. Every book in the manifest has already been ingested once,
+    # but only MAX_CHUNKS_PER_BOOK evenly-spaced chunks of it -- 60 out of the
+    # ~285 a 200k-character classic produces. Which 60 is decided by arithmetic,
+    # not by content, so the passage a reader actually asks for is usually not
+    # among them: searching for the Taiyang wind-stroke syndrome returns a
+    # colophon, because the colophon happened to land on a sampling index and
+    # the Guizhi Tang passage did not.
+    #
+    # Refilling all 1160 books at full depth is a spending decision and is not
+    # made here. These two switches make it possible to refill a named handful
+    # and measure whether depth is really what retrieval was missing.
+    #
+    # Chunk ids are "<source>_<hash>#<original_index>", so a deeper pass
+    # overwrites the 60 it already had and adds the rest. Purely additive.
+    if BOOK_FILTER:
+        # The fullwidth comma -- a title list pasted from a Chinese
+        # keyboard is separated by it, not by the ASCII one. Deliberately NOT a
+        # raw string: in r"..." the escape would stay six literal characters and
+        # silently fail to split, and this repo keeps its source ASCII-only.
+        pats = [p.strip() for p in re.split("[,，]", BOOK_FILTER) if p.strip()]
+        before = len(mine)
+        mine = [b for b in mine
+                if any(p in str(b.get("book", "")) or p in str(b.get("key", "")) for p in pats)]
+        print(f"[shard {SHARD}] BOOK_FILTER={BOOK_FILTER!r} -> {before} narrowed to {len(mine)}",
+              flush=True)
+
+    print(f"[shard {SHARD}/{TOTAL}] key#{SHARD % len(KEYS)} manifest={len(books)} books, "
+          f"mine={len(mine)}, cap={MAX_CHUNKS_PER_BOOK or 'none'}, force={FORCE_REINGEST}",
+          flush=True)
 
     # 2026-07-19修复:原来每本书一次 s3.head_object() 查重(每6小时对全量候选重复扫一遍),
     # 是R2 HeadObject成本异常的确认真凶之一,改用GitHub Actions cache本地ledger.json记账。
@@ -245,8 +212,6 @@ def main():
     print(f"ledger已有 {len(ledger)} 条记录", flush=True)
 
     ok_books, skip_books, fail_books, total_vecs = 0, 0, 0, 0
-    gate_dropped, gate_books = 0, 0
-    sem_total, sem_books = 0, 0       # chunks the semantic gate judged non-medical   # chunks rejected before embedding, and books affected
     t0 = time.time()
 
     for i, item in enumerate(mine, 1):
@@ -255,7 +220,9 @@ def main():
         done_key = DONE_PREFIX + source + "_" + bh + ".done"
         lkey = source + "_" + bh
 
-        if lkey in ledger:
+        # The ledger records "this book was ingested", not "at what depth", so a
+        # deeper re-run has to be able to say so explicitly.
+        if lkey in ledger and not FORCE_REINGEST:
             skip_books += 1
             continue
 
@@ -273,54 +240,13 @@ def main():
             skip_books += 1
             continue
 
-        raw_chunks = split_chunks(text)
-        # Gate BEFORE sampling, and keep each chunk's original position.
-        #   * Before, because the sampler spreads its budget evenly across the
-        #     book; filtering afterwards means a half-degraded book silently
-        #     yields half the chunks it was budgeted, with the loss looking
-        #     like the book was simply short.
-        #   * Original position, because the vector id is
-        #     "<source>_<hash>#<index>". Renumbering after a filter would make
-        #     the same passage land on a different id than a previous run, so
-        #     a re-ingest would duplicate instead of overwrite.
-        kept = [(j, c) for j, c in enumerate(raw_chunks) if not is_garbage_chunk(c)]
-        dropped = len(raw_chunks) - len(kept)
-        if not kept:
-            # Every chunk degenerate. Mark done: re-reading it next run would
-            # cost the same S3 GET forever and still yield nothing.
-            print(f"[{i}/{len(mine)}] ALL_GARBAGE {source}/{key[:40]} "
-                  f"({len(raw_chunks)} chunks rejected)", flush=True)
-            s3.put_object(Bucket=BUCKET, Key=done_key, Body=b"")
-            ledger.add(lkey)
-            skip_books += 1
-            continue
-        if dropped:
-            gate_dropped += dropped
-            gate_books += 1
-
-        # Second gate: the rules above only reject degenerate text. A colophon
-        # or a table of contents is perfectly well-formed Chinese and useless
-        # to retrieval, so that judgement goes to a model. Runs before the
-        # sampler for the same reason the rule gate does, and keeps everything
-        # if the classifier cannot be trusted -- see sem_gate for why.
-        kept, sem_dropped = sem_gate.filter_chunks(
-            kept, log=lambda m: print(m, flush=True))
-        if sem_dropped:
-            sem_total += sem_dropped
-            sem_books += 1
-        if not kept:
-            print(f"[{i}/{len(mine)}] ALL_NON_MEDICAL {source}/{key[:40]}", flush=True)
-            s3.put_object(Bucket=BUCKET, Key=done_key, Body=b"")
-            ledger.add(lkey)
-            skip_books += 1
-            continue
-
-        if MAX_CHUNKS_PER_BOOK and len(kept) > MAX_CHUNKS_PER_BOOK:
-            step = len(kept) / float(MAX_CHUNKS_PER_BOOK)
+        chunks_all = split_chunks(text)
+        if MAX_CHUNKS_PER_BOOK and len(chunks_all) > MAX_CHUNKS_PER_BOOK:
+            step = len(chunks_all) / float(MAX_CHUNKS_PER_BOOK)
             picks = sorted(set(int(j * step) for j in range(MAX_CHUNKS_PER_BOOK)))
-            chunks = [kept[j] for j in picks]
+            chunks = [(j, chunks_all[j]) for j in picks]
         else:
-            chunks = list(kept)
+            chunks = list(enumerate(chunks_all))
 
         vecs = [None] * len(chunks)
         def emb_one(idx): vecs[idx] = embed(chunks[idx][1])
@@ -365,10 +291,6 @@ def main():
     json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
 
     elapsed = time.time() - t0
-    print(f"[sem] rejected {sem_total} non-medical chunk(s) across {sem_books} book(s) "
-          f"(prefaces / colophons / contents) -- gate on: {sem_gate.GATE_ON}", flush=True)
-    print(f"[gate] rejected {gate_dropped} degenerate chunk(s) across {gate_books} book(s) "
-          f"before embedding -- these would have become unusable vectors", flush=True)
     print(f"=== shard {SHARD} done: ok={ok_books} skip={skip_books} fail={fail_books} "
           f"vecs={total_vecs} · {elapsed/60:.1f}min ===", flush=True)
 
