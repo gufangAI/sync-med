@@ -73,6 +73,8 @@ jobs:
       - name: report to the founder
         if: always()
         uses: actions/github-script@v7
+        env:
+          PROBE_CODE: ${{ steps.probe.outputs.code }}
         with:
           script: |
             const fs = require('fs');
@@ -85,10 +87,31 @@ jobs:
             const down = list.filter(l => l.status !== 'active');
             const date = new Date().toISOString().slice(0, 10);
 
+            // The table below is read out of lanes.json, which holds whatever the
+            // last successful probe wrote. If this run's probe never got far
+            // enough to overwrite it, those rows are history wearing today's
+            // date -- which is exactly how the first scheduled run reported a
+            // full green table while the script had died on startup.
+            // Only 0 (all answering) and 2 (gaps found) mean it actually ran;
+            // anything else, including the 1 Node exits with on an uncaught
+            // error, means the numbers below were not measured today.
+            const code = process.env.PROBE_CODE;
+            const measured = code === '0' || code === '2';
+
             const body = [
               `## Model lane probe · ${date}`,
               '',
-              `**${list.length - down.length} active / ${down.length} down**`,
+              ...(measured ? [] : [
+                `> ### The probe did not run (exit ${code || 'unknown'})`,
+                '> ',
+                '> The table below is the **last known** state read out of',
+                '> `lanes.json`, not a measurement taken today. Treat every row',
+                '> as unverified until a run exits 0 or 2. See the probe output',
+                '> at the bottom for why it failed.',
+                '',
+              ]),
+              `**${list.length - down.length} active / ${down.length} down**`
+                + (measured ? '' : '  _(stale -- not measured this run)_'),
               '',
               '| lane | status | note |',
               '|---|---|---|',
@@ -123,7 +146,7 @@ jobs:
                 title: `${title} · ${date}`, body,
               });
               core.info(`updated #${open.data[0].number}`);
-            } else if (down.length) {
+            } else if (down.length || !measured) {
               await github.rest.issues.create({
                 owner: context.repo.owner, repo: context.repo.repo,
                 title: `${title} · ${date}`, body, labels: ['lane-probe'],
@@ -131,4 +154,14 @@ jobs:
               core.info('opened new issue');
             } else {
               core.info('all lanes healthy and no open issue -- nothing to file');
+            }
+
+            // Fail the job last, so the issue is already filed when it goes red.
+            // The probe step carries continue-on-error because exit 2 is a
+            // finding rather than a fault -- but that also swallowed a crash,
+            // and a run that stays green while measuring nothing is the failure
+            // mode this whole workflow exists to prevent.
+            if (!measured) {
+              core.setFailed(
+                `probe exited ${code || 'unknown'} -- lane status was not measured this run`);
             }
