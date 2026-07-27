@@ -196,4 +196,9 @@ json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=Fals
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocr_{SHARD}.json",
               Body=json.dumps({"shard": SHARD, "total": len(mine), "ocrd": skipped + done,
                                "new": done, "rej": rejected}).encode())
-print(f"=== shard {SHARD} OCR {done} new, {skipped + done}/{len(mine)} done, 质量闸拦截 {rejected} ===", flush=True)
+# pan_miss is printed with the counts: a shard that reads from the pan and
+# produces nothing must say WHY -- either the book had no pdid in the manifest,
+# or the page was absent from the folder. A bare "0 new" is exactly the silent
+# zero that let this line sit dead for five days.
+print(f"=== shard {SHARD} OCR {done} new, {skipped + done}/{len(mine)} done, "
+      f"质量闸拦截 {rejected}, pan-miss {pan_miss} ===", flush=True)
