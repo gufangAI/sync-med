@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "updated": "2026-07-26",
+ "updated": "2026-07-27",
  "decisions": [
   {
    "source": "arsenal:x1xhlol/system-prompts-and-models-of-ai-tools",
@@ -16,6 +16,22 @@
    "date": "2026-07-26",
    "issue": 120,
    "topic": "新技术研判:D4Vinci/Scrapling(71314星)— 提供自适应的Web抓取框架，支持单次请求到大规模爬取",
+   "verdict_ok": true
+  },
+  {
+   "source": "arsenal:lobehub/lobehub",
+   "decision": "hold",
+   "date": "2026-07-27",
+   "issue": 124,
+   "topic": "新技术研判:lobehub/lobehub(80831星)— AI 代理协作平台，组织和管理 AI 团队进行 7×24 小时操作。",
+   "verdict_ok": true
+  },
+  {
+   "source": "arsenal:assafelovic/gpt-researcher",
+   "decision": "hold",
+   "date": "2026-07-27",
+   "issue": 124,
+   "topic": "新技术研判:assafelovic/gpt-researcher(28648星)— 自主进行深度研究的智能体，利用任何 LLM 提供商对数据进行检索和网络抓取。",
    "verdict_ok": true
   }
  ]
