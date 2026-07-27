@@ -174,14 +174,31 @@ for bid, p, pdid in mine:
             err += 1
             continue
         data = json.load(open(jf, encoding="utf-8"))
-        all_blocks = [b for pb in data.get("contents", []) for b in pb if b.get("text")]
+        groups_raw = data.get("contents", []) or []
+        all_blocks = [b for pb in groups_raw for b in pb if b.get("text")]
         # 2026-07-19实测发现:空白衬页/馆藏章页、密排多栏类书版式会让模型幻觉出重复垃圾
         # (如"State the the the..."),confidence明显偏低(0.25-0.49 vs 正常识别0.9+)。
         # 逐块过滤而非整页一刀切:部分清晰部分模糊的页面,保留清晰部分,只丢垃圾块。
-        kept = [b.get("text") for b in all_blocks
-                if (b.get("confidence") or 0) >= CONF_MIN and cjk_ratio(b.get("text")) >= CJK_MIN]
+        def _ok(b):
+            return (b.get("confidence") or 0) >= CONF_MIN and cjk_ratio(b.get("text")) >= CJK_MIN
+        kept = [b.get("text") for b in all_blocks if _ok(b)]
         dropped = len(all_blocks) - len(kept)
-        text = "\n".join(kept)
+        # 2026-07-28:ndlocr 的 contents 是【按版面分组】的嵌套结构(一组≈一个版面区块/栏),
+        # 原来 for pb ... for b in pb 把它拍平、再 "\n".join,等于把国会图书馆那套版面分析
+        # 的成果整个扔掉——只剩一片没有边界的文字。
+        # 代价直接落在下游:灌库按 CHUNK=700 硬切,一条完整方证
+        # (「太陽中風，陽浮而陰弱…桂枝湯主之。桂枝三兩去皮 芍藥三兩」)会被从中间劈成两块
+        # 分进互不相干的 chunk,检索永远拿不到完整的一条。
+        # 改法只保留边界、不改落点:组内仍用 \n,组【之间】用空行。纯文本读者看不出差别,
+        # 阅读器 fulltext.js 照旧;但灌库可以优先在空行处断句,按版面边界切而不是按字数切。
+        # 不额外写 .json/.md——每页多一次 PUT 会让 R2 写入翻倍,那是 Class A 账单,
+        # 用一个换行符换回结构,不值得再花那笔钱。
+        blocks = []
+        for pb in groups_raw:
+            g = [b.get("text") for b in pb if b.get("text") and _ok(b)]
+            if g:
+                blocks.append("\n".join(g))
+        text = "\n\n".join(blocks) if blocks else "\n".join(kept)
         if not text.strip():
             # 过滤完基本空了(整页低质量/真空白页)——标记为空,不存半页垃圾冒充"识别成功"
             s3.put_object(Bucket=BUCKET, Key=txtkey, Body=b"", ContentType="text/plain; charset=utf-8")
