@@ -71,8 +71,15 @@ jobs:
           # 07-22 stop-gap and exits -- which is exactly the five days of zero
           # output this is meant to end. An absent secret must read as a missing
           # capability in the log, not as "nothing to do".
-          CTEXT_PAN_CID: ${{ secrets.CTEXT_PAN_CID }}
-          CTEXT_PAN_SEC: ${{ secrets.CTEXT_PAN_SEC }}
+          #
+          # These are the pair that owns the book page folders: ocr_ndl.yml
+          # fetches the same page_NNNN.webp files with them every cron tick.
+          # This step used to pass CTEXT_PAN_CID/SEC, which ctext_harvest.yml
+          # wires as a different pan account's PAN_CID/PAN_SEC -- a valid token
+          # for an account that cannot see these folders, so every listing came
+          # back empty and every shard reported a clean zero.
+          PAN_CLIENT_ID: ${{ secrets.PAN_CLIENT_ID }}
+          PAN_CLIENT_SECRET: ${{ secrets.PAN_CLIENT_SECRET }}
       - name: save ledger cache
         if: always()
         uses: actions/cache/save@v4

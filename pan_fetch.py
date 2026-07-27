@@ -27,8 +27,16 @@ from collections import OrderedDict
 import requests
 
 PAN = os.environ.get("PAN_BASE", "https://open-api.123pan.com")
-CID = os.environ.get("PAN_CLIENT_ID") or os.environ.get("CTEXT_PAN_CID", "")
-SEC = os.environ.get("PAN_CLIENT_SECRET") or os.environ.get("CTEXT_PAN_SEC", "")
+# One credential pair only, and it must be the pair that owns the book folders:
+# PAN_CLIENT_ID/PAN_CLIENT_SECRET, the same pair ocr_ndl.py has been fetching
+# these very pages with. There used to be a fallback to CTEXT_PAN_CID/SEC --
+# which ctext_harvest.yml wires as a DIFFERENT pan account's PAN_CID/PAN_SEC.
+# A fallback to another account's token is worse than no fallback: the token
+# request succeeds, every folder listing comes back empty because the folders
+# belong to someone else, and the shard reports a clean "0 new". Missing
+# credentials must read as missing, not as an empty library.
+CID = os.environ.get("PAN_CLIENT_ID", "")
+SEC = os.environ.get("PAN_CLIENT_SECRET", "")
 TIMEOUT = int(os.environ.get("PAN_TIMEOUT", "30"))
 MAX_DIRS_CACHED = int(os.environ.get("PAN_MAX_DIRS", "64"))
 LIST_PAGES_MAX = int(os.environ.get("PAN_LIST_PAGES", "40"))   # 100 files each
@@ -75,13 +83,16 @@ def dir_index(pan_dir_id):
     if key in _dirs:
         _dirs.move_to_end(key)
         return _dirs[key]
-    idx, last_id = {}, 0
+    idx, last_id, first = {}, 0, None
     for _ in range(LIST_PAGES_MAX):
         r = requests.get(PAN + "/api/v2/file/list",
                          params={"parentFileId": pan_dir_id, "limit": 100,
                                  "lastFileId": last_id},
                          headers=_headers(), timeout=TIMEOUT)
-        d = (r.json() or {}).get("data") or {}
+        j = r.json() or {}
+        if first is None:
+            first = j
+        d = j.get("data") or {}
         fl = d.get("fileList") or []
         for f in fl:
             fn = f.get("filename")
@@ -91,6 +102,13 @@ def dir_index(pan_dir_id):
         last_id = d.get("lastFileId")
         if last_id in (None, -1) or not fl:
             break
+    if not idx:
+        # An empty folder and a refused listing are indistinguishable to the
+        # caller -- both just return no page. Say which one it was, with the
+        # API's own code/message, or the next person debugging a zero-output
+        # run has nothing to go on.
+        print("pan dir_index empty: folder=%s api code=%s msg=%s" % (
+            key, (first or {}).get("code"), str((first or {}).get("message"))[:120]), flush=True)
     _dirs[key] = idx
     while len(_dirs) > MAX_DIRS_CACHED:
         _dirs.popitem(last=False)       # evict oldest folder, not this one
