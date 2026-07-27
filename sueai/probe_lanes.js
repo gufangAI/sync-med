@@ -2,7 +2,7 @@
  * probe_lanes.js \u2014 \u514d\u8d39\u6c60 lane \u63a2\u6d3b
  *
  * \u9010\u6761 lane \u53d1\u4e00\u6b21\u6781\u5c0f\u8bf7\u6c42\uff08max_tokens: 5\uff09\uff0c\u628a\u771f\u5b9e\u7ed3\u679c\u5199\u56de\u552f\u4e00\u771f\u6e90
- * core/ai_orchestrator/lanes.json \u7684 status / lastChecked / lastError\u3002
+ * sueai/lanes.json \u7684 status / lastChecked / lastError\u3002
  *
  * \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
  * \u4e3a\u4ec0\u4e48\u8981\u6709\u5b83
@@ -37,7 +37,7 @@ import { pathToFileURL } from 'url';
 import {
   allLanes, getLane, resolveKey, updateLaneStatus,
   proxyStatus, vendorMeta, BROWSER_UA, LANE_STATUS,
-} from '../core/ai_orchestrator/lanes.js';
+} from './lanes.js';
 
 // \u2500\u2500 \u53c2\u6570 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 function parseArgs(argv) {
@@ -189,7 +189,7 @@ async function main() {
   const px = proxyStatus();
   console.log('\u514d\u8d39\u6c60 lane \u63a2\u6d3b');
   console.log('='.repeat(74));
-  console.log(`\u771f\u6e90     : core/ai_orchestrator/lanes.json`);
+  console.log(`\u771f\u6e90     : sueai/lanes.json`);
   console.log(`\u5f85\u63a2     : ${targets.length} \u6761${opt.dryRun ? '\uff08--dry-run\uff0c\u4e0d\u5199\u56de\uff09' : ''}`);
   console.log(`\u8282\u6d41     : \u4e32\u884c\uff0c\u6bcf\u6761\u95f4\u9694 ${opt.sleepMs}ms\uff0c\u5355\u6761\u8d85\u65f6 ${opt.timeoutMs}ms`);
   if (px.needed) {
