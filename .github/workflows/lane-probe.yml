@@ -53,7 +53,15 @@ jobs:
           SILICONFLOW_KEY: ${{ secrets.SILICONFLOW_KEY }}
         run: |
           cd sueai
-          node probe_lanes.js 2>&1 | tee probe_out.txt
+          # 60s, not the 30s default. The first real run timed out on
+          # nvidia-gemma-4-31b at exactly 30001ms and marked it error, which
+          # drops it from every routing chain -- and that lane is the only one
+          # in the pool that reads traditional-character classical Chinese.
+          # A probe answers "is it alive", not "is it quick"; how quick is
+          # already recorded in metrics.latencyMs. Killing a slow lane on a
+          # liveness check is the same mistake as a watchdog killing a job for
+          # being slow rather than dead.
+          node probe_lanes.js --timeout 60000 2>&1 | tee probe_out.txt
           echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - name: commit updated lane status
