@@ -138,7 +138,16 @@ if mine:
                 print(f"=== shard {SHARD} R2 empty and no pan credentials -> skip ===", flush=True)
                 json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
                 sys.exit(0)
-        raise
+        else:
+            # Only re-raise codes we did NOT handle. This `raise` used to be
+            # unconditional and was unreachable, because the NoSuchKey branch
+            # always ended in sys.exit(0). Replacing that exit with "switch to
+            # the pan" let control flow reach it for the first time and re-threw
+            # an exception that had just been handled -- the pilot printed
+            # "reading pages from 123 pan" and then died with exit 1 on the very
+            # next line. Handling a case at the top of a block does not end the
+            # block.
+            raise
 for k in mine:
     txtkey = "_ocr/" + k[len("book/"):].rsplit(".", 1)[0] + ".txt"
     if txtkey in ledger:
