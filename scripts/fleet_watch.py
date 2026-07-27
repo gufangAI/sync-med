@@ -153,8 +153,16 @@ def _fetch_run_log_text(run_id: int, max_jobs: int) -> str:
 
 
 
+# Do NOT anchor on the closing "===". ocr.py's summary line has grown twice
+# since this regex was written -- a quality-gate count, then a pan-miss count --
+# and each time the extra field pushed the "===" away and this pattern silently
+# stopped matching ANY shard. The zero-output detector below then saw zero
+# summaries and reported nothing at all, which is how ocr.py managed to print
+# "OCR 0 new" on every shard for five days without the watch ever firing. The
+# detector that is supposed to catch a silent zero must not itself go silent
+# because a line grew a suffix.
 _SHARD_SUMMARY_RE = re.compile(
-    r"=== shard \d+ OCR (\d+) new,\s*(\d+)/(\d+) done ==="
+    r"=== shard \d+ OCR (\d+) new,\s*(\d+)/(\d+) done"
 )
 
 _SHARD_START_RE = re.compile(
