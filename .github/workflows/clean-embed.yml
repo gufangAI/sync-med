@@ -16,6 +16,18 @@ on:
       total:
         description: "shard count (matrix parallelism)"
         default: "20"
+      book_filter:
+        description: "only re-ingest books whose title contains one of these (comma separated); empty = every book in the shard"
+        required: false
+        default: ""
+      max_chunks:
+        description: "chunks kept per book (default 60 = the sampling cap that bounds the current index; raise to deepen)"
+        required: false
+        default: ""
+      force:
+        description: "set to 1 to re-run books the ledger already marks done (needed for a deeper pass)"
+        required: false
+        default: ""
   # Auto-continue every 6 hours, only fills in what's not yet ingested (idempotent, additive only)
   schedule:
     - cron: "40 */6 * * *"
@@ -88,6 +100,11 @@ jobs:
           SEM_GATE: "1"
           SHARD: ${{ matrix.shard }}
           TOTAL: ${{ github.event.inputs.total || '20' }}
+          # Empty on the scheduled run, so cron keeps its existing behaviour:
+          # whole shard, cap 60, skip whatever the ledger already has.
+          BOOK_FILTER:         ${{ github.event.inputs.book_filter }}
+          FORCE_REINGEST:      ${{ github.event.inputs.force }}
+          MAX_CHUNKS_PER_BOOK: ${{ github.event.inputs.max_chunks || '60' }}
       - name: save ledger cache
         if: always()
         uses: actions/cache/save@v4
