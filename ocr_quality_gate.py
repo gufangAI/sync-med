@@ -226,9 +226,18 @@ def main():
             k = title_key(b.get("book") or b.get("key"))
             if len(k) >= 3:
                 truth.setdefault(k, b)
-    ocr_books = [b for b in books if b.get("source") == "ocr"]
-    print("manifest: 可信版本 %d 本(%s) | OCR 本 %d 本"
-          % (len(truth), "/".join(TRUTH_SOURCES), len(ocr_books)), flush=True)
+    # Read both lists. Books awaiting exactly this check were moved out of
+    # `books` into `_held_pending_qc` so ingest would not embed them before they
+    # were judged -- so the held list is where the subjects of this check
+    # normally live. Reading only `books` reports "nothing to check" precisely
+    # when there is the most to check, which is what the first run did.
+    held = manifest.get("_held_pending_qc") or []
+    in_use = [b for b in books if b.get("source") == "ocr"]
+    parked = [b for b in held if b.get("source") == "ocr"]
+    ocr_books = in_use + parked
+    print("manifest: 可信版本 %d 本(%s) | 待验 OCR %d 本(在册 %d + 暂缓 %d)"
+          % (len(truth), "/".join(TRUTH_SOURCES), len(ocr_books), len(in_use), len(parked)),
+          flush=True)
 
     if not ocr_books:
         print("OCR 侧还没有条目 —— 先跑 ocr-to-rag 再验", flush=True)
