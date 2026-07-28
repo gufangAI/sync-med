@@ -1,0 +1,32 @@
+# Park bridged OCR books out of ingest until their accuracy is established.
+#
+# They share no title with the 1046 proofread editions we hold, so the one gate
+# that could score them does not apply. Unverified OCR is not neutral: the old
+# index proves bad text outranks good text rather than sitting quietly beside it.
+# Nothing is deleted -- entries move to _held_pending_qc and the text objects
+# stay untouched, so restoring them is a move between two lists.
+name: ocr-hold
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "1 = report only"
+        required: false
+        default: ""
+
+jobs:
+  hold:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet boto3
+      - env:
+          R2_ENDPOINT:   ${{ secrets.VEC_R2_ENDPOINT }}
+          R2_ACCESS_KEY: ${{ secrets.VEC_R2_ACCESS_KEY }}
+          R2_SECRET_KEY: ${{ secrets.VEC_R2_SECRET_KEY }}
+          DRY_RUN:       ${{ github.event.inputs.dry_run }}
+        run: python hold_ocr_entries.py
