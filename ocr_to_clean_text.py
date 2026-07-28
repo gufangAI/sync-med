@@ -85,6 +85,35 @@ def get_text(s3, key):
         return None
 
 
+def record_bridged(book_id, pages, chars, probed):
+    """Write one ledger row per bridged book.
+
+    Two reasons this is not optional. First, a probe that is not recorded gets
+    repeated every run -- the discovery is thrown away the moment the job ends.
+    Second, and the reason it matters more: OCR has been running for months with
+    its only progress record in a GitHub Actions cache that dies with the runner,
+    so nobody -- not the dashboard, not a report, not a person asking -- can say
+    what it has actually produced. Work with no record is work nobody can see.
+
+    Failure here must never lose the bridged text: the R2 object and the manifest
+    entry are already written by this point, so a D1 hiccup is reported and the
+    run continues.
+    """
+    now = int(time.time())
+    try:
+        d1_query(
+            "INSERT INTO ocr_jobs (book_id, table_name, run_id, shard, status, engine, "
+            "total_pages, done_pages, skip_pages, failed_pages, low_conf_pages, error_msg, "
+            "created_at, started_at, finished_at, updated_at) "
+            "VALUES (?, '_bridged_to_rag', ?, 0, 'done', ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?)",
+            [book_id, RUN_ID, "ocr-to-rag" + ("/probe" if probed else ""),
+             pages, pages, "chars=%d" % chars, now, now, now, now],
+        )
+    except Exception as e:
+        print("  WARN 台账写入失败(桥接本身已成功,只是这本在看板上看不到): %s"
+              % str(e)[:160], flush=True)
+
+
 def main():
     s3 = s3_client()
 
@@ -106,13 +135,61 @@ def main():
     # as it goes. Reading from there means every key we construct is one that
     # should exist. Still zero LIST -- page numbers come from a count, not from
     # enumerating the bucket.
-    rows = d1_query(
+    known = d1_query(
         "SELECT j.book_id AS book_id, MAX(j.done_pages) AS done_pages, "
         "       COALESCE(b.book_title, j.book_id) AS book_title "
         "FROM ocr_jobs j LEFT JOIN books_assets_v2 b ON b.book_id = j.book_id "
         "WHERE j.book_id != '_ndl_pipeline' AND j.done_pages > 0 "
-        "GROUP BY j.book_id ORDER BY j.book_id LIMIT ?", [LIMIT * 3])
-    print("D1: OCR 已产出页的书 %d 本" % len(rows), flush=True)
+        "GROUP BY j.book_id ORDER BY j.book_id", [])
+    known_ids = {str(r.get("book_id")) for r in known}
+    print("D1 ocr_jobs 有记录的书:%d 本" % len(known), flush=True)
+
+    # Find OCR output that no ledger knows about.
+    #
+    # There are two OCR lines. ocr_ndl.py (took over 2026-07-22) writes a row per
+    # book into ocr_jobs. The older ocr.py does not -- it keeps progress in a
+    # GitHub Actions cache (ledger.json), which evaporates with the runner and
+    # cannot be read from outside. So months of output from the older line is
+    # invisible to every ledger we have: nobody can say how many pages exist.
+    #
+    # Rather than wait for the old line to be retrofitted, probe: one GET for
+    # page_0001.txt per book tells us whether that book has any OCR output at
+    # all. One request per book, not per page -- still zero LIST, and Class B
+    # operations at roughly $0.36 per million.
+    #
+    # Whatever the probe finds gets WRITTEN BACK into ocr_jobs, so the next run
+    # (and the admin dashboard, and anyone asking "what has OCR actually done")
+    # reads it from the ledger instead of rediscovering it. Work without a record
+    # is work nobody can see.
+    cand = d1_query(
+        "SELECT book_id, book_title, page_count FROM books_assets_v2 "
+        "WHERE frontend_visible=1 AND upload_status='done' AND page_count > 0 "
+        "ORDER BY book_id LIMIT ?", [PROBE_LIMIT])
+    unknown = [r for r in cand if str(r.get("book_id")) not in known_ids]
+    print("待探测(有影像但 ocr_jobs 无记录):%d 本" % len(unknown), flush=True)
+
+    def probe(r):
+        bid = str(r.get("book_id") or "")
+        if not bid:
+            return None
+        return r if get_text(s3, "%s%s/page_0001.txt" % (OCR_PREFIX, bid)) is not None else None
+
+    found = []
+    if unknown:
+        with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as ex:
+            for hit in ex.map(probe, unknown):
+                if hit:
+                    found.append(hit)
+    print("探测到有 OCR 产出但台账里没有的:%d 本" % len(found), flush=True)
+
+    rows = list(known)
+    for r in found:
+        rows.append({"book_id": r.get("book_id"),
+                     "done_pages": int(r.get("page_count") or 0),
+                     "book_title": r.get("book_title"),
+                     "_probed": True})
+    rows = rows[:LIMIT * 3]
+    print("本轮候选合计 %d 本" % len(rows), flush=True)
 
     added = skipped = empty = 0
     for row in rows:
@@ -151,14 +228,21 @@ def main():
 
         key = "%socr/%s.txt" % (CLEAN_PREFIX, bid)
         if DRY:
-            print("  [dry] %s  %d/%d 页有文本  %d 字" % (bid, got, pages, len(body)), flush=True)
+            print("  [dry] %s  %d/%d 页有文本  %d 字%s"
+                  % (bid, got, pages, len(body), "  (探测发现)" if row.get("_probed") else ""),
+                  flush=True)
         else:
             s3.put_object(Bucket=BUCKET, Key=key,
                           Body=body.encode("utf-8"),
                           ContentType="text/plain; charset=utf-8")
             books.append({"source": SOURCE, "key": bid, "book": title})
-            print("  + %s《%s》 %d/%d 页  %d 字" % (bid, title[:24], got, pages, len(body)),
-                  flush=True)
+            # Record what this run did, per book, so the next one reads a ledger
+            # instead of probing again -- and so the number is answerable without
+            # digging through Actions logs.
+            record_bridged(bid, got, len(body), bool(row.get("_probed")))
+            print("  + %s《%s》 %d/%d 页  %d 字%s"
+                  % (bid, title[:24], got, pages, len(body),
+                     "  (探测发现,已补台账)" if row.get("_probed") else ""), flush=True)
         added += 1
 
     print("\n新增 %d 本 | 已在册跳过 %d | 无有效文本 %d" % (added, skipped, empty), flush=True)
@@ -174,6 +258,22 @@ def main():
               flush=True)
     elif not added:
         print("本轮没有可接入的书 —— 不动 manifest", flush=True)
+
+    # One summary row per run, mirroring ocr_ndl's sentinel row, so the dashboard
+    # can show this line's activity without anyone opening GitHub.
+    if not DRY:
+        now = int(time.time())
+        try:
+            d1_query(
+                "INSERT INTO ocr_jobs (book_id, table_name, run_id, shard, status, engine, "
+                "total_pages, done_pages, skip_pages, failed_pages, low_conf_pages, error_msg, "
+                "created_at, started_at, finished_at, updated_at) "
+                "VALUES ('_bridge_pipeline','_bridge_run',?,0,'done','ocr-to-rag', ?,?,?,0,0,?, ?,?,?,?)",
+                [RUN_ID, len(rows), added, skipped, "probed=%d empty=%d" % (len(found), empty),
+                 now, now, now, now])
+            print("台账已记本轮汇总行(_bridge_pipeline)", flush=True)
+        except Exception as e:
+            print("WARN 汇总行写入失败: %s" % str(e)[:160], flush=True)
 
 
 main()
