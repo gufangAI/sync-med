@@ -21,10 +21,12 @@ import json
 import os
 import re
 import sys
+import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 import boto3
+import requests
 from botocore.config import Config
 
 try:
@@ -36,6 +38,21 @@ BUCKET = "guyaofang-lib"
 CLEAN = "clean_text/"
 MANIFEST_KEY = CLEAN + "_manifest.json"
 WORKERS = int(os.environ.get("WORKERS", "12"))
+CF_ACC = os.environ.get("CF_ACCOUNT_ID", "")
+D1_DB = os.environ.get("D1_DATABASE_ID", "")
+D1_TOK = os.environ.get("D1_API_TOKEN", "")
+
+
+def d1_query(sql, params=None):
+    url = ("https://api.cloudflare.com/client/v4/accounts/%s/d1/database/%s/query"
+           % (CF_ACC, D1_DB))
+    r = requests.post(url, headers={"Authorization": "Bearer " + D1_TOK},
+                      json={"sql": sql, "params": params or []}, timeout=120)
+    r.raise_for_status()
+    j = r.json()
+    if not j.get("success"):
+        raise RuntimeError("D1 failed: " + str(j.get("errors"))[:200])
+    return (j.get("result") or [{}])[0].get("results") or []
 SHOW = int(os.environ.get("SHOW", "8"))
 
 CJK = re.compile(r"[一-鿿]")
@@ -142,6 +159,43 @@ def main():
         print("   → 主因是【书的性质】不是【算力不足】。扩 OCR 产能不会改善这批。", flush=True)
     else:
         print("   → 主因是【识别质量】。值得调参重跑,扩产能也才有意义。", flush=True)
+
+    # Write the Japanese-language books into the ledger so OCR stops re-reading them.
+    #
+    # These are kampo works from the Mitsui collection: the text is largely kana
+    # with Japanese kanbun reading marks (返り点, 送り仮名), which OCR transcribes
+    # faithfully -- nothing is malfunctioning, the book simply is not Chinese prose.
+    # Left alone, every future OCR round spends its pages on them again, and every
+    # quality gate rejects them again, forever.
+    #
+    # There is no language column in books_assets_v2 and no reliable signal in the
+    # title (譯文筌蹄初編 looks like any Chinese title), so the judgement has to come
+    # from the text -- which means it has to be recorded once rather than recomputed.
+    # ocr_jobs is where OCR already keeps its per-book state, so the exclusion lives
+    # beside the work it excludes.
+    jp_ids = [b["key"] for b, c in rows if c["kind"] == "日文汉方(含假名)"]
+    if not jp_ids:
+        return
+    if os.environ.get("MARK_SKIP", "1") != "1":
+        print("\n   (MARK_SKIP=0,只报告不写台账)", flush=True)
+        return
+    now = int(time.time())
+    ok = 0
+    for bid in jp_ids:
+        try:
+            d1_query(
+                "INSERT INTO ocr_jobs (book_id, table_name, run_id, shard, status, engine, "
+                "total_pages, done_pages, skip_pages, failed_pages, low_conf_pages, error_msg, "
+                "created_at, started_at, finished_at, updated_at) "
+                "VALUES (?, '_lang_skip', ?, 0, 'skip_japanese', 'ocr-diagnose', "
+                "0, 0, 0, 0, 0, ?, ?, ?, ?, ?)",
+                [bid, os.environ.get("GITHUB_RUN_ID", "local"),
+                 "kana-heavy kampo, not Chinese prose", now, now, now, now])
+            ok += 1
+        except Exception as e:
+            print("   WARN 标记失败 %s: %s" % (bid, str(e)[:100]), flush=True)
+    print("\n   已把 %d 本日文汉方书写进台账(status=skip_japanese),"
+          "OCR 选书时会跳过,不再重复消耗算力" % ok, flush=True)
 
 
 main()
