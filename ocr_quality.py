@@ -8,18 +8,19 @@
 #   纯拉丁/数字乱码、替换符/控制符乱码。这些若静默 put 进 _ocr/ 会毒化 SueAI 燃料。
 #   本模块给出 label(ok/suspect/reject/empty)+ reasons,调用方据此"标记/退回重跑"而非静默入库。
 #
-# 检测判据 1)~6) 是语言无关的比例/重复数学;7) 是绝对计数;8) 是唯一一条看字面的:
+# 检测判据 1)~6)9) 是语言无关的比例/重复数学;7) 是绝对计数;8) 是唯一一条看字面的:
 #   1) repeat_ngram   — 最高频 n-gram(n=2..8)占全文比例:短语刷屏的核心症状
 #   2) max_run        — 某周期 p 的连续复读(back-to-back)最长游程占比:"A后A后A后"
 #   3) line_dup       — 去空白后重复行占比:整行/整块复读
-#   4) garbage_ratio  — 既非 CJK、非 CJK 标点、非 ASCII 可打印的"乱码"字符占比(含 U+FFFD/控制符)
-#   5) single_char    — 单一最高频字符占比:单字符刷屏(。。。。 / oooo)
+#   4) garbage_ratio  — 既非 CJK、非 CJK 标点、非 ASCII 可打印、非版面记号的"乱码"占比(含 U+FFFD/控制符)
+#   5) single_char    — 单一最高频【内容】字符占比:单字符刷屏(。。。。 / oooo)
 #   6) cjk_ratio      — CJK 占比(软信号:封面/牌记/西文页天然低,不单独判死)
 #   7) abs_repeat     — 同一片段【背靠背连出】的绝对次数(不是占比):全长度生效
 #   8) model_meta     — OCR 模型自己的元话术("图中包含的文字内容是…"):短页专用
+#   9) mark_ratio     — 版面记号占比:整页只剩缺字方框/点线/同上记号 = 这页没有内容
 #
 # 每条判据都有自己的最短生效长度,短于它就不出判决(比例在小分母上没有判别力):
-#   1)2)3) -> MIN_LEN_FOR_REPEAT(=LONG_PAGE 40)   4)5) -> MIN_LEN_FOR_RATIO(20)   6) -> LONG_PAGE(40)
+#   1)2)3) -> MIN_LEN_FOR_REPEAT(=LONG_PAGE 40)   4)5)9) -> MIN_LEN_FOR_RATIO(20)   6) -> LONG_PAGE(40)
 #   7) 没有长度门:次数不吃分母,长短页一样有判别力(2026-07-28 由短页专用扩到全长度)。
 #   8) 反过来:【只在】 n < MIN_LEN_FOR_REPEAT 时生效,专门补 1)2)3) 让开的那一档。
 #
@@ -54,11 +55,27 @@ _ASCII_OK = set(
     " \t\r\n.,;:!?\"'()[]{}<>/\\-_=+*&%$#@|~`^"
 )
 _ASCII_ALNUM = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-# 版面记号:这些字符成串出现是【排版/缺字标记】,不是模型复读,abs_repeat 不认它们。
-#   〇 ○ □ ■ = 缺字/漫漶方框;… ‥ = 目录点线;・ = 假名分隔点;
-#   ヽ ヾ ゝ ゞ 々 〃 = 叠字/同上记号(和刻本表格里成列出现);ー ― — – = 长音符/横线。
+# 版面记号:这些字符成串出现是【排版/缺字标记】,不是模型复读,也不是乱码。
+#   〇 ○ ● □ ■ = 缺字/漫漶方框;… ‥ = 目录点线;・ = 假名分隔点;
+#   ヽ ヾ ゝ ゞ 々 〃 = 叠字/同上记号(和刻本表格里成列出现);ー ― — – = 长音符/横线;
+#   ◇ ◆ △ ▲ ▽ ▼ ※ = 校勘/注记符号。
 # 不排掉它们,一页「傷寒論………………三」的目录就会因为 12 个点线被判成复读。
-# 注意 ヽ ゝ ・ ー 落在 _CJK_RE 的假名区间里,不显式排除就会被当成"内容字符"。
+# 注意 ヽ ゝ ・ ー ヾ ゞ 落在 _CJK_RE 的假名区间里,不显式排除就会被当成"内容字符"。
+#
+# 【本表是 4 条判据共用的,名字里的 REPEAT 只是它最早的用途,别按名字理解范围】
+#   abs_repeat(判据 7,经 _unit_has_content)/ garbage_ratio(4)/ single_char(5)/ mark_ratio(9)。
+#
+# 2026-07-28 补 garbage/single_char:在此之前本表与 _CJK_PUNCT 【两张表互相不认】,
+# 后果是同一个字符在两条判据里身份相反 —— □ 和 々 在本表里是"版面记号"(abs_repeat 放过),
+# 在 _CJK_PUNCT 里查无此字(garbage_ratio 当乱码),而 〇 两张表都有所以没事。
+# 实测这条不一致把影印善本判死:古籍影印本用 □ 标注漫漶缺字,□ 一过半整页就被 garbage 判死。
+#     缺字方框页 33 字(□×22)  -> reject  garbage=0.66 single_char=0.66
+#     长缺字方框页 47 字(□×30) -> reject  garbage=0.64 single_char=0.64
+#   (背靠背豁免 scattered_repeat 早已生效,拦住了 repeat_ngram/max_run,拦不住这两条。)
+# 差分扫描(占比 0.05→1.00 × 页长 30/47/90/200 × 散点/小段/整列三种糊法,240 条):
+#   □ 占比 >=0.50 一律 reject、>=0.30 一律 suspect,与页长和糊法完全无关
+#   —— 判死的是 garbage_ratio 这个逐字符计数,不是任何"重复"信号。
+# 越是珍稀的漫漶善本越容易中招,而影像善本正是平台区别于纯文本站的核心资产。
 _REPEAT_MARKS = set("〇○●□■◇◆△▲▽▼※…‥・ヽヾゝゞ々〃ー―—–")
 
 # ---- 阈值(模块常量,便于调参)----
@@ -78,6 +95,35 @@ SINGLE_CHAR_REJECT = 0.60    # 单字符刷屏 >=60%(且够长)-> 判死
 CJK_SUSPECT = 0.15           # 够长但 CJK 占比极低 -> 存疑(可能西文页,不判死)
 MIN_LEN_FOR_RATIO = 20       # 太短的页不做乱码/单字符判死(避免误伤正常短牌记)
 LONG_PAGE = 40
+
+# ---- 判据 9:整页只剩版面记号 = 这页没有内容 -------------------------------
+# 为什么必须显式立这一条,而不是"放松完就完事":放松 garbage/single_char 会亲手开一个洞。
+# _REPEAT_MARKS 里的 ヽ ヾ ゝ ゞ ・ ー 六个记号落在 _CJK_RE 的假名区间内,
+# 于是一页纯 ヽ 的 cjk_ratio = 1.00 —— 它同时骗过三道闸:
+#   garbage 认它是 CJK(本来就 0.00)、cjk_low 认它是中日文正文、
+#   背靠背豁免的第二道闸 cjk >= CJK_SUSPECT 也照样过(abs_repeat 又因为它是记号恒报 1)。
+# 实测改前/改后(「ヽ」×60):
+#   改前 single_char=1.00 -> reject   ← 整页纯记号,唯一按住它的就是 single_char
+#   若只放松不补这一条     -> ok       ← 一页零信息的记号页直接进燃料池
+# ゝ ・ ー ヾ ゞ 六个同款,全部同样。□ ○ ● ■ 这些非假名记号不吃这个洞
+# (它们 cjk_ratio=0,豁免不生效,repeat_ngram/max_run 照样判死),
+# 但把判决托付给"另外两条判据碰巧还够得着"是脆的:豁免闸哪天一松,这一档就集体漏光。
+#
+# ★ 门槛怎么定的:它【不是一个新数】,是 CJK_SUSPECT 的补集,写成表达式不留可漂移的副本。
+#   模块里 CJK_SUSPECT=0.15 的既有含义就是"CJK 低于 15% = 这页基本没有中日文内容"
+#   (cjk_low 那条 suspect 用的就是它)。记号占比 >= 1-0.15 意味着页面里【最多】15%
+#   还是别的东西(含真正的内容字),正是同一句话反过来说。
+#   实测它与【改动前就存在的那条死线】完全重合,所以这一条不额外多杀任何一页:
+#   对 □ ○ ● ■ 这类非假名记号,mark_ratio >= 0.85 <=> cjk_ratio <= 0.15 <=> 背靠背豁免
+#   不生效 <=> repeat_ngram/max_run 判死。240 条占比扫描逐格比对,改后判级与"只放松、
+#   不加这条"的差别只在假名区记号那 12 条上 —— 也就是它专门补的那个洞。
+# ★ 代价说清楚(必须说,因为它是真的):占比落在 [0.70, 0.85) 的页会放行,
+#   也就是一页 84% 是缺字方框、只剩 16% 真字,照样进燃料池。这是刻意选的方向:
+#   漫漶善本本来就是最珍稀的一档,宁可让 16% 的真字进池,不可再误杀整页。
+#   放行不等于没人看见:命中时 reasons 会留 layout_marks=,日审报告的 top_reasons 里看得到。
+# ★ 为什么不顺手加一条"记号偏多"的 suspect:那会把 0.53 的目录点线页、和刻本同上记号页
+#   从 ok 翻成 suspect,而任务判据要的是"正常古籍页判定零改动"。留痕用 reasons,不用 label。
+MARK_RATIO_REJECT = 1.0 - CJK_SUSPECT   # = 0.85
 
 # 重复类三条判据(repeat_ngram / max_run / line_dup)的最短生效长度。
 # 取模块自己已有的 LONG_PAGE,不另立新数——本仓吃过"拍脑袋定阈值"的亏
@@ -241,25 +287,60 @@ def cjk_ratio(text):
     return len(_CJK_RE.findall(t)) / len(t)
 
 
-def garbage_ratio(text):
-    """既非 CJK、非 CJK 标点、非 ASCII 可打印的字符占比。U+FFFD/控制符计为乱码。"""
+def garbage_ratio(text, count_marks=False):
+    """既非 CJK、非 CJK 标点、非 ASCII 可打印、非版面记号的字符占比。U+FFFD/控制符计为乱码。
+
+    版面记号(□ 缺字方框 / … 目录点线 / 々〃 同上记号)是【排版】不是乱码 —— 这是
+    2026-07-28 的修正,在此之前 _REPEAT_MARKS 里 16 个记号在这里被逐字符计成乱码,
+    漫漶影印本一过半就整页判死(详见 _REPEAT_MARKS 上方的实测)。
+
+    count_marks=True = 恢复旧口径(记号算乱码),【只给考古用】:
+    ocr_recover_scan.old_gate_view 要回答的是"当年那一版闸会不会误杀它",
+    它必须拿到当年的数,不能拿改后的数去替当年作答。产线一律用默认值。
+    只加一个开关而不复制一份函数:本仓吃过"同一判据两份副本各自漂移"的亏。
+    """
     t = _clean(text)
     if not t:
         return 0.0
     bad = 0
     for ch in t:
+        if not count_marks and ch in _REPEAT_MARKS:
+            continue
         if _CJK_RE.match(ch) or ch in _CJK_PUNCT or ch in _ASCII_OK:
             continue
         bad += 1
     return bad / len(t)
 
 
-def single_char_ratio(text):
-    """单一最高频字符占全文比例(单字符刷屏)。"""
+def single_char_ratio(text, count_marks=False):
+    """单一最高频【内容】字符占全文比例(单字符刷屏)。
+
+    分子只在版面记号之外的字符里取最高频,分母仍是全页长度 —— 这样这个数只会变小、
+    不会变大,不可能因为本次放松而新判死任何一页(纯放松,零新增误杀)。
+    为什么要排掉记号:一页 □ 占 66% 的漫漶页,最高频字符就是 □,0.66 直接够着
+    SINGLE_CHAR_REJECT=0.60 —— 但"缺字方框刷屏"根本不是模型刷屏,是原书就糊了。
+    整页只剩记号的那一档不靠本函数拦,靠判据 9 MARK_RATIO_REJECT 显式拦(见其注释)。
+
+    count_marks=True 同 garbage_ratio:旧口径,只给考古用。
+    """
     t = _clean(text)
     if not t:
         return 0.0
-    return Counter(t).most_common(1)[0][1] / len(t)
+    body = t if count_marks else [ch for ch in t if ch not in _REPEAT_MARKS]
+    if not body:
+        # 整页全是版面记号:内容侧一个字符都没有,这里诚实报 0 而不是 1.0
+        # (它该由判据 9 按 mark_ratio 判死,不该借单字符刷屏的名义判)。
+        return 0.0
+    return Counter(body).most_common(1)[0][1] / len(t)
+
+
+def mark_ratio(text):
+    """版面记号占全页比例(判据 9)。高到一定程度 = 这页只剩排版符号,没有内容。
+    与 garbage_ratio / single_char_ratio 共用 _REPEAT_MARKS 一张表,不另立字符表。"""
+    t = _clean(text)
+    if not t:
+        return 0.0
+    return sum(1 for ch in t if ch in _REPEAT_MARKS) / len(t)
 
 
 def repeat_ngram(text):
@@ -306,16 +387,30 @@ def max_run_ratio(text):
     return min(best_run / L, 1.0), best_p
 
 
+def _is_content_char(ch):
+    """这个字符算不算"内容":CJK 表意字/假名 或 ASCII 字母数字,且它自己不是版面记号。
+    判据 7(_unit_has_content)与判据 9(content_len)共用这一条 —— 本仓吃过
+    "同一判据两份副本各自漂移"的亏,"什么叫内容字"只许有一个定义。
+
+    已知盲区(诚实标注,本轮不改):_CJK_RE 只覆盖 CJK 统一表意 + 扩展A + 假名,
+    扩展B 及以上的生僻字(U+20000+,古籍里真会出现)不算内容字。那种页今天就已经被
+    garbage_ratio 当成乱码整页判死了,本函数只是沿用同一个既有盲区,没有把它扩大。"""
+    if ch in _REPEAT_MARKS:
+        return False
+    return bool(_CJK_RE.match(ch)) or ch in _ASCII_ALNUM
+
+
 def _unit_has_content(u):
     """这个复读单元算不算"内容"。至少要有一个 CJK 表意字/假名或 ASCII 字母数字,
     且它自己不是版面记号。挡的是目录点线、缺字方框、和刻本的同上记号成串出现
     ——那些在真古籍页上本来就连成排,不该被当成模型复读。"""
-    for ch in u:
-        if ch in _REPEAT_MARKS:
-            continue
-        if _CJK_RE.match(ch) or ch in _ASCII_ALNUM:
-            return True
-    return False
+    return any(_is_content_char(ch) for ch in u)
+
+
+def content_len(text):
+    """去掉版面记号后还剩几个【内容】字符(绝对个数,不是占比)。
+    占比吃分母,个数不吃 —— 这一条与 abs_repeat 是同一个思路(见 ABS_REPEAT_REJECT)。"""
+    return sum(1 for ch in _clean(text) if _is_content_char(ch))
 
 
 def abs_repeat_run(text):
@@ -390,11 +485,20 @@ def analyze(text):
                 "cjk_ratio": 0.0, "garbage_ratio": 0.0, "single_char": 0.0,
                 "repeat_ngram": 0.0, "repeat_n": 0, "repeat_unit": "",
                 "max_run": 0.0, "run_period": 0, "line_dup": 0.0, "n_lines": 0,
-                "abs_repeat": 0, "abs_repeat_unit": 0, "model_meta": -1}
+                "abs_repeat": 0, "abs_repeat_unit": 0, "model_meta": -1,
+                "mark_ratio": 0.0, "content_len": 0,
+                "garbage_ratio_raw": 0.0, "single_char_raw": 0.0}
 
     cjk = cjk_ratio(text)
     garbage = garbage_ratio(text)
     single = single_char_ratio(text)
+    mark = mark_ratio(text)
+    n_content = content_len(text)
+    # 旧口径(版面记号算乱码/算刷屏)的同名两条,只测不判:考古专用。
+    # ocr_recover_scan.old_gate_view 问的是"当年会不会误杀",它必须拿当年的数作答;
+    # 判退台账攒下来之后要回看"这一页当年是被哪一条按住的",也只能靠这两个数。
+    garbage_raw = garbage_ratio(text, count_marks=True)
+    single_raw = single_char_ratio(text, count_marks=True)
     rep, rep_n, rep_unit = repeat_ngram(text)
     run, run_p = max_run_ratio(text)
     ldup, nlines = line_dup_ratio(text)
@@ -448,6 +552,29 @@ def analyze(text):
     if n >= MIN_LEN_FOR_RATIO and single >= SINGLE_CHAR_REJECT:
         reject = True; reasons.append(f"single_char={single:.2f}")
 
+    # ── 判据 9:整页只剩版面记号 ────────────────────────────────────────────
+    # 长度门用 MIN_LEN_FOR_RATIO,与它上面两条比例判据同一档:短页上占比没有判别力,
+    # 而且一页 5 个 □ 的残片今天本来就是 ok,这一条不该把它改掉。
+    #
+    # 第二个分句(记号之外一个内容字都没有)补的是我自己放松开出来的洞,占比够不着它:
+    #     「ヽ」×50 +「。」×10  记号占比 0.83 < 0.85,内容字 = 0
+    #   改前 single_char=0.83 判死;只放松不补这一句 -> ok,一页零信息的记号页进燃料池。
+    #   假名区记号(ヽヾゝゞ・ー)让 cjk_ratio=0.83 高得离谱,cjk_low 和背靠背豁免
+    #   两道闸全被它骗过去,只剩这一句拦得住。非假名记号(□○●■)不吃这个洞
+    #   —— 它们 cjk_ratio=0,repeat_ngram/max_run 照样判死(实测「□」×48+「。」×12 = reject)。
+    # 它【不是一个新门槛】,是个零判定:一页够长却连一个内容字都读不出来,就是没有内容。
+    # 要求 mark > 0 是刻意的:判据 9 只管版面记号这一类,纯句号刷屏页照旧归 single_char 管,
+    # 不去抢别条判据的地盘(抢了只会让 reasons 变样,给日审平添一次"指标突变")。
+    if n >= MIN_LEN_FOR_RATIO and (mark >= MARK_RATIO_REJECT or (mark > 0 and n_content == 0)):
+        reject = True; reasons.append(f"layout_mark_page={mark:.2f}")
+    # 豁免留痕(与 scattered_repeat 同一个道理):只在版面记号【确实把这一页从判据 4/5
+    # 手里救下来】时才写,否则每一页带一个点线的目录都会挂上这条,日审 top_reasons 被刷屏。
+    # 必须留:这是本模块第二条【放行】逻辑,它哪天放错了,得有人在日审报告里看得见。
+    elif (n >= MIN_LEN_FOR_RATIO
+          and (garbage_raw >= GARBAGE_SUSPECT or single_raw >= SINGLE_CHAR_REJECT)
+          and garbage < GARBAGE_SUSPECT and single < SINGLE_CHAR_REJECT):
+        reasons.append(f"layout_marks={mark:.2f}")
+
     # ── 判据 7:背靠背连出次数,【不设长度门】────────────────────────────────
     # 2026-07-28 由 `if not long_enough:` 改成无条件。原先挡在短页那一档是为了让
     # "长页零改动"结构上成立,代价是长页里的【局部】复读全漏(200 字正文里夹 20 字
@@ -486,7 +613,13 @@ def analyze(text):
             # abs_repeat 全长度参与判决(2026-07-28);model_meta 仍只在短页判决,
             # 但两者照旧【全长度返回】,下次调门槛能直接在判退台账上重算,不用回 R2 考古
             # (ocr_reject_log 的注释写死了这条:记 ratio 就是为了不用再考古)。
-            "abs_repeat": arep, "abs_repeat_unit": arep_u, "model_meta": meta_k}
+            "abs_repeat": arep, "abs_repeat_unit": arep_u, "model_meta": meta_k,
+            # 2026-07-28 新增三个键。返回键只增不改不删 —— 上面 empty 分支那份必须同步补,
+            # ocr_recover_scan.py 是直接 a["xxx"] 索引的,少一个键就是一次 KeyError。
+            # _raw 两条是旧口径(记号算乱码)的同名值,只测不判,给考古与门槛回算用。
+            "mark_ratio": round(mark, 3), "content_len": n_content,
+            "garbage_ratio_raw": round(garbage_raw, 3),
+            "single_char_raw": round(single_raw, 3)}
 
 
 def is_reject(text):

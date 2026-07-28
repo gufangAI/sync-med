@@ -178,8 +178,14 @@ def old_gate_view(a):
     rep_fire = a["repeat_ngram"] >= q.REPEAT_NGRAM_REJECT
     run_fire = a["max_run"] >= q.MAX_RUN_REJECT
     dup_fire = a["n_lines"] >= q.LINE_DUP_MIN_LINES and a["line_dup"] >= q.LINE_DUP_REJECT
+    # 用 _raw 两条而不是同名的 garbage_ratio / single_char:2026-07-28 起版面记号
+    # (□ 缺字方框 / … 点线 / 々〃 同上记号)不再算乱码,那两个键的【值本身】变了。
+    # 本函数问的是"当年那一版闸会不会误杀它",拿改后的数作答就是把考古改成了自证
+    # ——一页 □ 占 66% 的漫漶页当年确确实实被 garbage=0.66 判死了,不能因为今天不算了
+    # 就回头说"当年也没事"。_raw 就是当年那个口径,ocr_quality 只测不判地一并返回。
     other_fire = (a["len"] >= q.MIN_LEN_FOR_RATIO and
-                  (a["garbage_ratio"] >= q.GARBAGE_REJECT or a["single_char"] >= q.SINGLE_CHAR_REJECT))
+                  (a["garbage_ratio_raw"] >= q.GARBAGE_REJECT
+                   or a["single_char_raw"] >= q.SINGLE_CHAR_REJECT))
     which = []
     if rep_fire:
         which.append("repeat_ngram")
