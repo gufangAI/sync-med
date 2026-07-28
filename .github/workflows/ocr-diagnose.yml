@@ -1,0 +1,27 @@
+# Why did a third of our OCR fail the degeneracy check?
+#
+# The answer decides where effort goes. If most failures are books that are not
+# Chinese prose to begin with -- Japanese kampo with kana, plate pages,
+# colophons -- then nothing is broken and more OCR capacity produces more
+# unusable text. If most are genuine recognition failures, parameters or a
+# re-run are worth it. The summary statistics cannot tell these apart; the text
+# can, so this reads it.
+name: ocr-diagnose
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet boto3
+      - env:
+          R2_ENDPOINT:   ${{ secrets.VEC_R2_ENDPOINT }}
+          R2_ACCESS_KEY: ${{ secrets.VEC_R2_ACCESS_KEY }}
+          R2_SECRET_KEY: ${{ secrets.VEC_R2_SECRET_KEY }}
+        run: python diagnose_bad_ocr.py
