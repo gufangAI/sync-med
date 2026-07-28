@@ -116,13 +116,67 @@ def key_hash(source, key):
 
 
 def split_chunks(t):
-    t = t.strip()
-    out = []
-    i = 0
-    while i < len(t):
-        out.append(t[i:i + CHUNK])
-        i += CHUNK - OVERLAP
-    return out
+    """Split on structure where the text has any, on character count only as a last resort.
+
+    This used to be `t[i:i+CHUNK]` -- a fixed 700-character stride that pays no
+    attention to what it is cutting through. In classical medical texts that
+    reliably severs the thing a reader is looking for: the Taiyang wind-stroke
+    passage runs straight into its prescription ("...桂枝湯主之。桂枝三兩去皮
+    芍藥三兩"), so a cut anywhere in the middle files the syndrome and its
+    formula as two unrelated chunks, and no query can ever retrieve the whole.
+
+    Order of preference, each falling through to the next:
+      1. blank line  -- the layout-block boundary ocr_ndl now preserves, and the
+                        paragraph boundary in already-digitised text
+      2. 。！？；     -- sentence end, for a paragraph too long to keep whole
+      3. character count -- unavoidable for unpunctuated running text
+
+    Overlap is kept only for case 3. Where a real boundary was found, repeating
+    the tail adds duplicate vectors without adding recall -- the split is already
+    where a reader would put it.
+    """
+    t = (t or "").strip()
+    if not t:
+        return []
+
+    paras = [p.strip() for p in re.split(r"\n[ \t]*\n", t) if p.strip()]
+    if not paras:
+        paras = [t]
+
+    def by_sentence(p):
+        """Cut an over-long paragraph at sentence ends, hard-cutting only if none."""
+        parts = []
+        while len(p) > CHUNK:
+            window = p[:CHUNK]
+            cut = max(window.rfind(c) for c in "。！？；!?;")
+            # A break in the first half means the sentence itself exceeds CHUNK;
+            # cutting there would leave a stub, so take the full window instead.
+            cut = cut + 1 if cut >= CHUNK // 2 else CHUNK
+            parts.append(p[:cut].strip())
+            p = p[cut - OVERLAP:] if cut == CHUNK else p[cut:]
+            p = p.strip()
+        if p:
+            parts.append(p)
+        return parts
+
+    out, buf = [], ""
+    for p in paras:
+        if len(p) > CHUNK:
+            if buf:
+                out.append(buf)
+                buf = ""
+            out.extend(by_sentence(p))
+            continue
+        if not buf:
+            buf = p
+        elif len(buf) + 1 + len(p) <= CHUNK:
+            buf = buf + "\n" + p
+        else:
+            out.append(buf)
+            buf = p
+    if buf:
+        out.append(buf)
+    return [c for c in out if c.strip()]
 
 
 def embed(text, tries=4):
