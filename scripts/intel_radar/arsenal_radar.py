@@ -961,17 +961,32 @@ def apply_adoption_to_ledger(doc):
     """Mirror adoption.txt onto arsenal.json's status field.
 
     adoption.txt is the authority; the ledger's `status` is a derived view kept
-    in sync so the council reads one truth and not two. Slug-shaped ids only --
-    a landing that is a service, not a repo, has no ledger row to update, and
-    inventing one would put a repo in the ledger that no scan ever saw."""
+    in sync so the council reads one truth and not two.
+
+    Entries absent from the ledger are CREATED, not skipped. Measured on the
+    real 330-entry ledger: none of the four things we actually run had ever been
+    surfaced by a scan, so an update-only version moved zero rows and `integrated`
+    -- the terminal state of the whole lifecycle -- stayed permanently
+    unreachable, which is the same dead-field bug this file exists to fix. A
+    thing in production belongs in the arsenal's history by definition. The row
+    is stamped found_by=adoption.txt so it is never mistaken for a scan result,
+    and carries no stars/topics we did not measure."""
     by_repo = {e["repo"]: e for e in doc.get("entries", [])}
     n = 0
     for r in load_adoption():
+        note = ("adopted %s" % r["date"]) if r["date"] else "adopted (stock)"
         e = by_repo.get(r["id"])
-        if e is None or e.get("status") == "integrated":
+        if e is None:
+            e = {"repo": r["id"],
+                 "url": ("https://github.com/%s" % r["id"]) if "/" in r["id"] else "",
+                 "first_seen": r["date"] or "", "status": "pending",
+                 "status_note": "", "found_by": {"dimension": "adoption.txt"}}
+            doc.setdefault("entries", []).append(e)
+            by_repo[r["id"]] = e
+        if e.get("status") == "integrated":
             continue
         e["status"] = "integrated"
-        e["status_note"] = ("adopted %s" % r["date"]) if r["date"] else "adopted (stock)"
+        e["status_note"] = note
         n += 1
     if n:
         print("[arsenal] adoption.txt applied to %d ledger entries" % n, flush=True)
