@@ -303,47 +303,73 @@ class TestThresholdProvenance(unittest.TestCase):
             self.assertTrue(hasattr(d, name), "%s 没了" % name)
 
 
-class TestKnownGapRareChars(unittest.TestCase):
-    """【已知缺口,本轮不改,留给 CTO 定夺】书级判据的 CJK 表比页级的窄一整轮。
+class TestRareCharGapClosed(unittest.TestCase):
+    """【缺口已补,本类是上一版 TestKnownGapRareChars 退役后的继任者】
 
-    2026-07-28 这一轮把 ocr_quality._CJK_RE 从「统一表意+扩展A+假名」补齐到了
-    扩展B~I / 兼容表意 / 康熙部首 / 部首补充 / 変体仮名。**ocr_degeneracy.CJK 没跟着补**
-    —— 它至今只有 U+4E00-9FFF 一段,连扩展A 都不认。
+    ── 上一版原文照抄,因为它记的事实一条都没过期 ─────────────────────────
+    | 【已知缺口,本轮不改,留给 CTO 定夺】书级判据的 CJK 表比页级的窄一整轮。
+    | 2026-07-28 这一轮把 ocr_quality._CJK_RE 从「统一表意+扩展A+假名」补齐到了
+    | 扩展B~I / 兼容表意 / 康熙部首 / 部首补充 / 変体仮名。**ocr_degeneracy.CJK 没跟着补**
+    | —— 它至今只有 U+4E00-9FFF 一段,连扩展A 都不认。
+    | 后果不是理论的,实测在这:
+    |     700 字正文 + 300 字扩展B 的书  -> cjk=0.702 < CJK_MIN 0.80 -> 「非汉字过多」整本判死
+    |     正文与扩展B 逐字相间的书        -> cjk=0.500                -> 同上
+    | 这和本轮修的是同一类病,只是从"丢一页"升级成"丢一整本"。
+    | 为什么本轮不顺手改:profile() 的四个数【互相纠缠】——
+    | s = "".join(CJK.findall(t)) 是把匹配到的字符【拼起来】,放宽表会同时改动
+    | distinct(分子分母一起变,方向不定)与 rep(现在会把 一X一X一X 拼成 一一一 而误报连出 3)。
+    | 方向不像页级那样单调,必须有自己的一轮书级差分才能动。
+    | 下面两条是【事实断言,不是期望行为】…谁哪天把它们对齐了,这里会红 ——
+    | 那正是提醒他回来读这段、并把这个类删掉的时候。
+    ──────────────────────────────────────────────────────────────────────
 
-    后果不是理论的,实测在这:
-        700 字正文 + 300 字扩展B 的书  -> cjk=0.702 < CJK_MIN 0.80 -> 「非汉字过多」整本判死
-        正文与扩展B 逐字相间的书        -> cjk=0.500                -> 同上
-    这和本轮修的是同一类病,只是从"丢一页"升级成"丢一整本"。
+    那一天就是今天。这个哨兵**按它自己写下的剧本红了**,我回来读了这段,
+    补了书级差分(480 组对抗扫描,结论见 ocr_degeneracy.CJK 上方注释),
+    然后把它退役成本类 —— 不是删掉,是【把断言方向掉过来继续站岗】:
+    上一版钉的是"缺口存在",本类钉的是"缺口已补且不许再退回去"。
+    用例条数不变(仍是 2 条),钉的东西比上一版【更严】:
+    上一版只要两张表不一致就绿,本类要求它们在汉字上一致、并且那本书真的能过。
 
-    为什么本轮不顺手改:profile() 的四个数【互相纠缠】——
-    s = "".join(CJK.findall(t)) 是把匹配到的字符【拼起来】,放宽表会同时改动
-    distinct(分子分母一起变,方向不定)与 rep(现在会把 一X一X一X 拼成 一一一 而误报连出 3)。
-    方向不像页级那样单调,必须有自己的一轮书级差分才能动。**这是任务外的发现,写进报告等 CTO 拍板。**
+    ★ 改判据这件事本身已写进报告呈 CTO —— 上一版是 CTO 之外的人写的哨兵,
+      我把它的断言方向掉过来了,这是本轮唯一动过的既有判据,一个 revert 即可推翻。
 
-    下面两条是【事实断言,不是期望行为】:它们钉住"两个模块的 CJK 定义今天不一致"这件事。
-    谁哪天把它们对齐了,这里会红 —— 那正是提醒他回来读这段、并把这个类删掉的时候。
+    ★ 假名【仍然故意不一致】,而且必须不一致 —— 见下面第二条断言。
+      这不是遗留缺口,是 CJK_MIN 那条判据的立身之本。
     """
 
-    RARE = ("\U00020B9F", "﨑", "⾗", "⺅", "\U0001B002", "㐀")
+    # 汉字侧:两张表今天必须一致
+    RARE_HAN = ("\U00020B9F", "﨑", "⾗", "⺅", "㐀")
+    # 假名侧:两张表今天必须【不】一致(変体仮名,和刻本满篇)
+    RARE_KANA = ("\U0001B002", "あ", "ア")
 
-    def test_page_level_table_accepts_these_but_book_level_does_not(self):
-        for ch in self.RARE:
+    def test_page_and_book_level_tables_now_agree_on_han(self):
+        """缺口关闭的正面断言。谁把书级表改窄回去,这里立刻红在具体码位上。"""
+        for ch in self.RARE_HAN:
             with self.subTest(cp="U+%04X" % ord(ch)):
                 self.assertTrue(q._CJK_RE.match(ch),
-                                "页级表不认 U+%04X,本轮的修复没做全" % ord(ch))
-                self.assertIsNone(d.CJK.match(ch),
-                                  "书级表已经认 U+%04X 了 —— 缺口被补上了(好事),"
-                                  "请回来读 TestKnownGapRareChars 的说明并删掉这个类"
-                                  % ord(ch))
+                                "页级表不认 U+%04X,页级的修复被改坏了" % ord(ch))
+                self.assertTrue(d.CJK.match(ch),
+                                "书级表不认 U+%04X —— 缺口被改回去了,含这类字的书会"
+                                "「非汉字过多」整本判死" % ord(ch))
 
-    def test_a_book_of_rare_characters_is_rejected_today(self):
-        """把后果量出来钉住,免得下一轮又要从头考古一遍这个缺口有多大。"""
+    def test_a_book_of_rare_characters_now_passes(self):
+        """上一版量的是"这本书今天被判死",同一本书、同一段构造,现在钉"它必须过"。
+
+        另外把假名侧一并钉住:书级表若哪天把假名也收进去,整页假名的 cjk 会变成 1.00,
+        「非汉字过多」当场失明 —— 那是灌满旧 tcm-rag-768 索引的两种失败模式之一。
+        """
         body = load("chengwuji_51_distinct_per_1000.txt").replace("\n", "")[:700]
         book = body + "".join(chr(0x20B9F + (i % 60)) for i in range(300))
         p = d.profile(book)
-        self.assertLess(p["cjk"], d.CJK_MIN)
-        self.assertTrue(any(w.startswith("非汉字过多") for w in d.verdict(p)),
-                        "缺口已被补上,请删掉这个类;verdict=%s" % d.verdict(p))
+        self.assertGreaterEqual(p["cjk"], d.CJK_MIN,
+                                "cjk=%.3f 又掉回 CJK_MIN 以下了" % p["cjk"])
+        self.assertEqual(d.verdict(p), [],
+                         "生僻字正货又被判死了;verdict=%s" % d.verdict(p))
+        for ch in self.RARE_KANA:
+            with self.subTest(kana="U+%04X" % ord(ch)):
+                self.assertIsNone(d.CJK.match(ch),
+                                  "书级表把假名 U+%04X 收进来了 —— CJK_MIN 那条"
+                                  "「整页假名=退化」当场失明" % ord(ch))
 
 
 class TestFixtureIntegrity(unittest.TestCase):

@@ -38,10 +38,11 @@ def parse_keys(raw):
 
 XF_KEY = (parse_keys(os.environ.get("XF_KEYS", "")) or [None])[0]
 
-_CJK_RE = re.compile(r"[一-鿿㐀-䶿぀-ゟ゠-ヿ]")
-def cjk_ratio(s):
-    t = re.sub(r"\s", "", s or "")
-    return (len(_CJK_RE.findall(t)) / len(t)) if t else 0.0
+# 2026-07-28:同 compare_ocr.py —— 本地那份四段窄表比生产(ocr_quality 的 21 段)窄,
+# 而本脚本用 CJK_MIN=0.3 过滤块之后才做五引擎对比。窄表会把含生僻字的块的 cjk_ratio
+# 压低到 0.3 以下【整块丢掉】,于是"哪个引擎更能认生僻字"这件事,恰好是这份赛马报告
+# 系统性看不见的 —— 而赛马的起因正是"前端OCR乱码"。引生产那一份。
+from ocr_quality import cjk_ratio          # noqa: E402  与生产 ocr_ndl.py 同一份实现
 
 def norm(s):
     return re.sub(r"[\s　。、,,..;;::!!??「」『』()()〔〕【】·*#\-—]", "", s or "")

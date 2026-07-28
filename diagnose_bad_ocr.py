@@ -34,6 +34,10 @@ from botocore.config import Config
 # 60), so a book could be filed here under a cause it was never rejected for.
 import ocr_degeneracy as deg
 
+# 2026-07-28:门槛早就共享了,字符表却还各留一份 —— 于是"用同一套门槛"这句话是假的,
+# 因为两边喂给门槛的四个数是拿不同的字算出来的。字符表也收敛掉。
+import cjk_charset
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
@@ -60,8 +64,14 @@ def d1_query(sql, params=None):
     return (j.get("result") or [{}])[0].get("results") or []
 SHOW = int(os.environ.get("SHOW", "8"))
 
-CJK = re.compile(r"[一-鿿]")
-KANA = re.compile(r"[぀-ゟ゠-ヿ]")          # hiragana + katakana
+# 这两张表必须和 ocr_degeneracy.profile() 用的【完全一样】,否则本脚本会把书归到
+# 一个它从来没因为那条判据被判退过的原因下 —— 而本脚本存在的全部意义就是
+# "为什么这 34% 挂了",归错因等于把决策(要不要加 OCR 账号)建在错的分布上。
+CJK = cjk_charset.HAN
+# 假名表同样从共享表取,并且【顺带补齐了】:原来只有 BMP 的平/片假名两段,
+# 和刻本大量用的変体仮名(U+1B000 起)一个都不认,于是最该被归进
+# 「日文汉方(含假名)」的那一批和刻本,kana 占比量出来接近 0,归不进这一类。
+KANA = cjk_charset.KANA
 LATIN = re.compile(r"[A-Za-z]")
 DIGIT = re.compile(r"[0-9０-９]")
 

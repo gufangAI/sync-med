@@ -41,88 +41,29 @@
 import re
 from collections import Counter
 
+import cjk_charset
+
 # ---- CJK 覆盖表:哪些码位算「中日韩文字」-------------------------------------
 # 本表与 _REPEAT_MARKS(版面记号表)是本模块仅有的两张【字符身份表】,4 条判据共用:
 #   cjk_ratio(判据 6)/ garbage_ratio(判据 4)/ _is_content_char(判据 7 与 9)。
 #
-# 2026-07-28 补齐。在此之前只有【统一表意 + 扩展A + 平/片假名】四段
-# (沿用 ocr_ndl.py 当年标定的范围),扩展B~I、兼容表意(U+F900-FAFF)、
-# 康熙部首(U+2F00-2FDF)、汉字部首补充(U+2E80-2EFF)全部落在表外,
-# 于是 garbage_ratio 把这些码位的字【逐个计成乱码】。改前实测
-# (120 字正常古籍正文页,把其中一定比例的字逐字换成生僻字):
-#     掺入占比 0.10/0.20 -> ok      0.30/0.40 -> suspect(garbage~0.30/0.40)
-#     掺入占比 0.50      -> reject(garbage=0.50)   0.60 -> reject(garbage=0.60)
-#   扩展B(U+20B9F 𠮟)/ 兼容表意(U+F9A8)/ 康熙部首(U+2F97 ⾗)/ 部首补充(U+2E85 ⺅)
-#   四类走的是【完全同一条曲线】—— 判死的不是字,是"这个码位不在表里"这一件事。
-# 而古籍的生僻药名、人名、异体字真的会用到这些码位:兼容表意区里的 U+FA11 﨑、
-# U+FA10 塚 是日本人名/地名常用字(内閣文庫和刻本漢方书满篇都是),康熙部首整段是
-# 字書/類書的部首索引页(那种页面几乎 100% 由部首构成,改前 garbage=1.00 整页判死),
-# 扩展B 以上则是善本里最稀见的那一档异体字。越是稀见的古籍、越是需要精确保留的异体字,
-# 越容易中招 —— 和「漫漶善本被当乱码」是同一类病:判据把"我不认识"当成了"这是垃圾"。
+# 2026-07-28 二次收敛:表本体连同它的全部考古注释搬去 cjk_charset.py,本模块只做引用。
+# 搬的理由不是"整理代码":补齐本表的那一轮之后,仓里【还有四份各自独立的窄表】
+# (ocr_quality_gate / ocr_degeneracy / diagnose_bad_ocr / compare_ocr*),
+# 同一本古籍于是页级放行、书级判死。表留在本模块里,书级判据 ocr_degeneracy.py
+# 就得 import 一个 700 行的页级判官才能拿到一张表 —— 那是比复制一份更糟的耦合,
+# 所以往下抽一层,和当年把四个门槛数抽进 ocr_degeneracy.py 是同一个动作。
 #
-# ★ 范围依据:取 Unicode【区块边界】,不取"当前 Unicode 版本已分配到哪个码位"。
-#   区块边界是固定的,已分配范围会随 Unicode 版本往后长(扩展H 是 Unicode 15.0 才有的,
-#   Python 3.11 的 unicodedata 是 14.0、3.12 是 15.0)—— 按已分配码位写,换个 Python
-#   版本就漂一次;按区块边界写,新版本新加的字自动在表内。代价是表里含未分配码位,
-#   而未分配码位在真实 OCR 文本里【不可能出现】,不吃亏。
-#   这不是抄来的常识:tests/test_ocr_quality.py::test_cjk_table_covers_every_ideographic_codepoint
-#   拿 Python 自带的 unicodedata 逐码点全量核对本表,漏一个码点当场红。
+# 名字 _CJK_BLOCKS / _CJK_RE 一个不改:本模块注释与 tests/test_ocr_quality.py
+# 通篇按这两个名字讲事情,改名等于把已有的论证全部指空。
 #
-# ★ 星平面(U+10000 以上)的坑,实测过再写下来的:Python 3 的 str 按【码点】存,
-#   len("\U00020B9F") == 1、逐字符遍历拿到的就是那一个码点、sys.maxunicode = 0x10FFFF,
-#   没有 UTF-16 代理对那套问题;re 模块也直接支持 \UXXXXXXXX 转义与跨平面字符区间。
-#   所以 garbage_ratio 里的逐字符循环、single_char 的 Counter、mark_ratio 的计数
-#   全都不需要为 4 字节字符改写。(若哪天换成 JS/Java 那种 UTF-16 语言,这里必须重写。)
-#
-# ★ 写成 (lo, hi, name) 表 + 拼出正则,而不是一行字面量:一行字面量里 16 段区间
-#   肉眼核不出对错,而这一整轮修的就是"上一版那行字面量少画了 17 段"。
-#   缺口有多大,是量出来的不是估的:unicodedata 15.0 认作 CJK 表意/部首/假名的
-#   98901 个码点里,旧表(4 段)漏掉 71134 个 = 71.9%,新表(21 段)漏 0 个。
-#   表能被测试逐条核对,字面量不能。
-#
-# ★ 为什么这里可以"按标准全收",而门槛必须"只站在实测样本上"——这两条规矩不打架,
-#   而且分不清正是本 bug 的根:门槛是取舍(松一点漏垃圾、紧一点杀正货),没有实测
-#   就没有取舍依据;而"U+FA11 算不算汉字"是【事实问题】,答案在 Unicode 标准里,
-#   不在我们的语料里。上一版的表是照"我见过什么"画的,不是照"标准怎么定"画的,
-#   于是把没见过的真汉字判成了乱码。事实问题就该把事实收全。
-_CJK_BLOCKS = (
-    (0x02E80, 0x02EFF, "CJK Radicals Supplement"),              # 汉字部首补充 ⺀⺅
-    (0x02F00, 0x02FDF, "Kangxi Radicals"),                      # 康熙部首 ⼀⾗
-    (0x03040, 0x0309F, "Hiragana"),                             # 平假名(原有)
-    (0x030A0, 0x030FF, "Katakana"),                             # 片假名(原有)
-    (0x031F0, 0x031FF, "Katakana Phonetic Extensions"),         # 片假名语音扩展
-    (0x03400, 0x04DBF, "CJK Unified Ideographs Extension A"),   # 扩展A(原有)
-    (0x04E00, 0x09FFF, "CJK Unified Ideographs"),               # 统一表意(原有)
-    (0x0F900, 0x0FAFF, "CJK Compatibility Ideographs"),         # 兼容表意 﨑塚
-    (0x1AFF0, 0x1AFFF, "Kana Extended-B"),
-    (0x1B000, 0x1B0FF, "Kana Supplement"),                      # 変体仮名(和刻本)
-    (0x1B100, 0x1B12F, "Kana Extended-A"),                      # 変体仮名(和刻本)
-    (0x1B130, 0x1B16F, "Small Kana Extension"),
-    (0x20000, 0x2A6DF, "CJK Unified Ideographs Extension B"),
-    (0x2A700, 0x2B73F, "CJK Unified Ideographs Extension C"),
-    (0x2B740, 0x2B81F, "CJK Unified Ideographs Extension D"),
-    (0x2B820, 0x2CEAF, "CJK Unified Ideographs Extension E"),
-    (0x2CEB0, 0x2EBEF, "CJK Unified Ideographs Extension F"),
-    (0x2EBF0, 0x2EE5F, "CJK Unified Ideographs Extension I"),
-    (0x2F800, 0x2FA1F, "CJK Compatibility Ideographs Supplement"),
-    (0x30000, 0x3134F, "CJK Unified Ideographs Extension G"),
-    (0x31350, 0x323AF, "CJK Unified Ideographs Extension H"),
-)
-# 假名那 4 段星平面区块(Kana Supplement / Extended-A / Extended-B / Small Kana Extension)
-# 收进来是【同一个理由】,不是顺手:U+1B002 起整段是変体仮名,和刻本古籍满篇都是它,
-# 而原表只画了 BMP 里的现代平/片假名两段。全量核对时它们正是漏在表外的 44 个码点。
-# 【刻意没收进来的,连同理由一起写在这,免得下一轮再考古一遍】
-#   U+2FF0-2FFF 表意文字描述符(⿰⿱⿲):它描述的是"一个 Unicode 里没有的字长什么样",
-#     本身不是字,性质更接近 _REPEAT_MARKS 里的缺字方框 □。本仓至今零实测样本,
-#     按本模块规矩(门槛/覆盖只站在实测样本上,不向外推)不收。
-#   U+31C0-31EF 汉字笔画(㇀㇁)、U+31F0-31FF 片假名语音扩展(ㇰㇱ):同样零样本。
-#   U+3000-303F CJK 符号与标点:那是【标点】,归 _CJK_PUNCT / _REPEAT_MARKS 管
-#     (〇 U+3007、々 U+3005、〃 U+3003 都在那两张表里);收进来会把一页满是「。、《》」
-#     的文本的 cjk_ratio 抬高,反过来动到 cjk_low 与背靠背豁免的判决,不是本轮的事。
-#   U+AC00-D7AF 谚文音节:韩文古医籍写的是汉字(已在统一表意区内),谚文不是表意文字,
-#     收它会把 cjk_ratio 的语义从"表意文字占比"改掉。
-_CJK_RE = re.compile(
-    "[" + "".join("\\U%08X-\\U%08X" % (lo, hi) for lo, hi, _name in _CJK_BLOCKS) + "]")
+# ★ 本模块要的是【汉字 + 假名】那一档(cjk_charset.CJK_TEXT),不是 HAN。
+#   和刻本漢方书满篇假名,garbage_ratio 若把假名算成乱码就会整页判死。
+#   书级判据 ocr_degeneracy 要的恰恰相反(必须排除假名,否则"整页假名=退化"失明),
+#   两边选了不同的 pattern,但选的是同一张区块表 —— 这正是收敛想要的样子。
+_CJK_BLOCKS = cjk_charset.CJK_BLOCKS
+_CJK_RE = cjk_charset.CJK_TEXT
+
 # CJK 常见标点 + 全角标点(算"正常"字符,不计乱码)
 _CJK_PUNCT = set(
     "　、。，．；：？！“”‘’"

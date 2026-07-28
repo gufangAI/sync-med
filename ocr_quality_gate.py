@@ -39,6 +39,10 @@ from botocore.config import Config
 # repeat-run limit of 12 -- both since shown to reject sound classical texts.
 import ocr_degeneracy as deg
 
+# 同一个理由,低一层:这里也曾自带一份 CJK 字符表(只有 [一-鿿] 一段)。
+# 门槛收敛了而字符表没收敛,等于两个模块拿不同的字算同一套比例。
+import cjk_charset
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
@@ -88,7 +92,17 @@ def get_text(s3, key):
         return None
 
 
-CJK = re.compile(r"[一-鿿]")
+# 汉字判定。2026-07-28 从自带的一段 [一-鿿] 换成共享表 cjk_charset.HAN,
+# 与 ocr_degeneracy.profile() 用的是【同一个 pattern 对象】—— 本文件既拿 deg 的门槛
+# 判书,又拿自己的表算 norm/degenerate,两张表不一样就是同一本书两套判据。
+#
+# 本文件受影响的三处,逐个说清后果(全是"改前把正货判死"那个方向):
+#   norm()       -> dice() 的输入。窄表把生僻字从两侧文本里【删掉】,删出来的相邻字
+#                   会凭空拼出原文没有的 bigram,相似度算的是被改造过的文本。
+#   degenerate() -> len(s)<50 / len(set(s))<40 两条都吃 norm() 的结果:一本生僻字多的书
+#                   字种被删到 40 以下就判「退化」,而它只是用了旧表不认识的字。
+#   title_key()  -> 见该函数下方注释,那一处方向【不单调】,单独说明。
+CJK = cjk_charset.HAN
 
 
 def norm(t):
@@ -118,7 +132,22 @@ def degenerate(s):
 
 
 def title_key(t):
-    """Match works across editions: strip volume/edition marks and punctuation."""
+    """Match works across editions: strip volume/edition marks and punctuation.
+
+    ★ 本函数是全仓收敛里【唯一方向不单调】的一处,写下来免得被当成顺手改的:
+      放宽 CJK 表 = 书名键里【保留更多字符】= 两侧书名更难撞上。举例:
+      OCR 侧书名带一个兼容表意字「傷寒論﨑」,已校对侧是「傷寒論」——
+      窄表把 﨑 删掉,两边都成「傷寒論」,配上了;宽表保留 﨑,配不上,
+      这本书于是从 Dice 对照路径掉进 intrinsic() 退化检测路径。
+      也就是说这一处确实可能【少配上几本】。
+      仍然改的理由:窄表配上它靠的是"把两边不一样的那个字一起删掉",
+      那不是匹配,是把差异抹掉之后宣布相同 —— 一道决定什么能进 RAG 索引的闸门,
+      不该建立在这种巧合上。真正该做的是异体字/NFKC 归一化,那是另一件事,
+      本轮不夹带,已写进报告。
+      代价上限也说清楚:配不上只是退回 intrinsic(),不会误判、不会丢书,
+      而本脚本的实际主路径本来就是 intrinsic()(线上输出原话:
+      「没有同名的已校对版本可比 —— 这批是独家内容」)。
+    """
     t = re.sub(r"[（(【\[].*?[）)】\]]", "", str(t or ""))
     t = re.sub(r"(四庫全書本|四库全书本|卷[一二三四五六七八九十百零〇\d]+|"
                r"[上中下]冊|第[一二三四五六七八九十\d]+[册冊卷]|校注|注釋|注释|全本|影印本)", "", t)

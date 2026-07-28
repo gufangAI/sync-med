@@ -29,10 +29,12 @@ XF_KEY = (parse_keys(os.environ.get("XF_KEYS", "")) or [None])[0]
 if not XF_KEY:
     raise SystemExit("no XF_KEYS")
 
-_CJK_RE = re.compile(r"[一-鿿㐀-䶿぀-ゟ゠-ヿ]")
-def cjk_ratio(s):
-    t = re.sub(r"\s", "", s or "")
-    return (len(_CJK_RE.findall(t)) / len(t)) if t else 0.0
+# 2026-07-28:本文件下面写着"与生产ocr_ndl.py同一套过滤",但过滤靠的 cjk_ratio
+# 曾是本地自带的一份四段窄表,而生产 ocr_ndl.py 早已改成 import ocr_quality.cjk_ratio
+# (21 段)。于是这份对比报告过滤掉的块和生产实际留下的块【不是同一批】——
+# 一份用来回答"该不该换引擎"的报告,量的却不是生产会留下的文本。
+# 直接引生产那一份,那句注释才成立。ocr_quality 零第三方依赖,引它不带任何负担。
+from ocr_quality import cjk_ratio          # noqa: E402  与生产 ocr_ndl.py 同一份实现
 
 def norm(s):
     return re.sub(r"[\s　。、,,..;;::!!??「」『』()()〔〕【】·*#\-—]", "", s or "")
