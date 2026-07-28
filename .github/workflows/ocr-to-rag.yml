@@ -1,0 +1,53 @@
+# Bridge OCR output into the RAG corpus.
+#
+# OCR has been writing recognised pages to _ocr/{book_id}/page_NNNN.txt for
+# weeks. Ingest reads clean_text/ and takes its book list from
+# clean_text/_manifest.json -- which held 1160 books from daizhige / kanripo /
+# siku / wiki and exactly zero from OCR. Everything OCR produced was reachable
+# by the reader's full-text search and by nothing else; it never reached the AI.
+#
+# This run concatenates each book's pages into one clean_text/ocr/{id}.txt and
+# appends it to the manifest. Ingest then picks it up like any other source.
+#
+# Zero LIST: page keys are constructed from books_assets_v2.page_count in D1,
+# never discovered by listing the bucket.
+name: ocr-to-rag
+
+on:
+  schedule:
+    - cron: '10 */8 * * *'    # offset from ocr_ndl (:30) and clean-embed (:40)
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "books to bridge this run"
+        required: false
+        default: "200"
+      dry_run:
+        description: "1 = report only, write nothing"
+        required: false
+        default: ""
+
+concurrency:
+  group: ocr-to-rag
+  cancel-in-progress: false
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet boto3 requests
+      - name: bridge OCR output into clean_text
+        env:
+          CF_ACCOUNT_ID:   ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID:  ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:    ${{ secrets.D1_API_TOKEN }}
+          R2_ENDPOINT:     ${{ secrets.VEC_R2_ENDPOINT }}
+          R2_ACCESS_KEY:   ${{ secrets.VEC_R2_ACCESS_KEY }}
+          R2_SECRET_KEY:   ${{ secrets.VEC_R2_SECRET_KEY }}
+          LIMIT:           ${{ github.event.inputs.limit || '200' }}
+          DRY_RUN:         ${{ github.event.inputs.dry_run }}
+        run: python ocr_to_clean_text.py
