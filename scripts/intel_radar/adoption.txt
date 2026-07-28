@@ -1,0 +1,40 @@
+# adoption.txt -- the ONE authority, cloud side, for "we actually LANDED this".
+#
+# WHY THIS FILE EXISTS (founder, 2026-07-29): "there is so much new stuff on
+# GitHub, and we use so little of it -- I keep saying it and nobody listens."
+# Measured: the radar had filed 36 daily Issues and the local ledger held 330+
+# candidates, while the things actually in production numbered a handful. The
+# pipeline was fetch -> filter -> file an Issue -> STOP. Nothing recorded, or
+# counted, what got absorbed, so nothing could ever report that nothing was.
+#
+# reports/arsenal/arsenal.json already had a `status` enum (pending / verified /
+# integrated / dropped), but the only writer was apply_council_decisions(),
+# which reads reports/council/decisions.json -- a file that does not exist. So
+# every one of its entries was, and could only ever be, "pending". This file is
+# the write path that was missing.
+#
+# THE BAR (mirrors the local ledger's "already landed and in use" table; all
+# three must hold, any one missing means candidate, NOT landed):
+#   1. it really ran, here or in Actions, and produced output
+#   2. it is wired into a system of ours (reads our data / feeds our pipeline)
+#   3. there are numbers (volume / runtime / success rate / cost)
+# "evaluated", "looks good", "lots of stars" do NOT count.
+#
+# FORMAT, one entry per line, '#' starts a comment:
+#     <id> | <YYYY-MM-DD or -> | <short ASCII note>
+#   <id>   owner/repo slug when one exists, otherwise a plain name. Some
+#          landings are services, not repos; recording slugs only would
+#          undercount the very number this file exists to make honest.
+#   <date> the day it met all three tests. Use '-' for pre-existing stock that
+#          predates this ledger: it counts toward the total, but cannot count
+#          toward "landed this week" or reset the stall clock, because we do
+#          not know when it landed.
+#
+# This is a MANUALLY synced mirror of the local CJK ledger (F: drive, must not
+# enter this public repo), exactly like arsenal_repos.txt next to it. Adding a
+# line here is the act that stops the stall alarm -- so it must stay cheap.
+
+dreammis/social-auto-upload | 2026-07-29 | sau CLI, MIT; content factory -> douyin/xiaohongshu queue adapter
+calesthio/OpenMontage       | 2026-07-21 | ffmpeg xfade named transitions, absorbed into make_video.py render_body_clips()
+RapidAI/RapidOCR            | -          | second OCR line, gufangAI/sync-med ocr.py, driven by ocr.yml
+xfyun-HunyuanOCR-STABLE     | -          | service not a repo; industrial_ocr.py, 491 medical-case books -> RAG fuel

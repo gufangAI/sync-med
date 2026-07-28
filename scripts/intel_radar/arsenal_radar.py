@@ -127,6 +127,20 @@ CANDIDATES_JSON = os.path.join(ARSENAL_DIR, "candidates.json")
 ARSENAL_JSON = os.path.join(ARSENAL_DIR, "arsenal.json")
 STAR_HISTORY_JSON = os.path.join(ARSENAL_DIR, "star_history.json")
 
+# Human-edited, next to arsenal_repos.txt: both are manually synced mirrors of
+# the local CJK ledger, and neither is ever written by this bot. The bot-written
+# files live in reports/arsenal/ (the only path the workflow may commit).
+ADOPTION_TXT = os.path.join(SCRIPT_DIR, "adoption.txt")
+REPOS_TXT = os.path.join(SCRIPT_DIR, "arsenal_repos.txt")
+
+# Days without a new landing before the radar starts shouting. Derived from a
+# measured failure, not picked for feel: pan-register wrote its gap number into
+# a run log every day and went 12 DAYS with zero human response. An alarm that
+# only fires at day 12 is an alarm that reproduces that incident. 7 days is one
+# full week, so a single busy week cannot swallow it, and it fires with 5 days
+# still on the clock before the known-bad threshold.
+ADOPTION_STALL_DAYS = 7
+
 SCHEMA_VERSION = 1
 
 # ---------------------------------------------------------------------------
@@ -857,6 +871,9 @@ def merge_arsenal(rows, today):
     doc["status_enum"] = list(VALID_STATUS)
     doc["entries"] = sorted(by_repo.values(), key=lambda e: (-(e.get("stars") or 0), e["repo"]))
     apply_council_decisions(doc)
+    # adoption.txt runs AFTER the council: a thing we have actually put into
+    # production outranks any verdict about whether we should.
+    apply_adoption_to_ledger(doc)
     with open(ARSENAL_JSON, "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, indent=1, sort_keys=False)
     print("[arsenal] ledger %s: %d entries (+%d new)"
@@ -908,6 +925,127 @@ def apply_council_decisions(doc):
     if n:
         print("[arsenal] council decisions applied to %d ledger entries" % n, flush=True)
     return n
+
+
+def load_adoption():
+    """Parse adoption.txt -> [{"id","date","note"}]. See that file's header for
+    the three-part bar an entry must clear.
+
+    Defensive on purpose, same as apply_council_decisions: a missing or garbled
+    file yields an EMPTY list, never an exception. Zero landings is a real
+    answer here -- it is what the stall alarm is for -- so this must never be
+    able to take the daily report down with it."""
+    rows = []
+    try:
+        with open(ADOPTION_TXT, encoding="utf-8", errors="replace") as f:
+            raw = f.read()
+    except Exception:
+        return rows
+    for line in raw.splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        parts = [p.strip() for p in line.split("|")]
+        ident = parts[0]
+        if not ident:
+            continue
+        date = parts[1] if len(parts) > 1 else "-"
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+            date = ""          # '-' (pre-existing stock) or malformed: no date
+        rows.append({"id": ident, "date": date,
+                     "note": parts[2] if len(parts) > 2 else ""})
+    return rows
+
+
+def apply_adoption_to_ledger(doc):
+    """Mirror adoption.txt onto arsenal.json's status field.
+
+    adoption.txt is the authority; the ledger's `status` is a derived view kept
+    in sync so the council reads one truth and not two. Slug-shaped ids only --
+    a landing that is a service, not a repo, has no ledger row to update, and
+    inventing one would put a repo in the ledger that no scan ever saw."""
+    by_repo = {e["repo"]: e for e in doc.get("entries", [])}
+    n = 0
+    for r in load_adoption():
+        e = by_repo.get(r["id"])
+        if e is None or e.get("status") == "integrated":
+            continue
+        e["status"] = "integrated"
+        e["status_note"] = ("adopted %s" % r["date"]) if r["date"] else "adopted (stock)"
+        n += 1
+    if n:
+        print("[arsenal] adoption.txt applied to %d ledger entries" % n, flush=True)
+    return n
+
+
+def _count_known_candidates():
+    """How many distinct things we have on the books as candidates: the local
+    ledger's committed ASCII snapshot (arsenal_repos.txt) unioned with what the
+    cloud scan itself has accumulated (arsenal.json). Union, not sum -- the two
+    overlap, and double counting would flatter the denominator of the very
+    absorption rate this is here to expose."""
+    names = set()
+    try:
+        with open(REPOS_TXT, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                s = line.split("#", 1)[0].strip()
+                if s:
+                    names.add(s.lower())
+    except Exception:
+        pass
+    try:
+        with open(ARSENAL_JSON, encoding="utf-8") as f:
+            for e in json.load(f).get("entries", []):
+                if e.get("repo"):
+                    names.add(e["repo"].lower())
+    except Exception:
+        pass
+    return len(names)
+
+
+def adoption_snapshot(today=None, window_days=7):
+    """The numbers the daily report puts at the top. Pure local reads, no
+    network, no LLM -- safe to call even when the arsenal scan is skipped
+    entirely, which is exactly when the header must still be truthful.
+
+    days_since is None when nothing dated has ever landed; callers must render
+    that as "never", not as 0, or a cold start would look like a fresh landing.
+    Entries dated '-' (pre-existing stock) count toward `landed` but cannot set
+    days_since, since we do not know when they landed."""
+    today = today or datetime.date.today().isoformat()
+    rows = load_adoption()
+    dated = sorted([r for r in rows if r["date"]], key=lambda r: r["date"])
+    try:
+        t = datetime.date.fromisoformat(today)
+    except ValueError:
+        t = datetime.date.today()
+    recent, days_since, last = 0, None, None
+    for r in dated:
+        try:
+            d = datetime.date.fromisoformat(r["date"])
+        except ValueError:
+            continue
+        age = (t - d).days
+        if 0 <= age < window_days:
+            recent += 1
+    if dated:
+        last = dated[-1]
+        try:
+            days_since = max(0, (t - datetime.date.fromisoformat(last["date"])).days)
+        except ValueError:
+            days_since = None
+    return {
+        "candidates": _count_known_candidates(),
+        "landed": len(rows),
+        "landed_recent": recent,
+        "window_days": window_days,
+        "days_since": days_since,
+        "last_id": last["id"] if last else "",
+        "last_date": last["date"] if last else "",
+        "stall_days": ADOPTION_STALL_DAYS,
+        # never-landed is a stall too, and the loudest one
+        "stall": days_since is None or days_since >= ADOPTION_STALL_DAYS,
+    }
 
 
 def write_star_history(hist):

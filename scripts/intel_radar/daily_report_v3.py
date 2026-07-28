@@ -455,7 +455,13 @@ BLINDSPOT_TOPIC_CLUSTERS = {
     "OCR\u71c3\u6599":  ["ocr", "document-understanding", "table-recognition", "document-ai"],
     "\u89c6\u9891\u5185\u5bb9": ["video-editor", "video-editing", "video-generation", "text-to-video"],
     "\u8bed\u97f3\u914d\u97f3": ["text-to-speech", "tts", "speech-synthesis", "voice-cloning"],
-    "\u77e5\u8bc6\u56fe\u8c31": ["knowledge-graph", "graphrag", "graph-visualization"],
+    # "\u77e5\u8bc6\u56fe\u8c31" \u7c07\u5df2\u505c\u626b (2026-07-29)\u3002\u4e0d\u662f\u5acc\u5b83\u4e0d\u597d,\u662f\u5b9e\u6d4b\u5b83\u4ea7\u51fa\u7684\u4e1c\u897f\u6211\u4eec\u5168\u4e0d\u8981:
+    # \u62c9 5 \u671f\u771f\u5b9e\u65e5\u62a5(Issue #113/119/121/125/134)\u590d\u8dd1\u9700\u6c42\u5bf9\u6807,\u8be5\u7c07 75 \u6761\u5019\u9009
+    # \u547d\u4e2d\u771f\u5b9e\u9700\u6c42 0 \u6761 \u2014\u2014 \u77e5\u8bc6\u56fe\u8c31/GraphRAG \u5728\u521b\u59cb\u4eba\u300c\u660e\u786e\u4e0d\u9700\u8981(\u5df2\u6709\u89e3\u51b3\u65b9\u6848)\u300d
+    # \u90a3\u4e00\u6761\u91cc\u3002\u7ee7\u7eed\u626b\u7b49\u4e8e\u6bcf\u5929\u82b1 3 \u6b21 GitHub search \u914d\u989d\u6293\u5fc5\u7136\u88ab\u4e22\u5f03\u7684\u4e1c\u897f,
+    # \u8fd8\u6bcf\u5929\u5360\u6389\u65e5\u62a5\u7ea6 1.7 KB \u7248\u9762\u3002
+    # \u9700\u6c42\u53d8\u4e86\u8981\u6062\u590d:\u628a\u4e0b\u9762\u8fd9\u884c\u53d6\u6d88\u6ce8\u91ca\u5373\u53ef,\u6293\u53d6\u903b\u8f91\u4e00\u4e2a\u5b57\u6ca1\u52a8\u3002
+    # "\u77e5\u8bc6\u56fe\u8c31": ["knowledge-graph", "graphrag", "graph-visualization"],
     "\u4e2d\u533b\u5782\u76f4": ["tcm", "chinese-medicine"],
 }
 BLINDSPOT_MIN_STARS   = 2000     # \u8001\u724c\u9ad8\u661f\u95e8\u69db
@@ -1373,7 +1379,9 @@ def generate_blindspot_section(scored: list, max_show: int = 15) -> str:
             url = c.get("url", "")
             title = c.get("title", "")
             head = f"[{title}]({url})" if url else title
-            lines.append(f"- **{head}** ⭐{stars} · {val}{reason}")
+            tag = need_tag(c)
+            tag = f"**{tag}** · " if tag else ""
+            lines.append(f"- {tag}**{head}** ⭐{stars} · {val}{reason}")
         lines.append("")
     lines.append("---")
     lines.append("")
@@ -1432,6 +1440,251 @@ def _tcm_relevance_tier(x: dict) -> int:
     return 0
 
 
+# ── 需求对标:每条精华必须说清「对应我们哪个真实需求」 ──────────────────
+# 立此因(创始人 2026-07-29):「GitHub 太多新东西了!可我们用的还是超级的少!
+# 我一直说,一直没人理我!」实测支撑他:鹰眼报过 36 期 Issue、台账 140+ 条候选,
+# 真落地个位数。断点不在抓取(抓得很好),在输出端 —— 报告只回答「这是什么、
+# 多少星」,不回答「对应我们哪个真实需求」,看完不知道该不该动,于是没人动。
+#
+# 实测这条断裂:2026-07-28 那期(Issue #134)的「今日 TOP3 决策就绪」——报告里
+# 最显眼的那三个位置 —— 3/3 全是 RAG 论文,而 RAG 框架恰恰在「明确不需要」里。
+# TOP15 里 13 条同属已有解决方案的类别。最该被看见的版面,装的全是不需要的东西。
+#
+# 判定确定性(不调 LLM、不烧算力、零新增计费源),和 _tcm_relevance_tier 同一
+# 风格,好处是可离线复跑复验(见 selftest_need_filter),而不是"应该会这样"。
+
+# 真实需求清单 —— 这是**数据不是代码**:创始人的优先级会变(2026-07-29 刚变过
+# 一次),改这张表就改了雷达的取舍,不必动一行逻辑。每条 = (编号, 名称, 中文词, 英文正则)。
+# 词表按「覆盖」定义(它属不属于这一类),照创始人原话逐条落字,不外推我没见过的区间。
+NEEDS = [
+    (
+        "N1", "内容分发自动化",
+        # 刚落地 social-auto-upload(抖音/小红书),公众号仍没解决 → 仍是第一优先
+        ("分发", "发布", "投稿", "自动上传", "一键发", "公众号", "抖音", "小红书",
+         "视频号", "快手", "哔哩", "矩阵运营", "排期", "定时发"),
+        # 间隔字符类必须含 - 和 _ :GitHub 的 topic/仓库名一律连字符命名
+        # (social-media-scheduler / chinese-text-segmentation)。第一版写成 [a-z ]
+        # 不含连字符,实测把 Free-AI-Social-Media-Scheduler、AutoSocial、zhparser
+        # 三个真货全判成"不对应任何需求" —— 拿真数据跑才抓得出来的错。
+        (r"auto[-_ ]?(publish|upload|post)", r"cross[-_ ]?post",
+         r"(publish|post|upload)[a-z0-9 _-]{0,14}(douyin|xiaohongshu|tiktok|bilibili|kuaishou|wechat|weixin)",
+         r"social[-_ ]?media[a-z0-9 _-]{0,14}(schedul|publish|post|manag|automat)",
+         r"content[-_ ]?(distribut|publish)", r"wechat[a-z0-9 _-]{0,10}(article|official|mp)"),
+    ),
+    (
+        "N2", "内容质量·文案/封面/字幕/剪辑",
+        # 严格照创始人原话四项落字:文案、封面排版、字幕、剪辑。
+        # 第一版我私自把「配音/转写/whisper」也算进来 —— 那是拿"我觉得相邻"去扩他的
+        # 清单,正是"覆盖靠定义、不靠我见过什么"要防的。TTS 不在他列的四项里,就不进。
+        # 真需要时改这张表即可,不必改逻辑 —— 这也正是它做成数据表的意义。
+        ("文案", "封面", "排版", "版式", "字幕", "剪辑", "剪映", "转场", "缩略图", "海报"),
+        (r"copywrit", r"\bsubtitle", r"\bsrt\b", r"video[-_ ]?edit", r"\bmontage\b",
+         r"\bxfade\b", r"thumbnail", r"\bposter\b", r"typograph",
+         r"cover[-_ ]?(art|image|design)"),
+    ),
+    (
+        "N3", "古籍中文处理·OCR/繁简异体/文言/版面",
+        ("古籍", "古文", "文言", "繁简", "异体", "分词", "版面", "竖排", "句读",
+         "校勘", "中医", "医案", "本草", "方剂", "针灸", "标点"),
+        (r"\bocr\b", r"layout[-_ ]?(analysis|recognition|restor|parsing)",
+         r"document[-_ ]?(layout|understanding|parsing)", r"table[-_ ]?recognition",
+         r"(classical|ancient|literary)[-_ ]?chinese",
+         r"chinese[a-z0-9 _-]{0,12}segment", r"\bword[-_ ]?segmentation",
+         r"traditional[-_ ]?chinese[-_ ]?medicine",
+         r"\btcm\b", r"variant[-_ ]?character", r"punctuat"),
+    ),
+]
+
+# 「明确不需要」—— 已有解决方案,不再需要情报。
+# 关键设计:这里**不做否决**,只做归因标签。否决会误杀「RAG 论文顺带做了古籍 OCR」
+# 这类真货(覆盖判断宁可放过、不可错杀);而默认规则已经是「对不上任何需求就丢弃」,
+# 所以否决对结果几乎无增益,徒增误伤。它真正的用处是让报告能说出
+# 「今天丢掉的 N 条里,RAG/判断引擎/多agent 各占多少」—— 把创始人的判断用数字坐实。
+NOT_NEEDED = [
+    ("RAG框架/向量库", ("向量库", "向量检索", "检索增强", "知识库问答"),
+     (r"\brag\b", r"retrieval[-_ ]?augmented",
+      r"vector[-_ ]?(db|database|store|index|search)", r"\bembedding",
+      r"\bfaiss\b", r"\bmilvus\b", r"\bqdrant\b")),
+    ("判断引擎/可解释", ("判断引擎", "可解释", "溯源", "证据链"),
+     (r"explainab", r"interpretab", r"\bxai\b", r"attribution", r"provenance",
+      r"citation[-_ ]?generat", r"llm[-_ ]?as[-_ ]?a?[-_ ]?judge")),
+    ("多agent编排", ("多智能体", "编排", "智能体框架"),
+     (r"multi[-_ ]?agent", r"agent(ic)?[-_ ]?(orchestrat|framework|swarm|workflow)",
+      r"\bautogen\b", r"\bcrewai\b")),
+    ("模型网关/免费池", ("网关", "模型池", "免费算力", "中转"),
+     (r"\bgateway\b", r"llm[-_ ]?(proxy|router)", r"api[-_ ]?aggregat",
+      r"model[-_ ]?rout", r"openai[-_ ]?compatible")),
+    ("视频生成模型", ("文生视频", "视频生成", "扩散模型"),
+     (r"text[-_ ]?to[-_ ]?video", r"video[-_ ]?generat", r"\bdiffusion\b", r"\bsora\b")),
+]
+
+# 分类直通:打分链给出的这两个分类本身就等价于需求3(古籍OCR / 中医NLP),
+# 不必再让关键词去碰运气 —— 分类是 LLM 已经做过的判断,复用它比重判更稳。
+CATEGORY_TO_NEED = {"OCR文字化": "N3", "中医NLP": "N3"}
+
+NEED_LABEL = {nid: label for nid, label, _c, _a in NEEDS}
+NO_NEED_LABEL = "不对应任何真实需求"
+
+
+def _need_blob(item: dict) -> str:
+    """匹配面**故意不含 reason**。
+
+    这是拿 373 条真实历史条目实测出来的,不是设计时想到的:第一版把 reason 也算进来,
+    结果 121 条"命中需求"里 113 条是假阳性 —— 因为打分 prompt 要求 LLM 每条都说清
+    "对本中医古籍平台哪个模块有价值",于是几乎每条 reason 都含「中医」「古籍」,
+    拿它匹配需求3等于全中。reason 描述的是**我们**,不是这条情报本身。
+    这正是 Layer3 查证官当初要治的"样板话"问题(见 VERIFY_PROMPT),第一版自己踩了进去。
+    title/abstract/category 才是关于这条情报的客观文本。"""
+    return " ".join(str(item.get(k, "") or "") for k in
+                    ("title", "abstract", "category", "_cluster")).lower()
+
+
+def _hits(blob: str, cjk: tuple, ascii_pats: tuple) -> bool:
+    return (any(k in blob for k in cjk)
+            or any(re.search(p, blob) for p in ascii_pats))
+
+
+def map_need(item: dict) -> tuple:
+    """把一条情报对标到真实需求。
+    返回 (need_id, label);对不上任何需求时 need_id=None,label 是归因标签
+    (「RAG框架/向量库」这类,或「不对应任何真实需求」)。
+    纯确定性,可离线复跑 —— 这是它能被真实数据验证、而不是只能被相信的原因。
+
+    顺序是**先否决后命中**,同样由实测定:一篇"给中医做可解释 AI"的论文,题名里既有
+    TCM 又有 explainable,主语是判断引擎(已有解决方案),不是古籍文字处理。让
+    NOT_NEEDED 先走,这类"应用领域写着中医、本体是我们不需要的东西"才拦得住 ——
+    而它恰恰是当前版面被占满的主因。代价是"顺带提了 RAG 的 OCR 工具"会被误伤,
+    实测这类占比远低于前者,两害相权取其轻。"""
+    blob = _need_blob(item)
+    for label, cjk, ascii_pats in NOT_NEEDED:
+        if _hits(blob, cjk, ascii_pats):
+            return None, label
+    direct = CATEGORY_TO_NEED.get((item.get("category") or "").strip())
+    if direct:
+        return direct, NEED_LABEL[direct]
+    for nid, label, cjk, ascii_pats in NEEDS:
+        if _hits(blob, cjk, ascii_pats):
+            return nid, label
+    return None, NO_NEED_LABEL
+
+
+def apply_need_filter(items: list, enabled: bool = True) -> tuple:
+    """给每条打上 need_id/need_label,并把对不上任何真实需求的剔出报告。
+    返回 (kept, stats)。stats 带被丢弃条目的归因分布 —— 删掉了什么也必须有数字,
+    否则这就是一次静默删除,而静默删除正是这套东西要治的病。
+    enabled=False(--no-need-filter)时全量保留但仍打标,留一条不改代码的退路。"""
+    stats = {"before": len(items), "kept": 0, "dropped": 0,
+             "by_need": {}, "by_drop": {}}
+    kept = []
+    for it in items:
+        nid, label = map_need(it)
+        it["need_id"] = nid
+        it["need_label"] = label
+        if nid:
+            stats["by_need"][label] = stats["by_need"].get(label, 0) + 1
+            kept.append(it)
+        else:
+            stats["by_drop"][label] = stats["by_drop"].get(label, 0) + 1
+    stats["kept"] = len(kept)
+    stats["dropped"] = stats["before"] - len(kept)
+    print(f"  [需求对标] {stats['before']} 条 -> 命中真实需求 {stats['kept']} 条, "
+          f"丢弃 {stats['dropped']} 条 {dict(sorted(stats['by_drop'].items(), key=lambda x: -x[1]))}",
+          flush=True)
+    return (kept if enabled else items), stats
+
+
+def need_tag(item: dict) -> str:
+    """报告里那一小段标注。只在命中需求时出现 —— 没命中的条目根本不进报告,
+    所以不存在「标了『不需要』还占一行」这种自相矛盾的输出。"""
+    nid = item.get("need_id")
+    return f"[{nid}·{item.get('need_label','')}]" if nid else ""
+
+
+# 回归测试。每条 fixture 都抄自真实数据(Issue #113/119/121/125/134 的条目,
+# 或 reports/arsenal/arsenal.json 里真实扫到的仓库 + 它真实的 topics),
+# 不是我编出来"一定能过"的例子。前两组专钉两个只有拿真数据跑才暴露的 bug:
+#   A) reason 是 LLM 样板话(prompt 逼它每条都提"中医古籍平台"),把它算进匹配面
+#      会让 121 条"命中"里 113 条是假阳性 —— 所以 _need_blob 不含 reason。
+#   B) 间隔字符类漏了连字符,GitHub 全是连字符命名,真货被误丢。
+# 跑: python daily_report_v3.py --selftest-needs   (零网络零算力,纯字符串判定)
+SELFTEST_NEEDS = [
+    # (title, abstract, category, expected_need_id, why)
+    ("Retrieval-Augmented LLMs as Components of Cognitive Computing", "", "RAG",
+     None, "A: reason 里满是「中医古籍平台」也不该救活一篇 RAG 论文"),
+    ("Beyond transparency: why Traditional Chinese Medicine (TCM) need explainable AI",
+     "", "判断引擎", None, "A: 题名带 TCM,本体是判断引擎 -> 先否决后命中"),
+    ("Anil-matcha/Free-AI-Social-Media-Scheduler",
+     "ai, ai-scheduler, social-media-scheduler", "", "N1", "B: 连字符命名"),
+    ("amutu/zhparser", "chinese, chinese-nlp, chinese-text-segmentation", "",
+     "N3", "B: 连字符命名 + 文言分词"),
+    ("Katzca/AutoSocial", "marketing-automation, social-media-automation", "",
+     "N1", "B: social-media-automation"),
+    # 正常覆盖面
+    ("baidu/Unlimited-OCR", "", "OCR文字化", "N3", "分类直通"),
+    ("yikart/AiToEarn", "auto-publish, douyin, xiaohongshu", "", "N1", "内容分发"),
+    ("aiworkskills/wechat-article-skills", "chinese, wechat-article, ai-writing",
+     "", "N1", "公众号 —— 至今没解决的那一条"),
+    ("some/awesome-llm-gateway", "openai-compatible, llm-proxy", "", None, "模型网关"),
+    ("foo/text-to-video-diffusion", "text-to-video, diffusion", "", None, "视频生成模型"),
+]
+
+
+def selftest_need_filter() -> int:
+    """跑 SELFTEST_NEEDS,返回失败条数(0 = 全过)。判定全确定性,可离线复跑。"""
+    bad = 0
+    for title, abstract, cat, want, why in SELFTEST_NEEDS:
+        got, label = map_need({"title": title, "abstract": abstract,
+                               "category": cat,
+                               # 故意塞进样板话 reason:它必须影响不了判定
+                               "reason": "对本中医古籍AI平台的古籍OCR与RAG检索有价值"})
+        ok = (got == want)
+        bad += 0 if ok else 1
+        print(f"  [{'ok ' if ok else 'FAIL'}] {title[:52]:<52} "
+              f"want={want or '-':<4} got={got or '-':<4} ({label}) <- {why}")
+    print(f"  selftest_need_filter: {len(SELFTEST_NEEDS) - bad}/{len(SELFTEST_NEEDS)} passed")
+    return bad
+
+
+def generate_absorb_header(adoption: Optional[dict], need_stats: Optional[dict]) -> str:
+    """报告最顶上那一行(以及停摆时的那一声喊)。
+    治平台铁律「凡是只写进日志的产线,一律视为没人看」—— 立此因是 pan-register
+    每天把缺口数字写进 run log,连喊 12 天零人响应。所以吸收率不写进日志,
+    写在每期报告的第一行;停摆不写进日志,写进 Issue 标题(见 _push_issue)。"""
+    if not adoption:
+        return ""
+    cand = adoption.get("candidates", 0)
+    landed = adoption.get("landed", 0)
+    recent = adoption.get("landed_recent", 0)
+    win = adoption.get("window_days", 7)
+    d = adoption.get("days_since")
+    rate = f"{landed / cand * 100:.1f}%" if cand else "N/A"
+    since = f"{d} 天前" if isinstance(d, int) else "从未"
+    lines = [
+        f"> 🧰 **吸收闭环** · 累计候选 **{cand}** / 已落地 **{landed}** ({rate}) / "
+        f"近 {win} 天新增落地 **{recent}** · 上次落地: {since}"
+        + (f" ({adoption.get('last_id','')})" if adoption.get("last_id") else ""),
+    ]
+    if adoption.get("stall"):
+        n = f"{d}" if isinstance(d, int) else "至今"
+        lines.append(
+            f"> 🚨 **吸收停摆 {n} 天** —— 雷达照常在报,期间零落地。判据: 超过 "
+            f"{adoption.get('stall_days', 7)} 天无新落地即异常"
+            f"(立此因: pan-register 曾把缺口数字只写进日志,连喊 12 天零人响应)。"
+            f"要么今天落一个并追加进 `scripts/intel_radar/adoption.txt`,"
+            f"要么把不该报的关掉 —— 但别让它继续空转。"
+        )
+    if need_stats and need_stats.get("before"):
+        top_drop = sorted(need_stats.get("by_drop", {}).items(), key=lambda x: -x[1])[:3]
+        drop_txt = "、".join(f"{k} {v}" for k, v in top_drop) or "无"
+        lines.append(
+            f"> 🎯 **需求对标** · 精华 {need_stats['before']} 条 → 命中真实需求 "
+            f"**{need_stats['kept']}** 条,丢弃 {need_stats['dropped']} 条(最多: {drop_txt})。"
+            f"对不上任何真实需求的条目不再占版面。"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
 def generate_top3_decision_section(top_items: list,
                                    scored_blindspot: Optional[list] = None) -> str:
     """置顶「今日 TOP3 决策就绪」板块: 从当日全部候选(主扫 top_items + 补盲区 scored_blindspot)
@@ -1448,6 +1701,7 @@ def generate_top3_decision_section(top_items: list,
             "category": it.get("category", "未分类"),
             "reason": it.get("reason", ""),
             "source": it.get("source", "主扫描"),
+            "need_id": it.get("need_id"), "need_label": it.get("need_label", ""),
             "_kind": "main",
         })
     for c in (scored_blindspot or []):
@@ -1459,6 +1713,7 @@ def generate_top3_decision_section(top_items: list,
             "category": c.get("category", "未判定"),
             "reason": c.get("reason", ""),
             "source": c.get("source", "🆕补盲区雷达"),
+            "need_id": c.get("need_id"), "need_label": c.get("need_label", ""),
             "_kind": "blindspot",
         })
 
@@ -1498,6 +1753,7 @@ def generate_top3_decision_section(top_items: list,
             vmark = " · ⚠️待核验"
         gh_stars = f" · GitHub⭐{x['stars']}" if x["stars"] else ""
         lines.append(f"### {i}. {head}")
+        lines.append(f"- 对应需求: **{need_tag(x) or '-'}**")
         lines.append(f"- {stars_m} 分值{x['score']}/5 · [{x['category']}]{vmark}{gh_stars} · 来源:{x['source']}")
         if x["reason"]:
             lines.append(f"- 为什么值得决策: {x['reason']}")
@@ -1619,6 +1875,7 @@ def generate_report_v3(
     top3_md: Optional[str] = None,
     selfcheck_md: Optional[str] = None,
     arsenal_md: Optional[str] = None,
+    absorb_md: Optional[str] = None,
 ) -> str:
     '\u751f\u6210 Markdown \u62a5\u544a (\u5934\u90e8\u591a\u5b66\u79d1\u7814\u5224 + \u7cbe\u534e\u60c5\u62a5)'
     total_top = len(top_items)
@@ -1640,6 +1897,11 @@ def generate_report_v3(
         "---",
         "",
     ]
+
+    # Absorption line goes ABOVE everything, including the self-check: whether
+    # anything we found is actually being used outranks any single day's finds.
+    if absorb_md:
+        lines.append(absorb_md)
 
     # 置顶最前:内视 —— 系统自身缺口(活体自省,比向外看的 TOP3 更该先看)
     if selfcheck_md:
@@ -1681,6 +1943,7 @@ def generate_report_v3(
                 lines.append(f"**[{title}]({url})**")
             else:
                 lines.append(f"**{title}**")
+            lines.append(f"- \u5bf9\u5e94\u9700\u6c42: **{need_tag(item) or '-'}**")
             lines.append(f"- \u5206\u503c: {stars} ({score}/5) | \u6765\u6e90: {item['source']}")
             lines.append(f"- \u4ef7\u503c: {item['reason']}")
             lines.append("")
@@ -1745,7 +2008,17 @@ def main():
                         help="scan and write the ledger, but run no LLM distillation")
     parser.add_argument("--arsenal-top", type=int, default=60,
                         help="how many candidates to hand the council (default 60)")
+    # Same kill-switch convention as --no-arsenal above: the need filter is ON
+    # by default (a report full of things we do not need is the disease), but it
+    # can be shed without a code change if the need table ever misfires.
+    parser.add_argument("--no-need-filter", action="store_true",
+                        help="keep items that match no real need (tag only, drop nothing)")
+    parser.add_argument("--selftest-needs", action="store_true",
+                        help="run the need-mapping regression test and exit (offline, free)")
     args = parser.parse_args()
+
+    if args.selftest_needs:
+        sys.exit(1 if selftest_need_filter() else 0)
 
     t0    = time.time()
     today = datetime.date.today().strftime("%Y-%m-%d")
@@ -1911,6 +2184,11 @@ def main():
     top_items = merge_picks(analyze_items, raw_picks, top_n=args.top)
     print(f"[\u7cbe\u534e] \u7b5b\u51fa TOP {len(top_items)} \u6761 (score>=1)")
 
+    # Need alignment runs BEFORE verify_top_items on purpose: the same Layer3
+    # verification budget then gets spent only on items that match a real need,
+    # so this adds zero LLM calls (it removes some), and the synthesis and
+    # triage stages downstream inherit the filtered set for free.
+    top_items, need_stats = apply_need_filter(top_items, enabled=not args.no_need_filter)
 
     synthesis_data: Optional[dict] = None
     flagged_items: list = []
@@ -1938,6 +2216,12 @@ def main():
         else:
             bs_models = []
         scored_blindspot = score_blindspot(blindspot_cands, use_gateway, bs_models)
+        # The blindspot section was the single longest block in the Issue --
+        # measured 9.6 KB / 63 items on 2026-07-28, whole clusters of which
+        # (knowledge-graph, tts) sit on the "we already have this" list. Same
+        # need filter, same rule: no matching need, no column inches.
+        scored_blindspot, _bs_stats = apply_need_filter(
+            scored_blindspot, enabled=not args.no_need_filter)
         blindspot_md = generate_blindspot_section(scored_blindspot)
     except Exception as e:
         print(f"  [补盲区雷达] 打分/板块生成异常 (已捕获,不阻断): {e}", flush=True)
@@ -1974,7 +2258,27 @@ def main():
             print(f"  [军火雷达] 异常 (已捕获,不阻断): "
                   f"{type(e).__name__}: {e}", flush=True)
 
+    # Absorption snapshot: pure local reads of the two committed ledger files,
+    # no network and no LLM, so it stays truthful even when --no-arsenal skipped
+    # the scan entirely -- which is precisely when a header claiming otherwise
+    # would be a lie. Isolated like every other optional block.
+    adoption: Optional[dict] = None
+    try:
+        import arsenal_radar as _ar
+        adoption = _ar.adoption_snapshot(today=today)
+        print(f"  [absorb] candidates={adoption['candidates']} "
+              f"landed={adoption['landed']} recent={adoption['landed_recent']} "
+              f"days_since={adoption['days_since']} stall={adoption['stall']}",
+              flush=True)
+    except Exception as e:
+        print(f"  [absorb] snapshot failed (caught, non-blocking): {e}", flush=True)
+
     elapsed   = time.time() - t0
+    absorb_md = ""
+    try:
+        absorb_md = generate_absorb_header(adoption, need_stats)
+    except Exception as e:
+        print(f"  [absorb] header failed (caught, non-blocking): {e}", flush=True)
     synthesis_md = generate_synthesis_section(synthesis_data)
     action_flags_md = generate_action_flags_section(flagged_items)
     report_md = generate_report_v3(
@@ -1986,6 +2290,7 @@ def main():
         top3_md=top3_md,
         selfcheck_md=selfcheck_md,
         arsenal_md=arsenal_md,
+        absorb_md=absorb_md,
     )
 
     # safety net: never let one stray lone-surrogate char (e.g. an emoji mistakenly written as a
@@ -2032,7 +2337,8 @@ def main():
                     elapsed, models_used, synthesis_md=synthesis_md,
                     action_flags_md=action_flags_md, blindspot_md=blindspot_md,
                     top3_md=top3_md, selfcheck_md=selfcheck_md,
-                    arsenal_md=arsenal_md)
+                    arsenal_md=arsenal_md, absorb_md=absorb_md,
+                    adoption=adoption)
 
     
     push_wechat(today, top_items, raw_counts, total_raw, total_analyzed,
@@ -2195,7 +2501,9 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
                 blindspot_md: Optional[str] = None,
                 top3_md: Optional[str] = None,
                 selfcheck_md: Optional[str] = None,
-                arsenal_md: Optional[str] = None):
+                arsenal_md: Optional[str] = None,
+                absorb_md: Optional[str] = None,
+                adoption: Optional[dict] = None):
     '\n    \u7528 gh CLI \u521b\u5efa Issue \u5230 gufangAI/sync-med\u3002\n    GH_TOKEN \u7531 Actions \u81ea\u52a8\u6ce8\u5165,\u65e0\u9700\u989d\u5916\u914d\u7f6e\u3002\n    '
     import subprocess
 
@@ -2204,8 +2512,20 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
     model_short = models_used[0] if models_used else "N/A"
 
     
+    # The stall warning goes in the TITLE, not the body. Platform rule, paid for
+    # in blood: "any pipeline that only writes to a log is a pipeline nobody
+    # reads" -- pan-register wrote its gap number to a run log daily and went 12
+    # days with zero response. A title prefix is what shows up in the issue
+    # list, the email and the phone notification, so it is the one place a
+    # stalled absorption loop cannot be scrolled past. Same shape as the
+    # existing "warning" prefix other workflows in this repo already use.
+    stall_prefix = ""
+    if adoption and adoption.get("stall"):
+        d = adoption.get("days_since")
+        stall_prefix = (f"\ud83d\udea8\u5438\u6536\u505c\u6446{d}\u5929 " if isinstance(d, int)
+                        else "\ud83d\udea8\u4ece\u672a\u843d\u5730 ")
     title = (
-        f"[\u60c5\u62a5\u96f7\u8fbe v3] {today} | "
+        f"{stall_prefix}[\u60c5\u62a5\u96f7\u8fbe v3] {today} | "
         f"\u6293\u53d6 {total_raw} | \u7cbe\u534e {top_n} | {rate} | {model_short}"
     )
 
@@ -2218,6 +2538,8 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
         f"> \u5206\u6790\u6a21\u578b: {', '.join(models_used)} | \u8017\u65f6: {elapsed:.0f}s",
         "",
     ]
+    if absorb_md:
+        body_lines.append(absorb_md)
     # \u7f6e\u9876: \u4eca\u65e5 TOP3 \u51b3\u7b56\u5c31\u7eea (\u8ba9\u521b\u59cb\u4eba\u4e00\u773c\u770b\u5230\u8be5\u62cd\u677f\u7684, \u800c\u975e\u626b\u5168\u90e8)
     if selfcheck_md:
         body_lines.append(selfcheck_md)
@@ -2266,7 +2588,7 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
         else:
             vmark = ""
         body_lines.append(
-            f"   - {stars} [{cat}] {reason}{vmark}"
+            f"   - **{need_tag(item) or '-'}** · {stars} [{cat}] {reason}{vmark}"
         )
         body_lines.append("")
 
