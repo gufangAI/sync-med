@@ -34,6 +34,11 @@ import boto3
 import requests
 from botocore.config import Config
 
+# Shared with release_passed_ocr.py and diagnose_bad_ocr.py. This file used to
+# carry its own copy of the check with a distinct-per-1000 floor of 60 and a
+# repeat-run limit of 12 -- both since shown to reject sound classical texts.
+import ocr_degeneracy as deg
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
@@ -141,24 +146,15 @@ def intrinsic(s3, ocr_books, truth):
 
     This cannot prove a book is accurate. It can prove a book is broken, which
     is the decision actually in front of us: what to keep out of the index.
+
+    The four measures and their thresholds are ocr_degeneracy.py's, shared with
+    release_passed_ocr.py and diagnose_bad_ocr.py so that one book cannot be
+    rejected here and released there.
     """
     import random
     random.seed(20260728)
 
-    def profile(t):
-        s = norm(t)
-        if len(s) < 200:
-            return None
-        c = Counter(s)
-        top1 = c.most_common(1)[0][1] / len(s)
-        distinct = len(c) / (len(s) / 1000.0)
-        rep = 1
-        run = 1
-        for i in range(1, len(s)):
-            run = run + 1 if s[i] == s[i - 1] else 1
-            rep = max(rep, run)
-        return {"cjk": len(s) / max(1, len(re.sub(r"\s", "", t))),
-                "top1": top1, "distinct": distinct, "rep": rep, "chars": len(s)}
+    profile = deg.profile
 
     # Baseline from text that was proofread by someone else.
     base = []
@@ -167,13 +163,13 @@ def intrinsic(s3, ocr_books, truth):
         p = profile(t or "")
         if p:
             base.append(p)
+    bl = deg.baseline_of(base)
     if base:
-        bl = {k: sum(p[k] for p in base) / len(base) for k in ("cjk", "top1", "distinct")}
         print("\n   已校对语料基线(%d 本): CJK占比 %.3f | 最高频字占比 %.4f | 每千字不同字 %.1f"
               % (len(base), bl["cjk"], bl["top1"], bl["distinct"]), flush=True)
     else:
-        bl = {"cjk": 0.95, "top1": 0.05, "distinct": 300.0}
-        print("\n   取不到基线,用经验阈值", flush=True)
+        print("\n   WARN 取不到基线,用保守默认值 —— 判定会明显偏严(千字异字门槛 %.0f 而非 %.0f),"
+              "整批判退时先怀疑基线" % (deg.distinct_floor(bl), deg.DISTINCT_ABS_MIN), flush=True)
 
     sample = random.sample(ocr_books, min(SAMPLE, len(ocr_books)))
     rows = []
@@ -190,15 +186,7 @@ def intrinsic(s3, ocr_books, truth):
     print("\n   %-16s %7s %7s %9s %6s %s" % ("book_id", "CJK", "最高频", "千字异字", "连重", "判定"),
           flush=True)
     for key, p in sorted(rows, key=lambda x: x[1]["distinct"]):
-        why = []
-        if p["cjk"] < 0.80:
-            why.append("非汉字过多")
-        if p["top1"] > max(0.15, bl["top1"] * 4):
-            why.append("单字霸屏")
-        if p["distinct"] < max(60.0, bl["distinct"] * 0.35):
-            why.append("字种过少")
-        if p["rep"] >= 12:
-            why.append("连续重复%d" % p["rep"])
+        why = deg.verdict(p, bl)
         if why:
             bad.append(key)
         print("   %-16s %7.3f %7.4f %9.1f %6d %s"

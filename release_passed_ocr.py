@@ -24,14 +24,17 @@
 import io
 import json
 import os
-import re
 import sys
 import time
-from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 import boto3
 from botocore.config import Config
+
+# The check itself lives in ocr_degeneracy.py. It used to live here, and two
+# other scripts each kept their own copy of it with different thresholds; the
+# numbers below were the corrected ones, so they became the shared ones.
+import ocr_degeneracy as deg
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -45,7 +48,6 @@ TRUTH_SOURCES = ("daizhige", "wiki", "wiki_flat", "kanripo", "siku")
 
 WORKERS = int(os.environ.get("WORKERS", "12"))
 DRY = os.environ.get("DRY_RUN", "") == "1"
-CJK = re.compile(r"[一-鿿]")
 
 
 def s3_client():
@@ -63,51 +65,12 @@ def get_text(s3, key):
         return None
 
 
-def profile(t):
-    s = "".join(CJK.findall(t or ""))
-    if len(s) < 200:
-        return None
-    c = Counter(s)
-    rep = run = 1
-    for i in range(1, len(s)):
-        run = run + 1 if s[i] == s[i - 1] else 1
-        rep = max(rep, run)
-    return {"cjk": len(s) / max(1, len(re.sub(r"\s", "", t))),
-            "top1": c.most_common(1)[0][1] / len(s),
-            "distinct": len(c) / (len(s) / 1000.0),
-            "rep": rep, "chars": len(s)}
-
-
-def verdict(p, bl):
-    """Reasons a book is rejected. Empty list means nothing broken was found --
-    which is not the same as 'accurate', and the label reflects that.
-
-    Thresholds corrected 2026-07-28 after the first pass rejected books that were
-    plainly fine. 01-0022912 is Cheng Wuji's annotated Shanghan Lun -- one of the
-    canonical commentaries -- opening "註解傷寒論巻第四 漢張仲景著晋王叔和撰次";
-    it was thrown out for having 51 distinct characters per thousand. Classical
-    Chinese concentrates its vocabulary: particles, drug names and formula names
-    recur constantly, so 50-60 is ordinary for a real text, not evidence of
-    collapse. The floor of 60 was mine, not the data's, and it outvoted the
-    baseline-derived figure of 34.
-
-    Repeat-run needs the same correction. A dense pharmacopoeia legitimately
-    prints long runs of 一 in dosage tables, so 12 caught real books; genuine
-    collapse in this corpus ran to 70+.
-
-    Rejecting a canonical commentary is worse than admitting a mediocre scan:
-    the whole reason for owning these books is that nobody else has them.
-    """
-    why = []
-    if p["cjk"] < 0.80:
-        why.append("非汉字过多%.2f" % p["cjk"])
-    if p["top1"] > max(0.15, bl["top1"] * 4):
-        why.append("单字霸屏%.3f" % p["top1"])
-    if p["distinct"] < max(30.0, bl["distinct"] * 0.30):
-        why.append("字种过少%.0f" % p["distinct"])
-    if p["rep"] >= 30:
-        why.append("连续重复%d" % p["rep"])
-    return why
+# profile() and verdict() moved to ocr_degeneracy.py on 2026-07-28, unchanged.
+# They were copied into ocr_quality_gate.py and diagnose_bad_ocr.py, the copies
+# drifted apart, and the corrected thresholds here never reached the other two.
+# The thresholds and the evidence behind each of them are now in that module.
+profile = deg.profile
+verdict = deg.verdict
 
 
 def main():
@@ -129,8 +92,13 @@ def main():
         p = profile(get_text(s3, "%s%s/%s.txt" % (CLEAN, b["source"], b["key"])) or "")
         if p:
             base.append(p)
-    bl = ({k: sum(p[k] for p in base) / len(base) for k in ("cjk", "top1", "distinct")}
-          if base else {"cjk": 0.95, "top1": 0.05, "distinct": 300.0})
+    bl = deg.baseline_of(base)
+    if not base:
+        # Say so out loud: the fallback baseline is far stricter than the measured
+        # one (distinct 300 x 0.30 = 90 against a real floor of 30), so a silent
+        # baseline outage looks exactly like a batch of suddenly-bad books.
+        print("WARN 取不到已校对基线,改用保守默认值 —— 本轮判定会明显偏严,"
+              "大批判退时先怀疑基线而不是书", flush=True)
     print("基线(%d 本已校对): CJK %.3f | 最高频 %.4f | 千字异字 %.1f"
           % (len(base), bl["cjk"], bl["top1"], bl["distinct"]), flush=True)
 

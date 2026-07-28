@@ -29,6 +29,11 @@ import boto3
 import requests
 from botocore.config import Config
 
+# Shared with ocr_quality_gate.py and release_passed_ocr.py. This file used to
+# carry its own copy of the collapse thresholds (repeat-run 20, distinct-per-1000
+# 60), so a book could be filed here under a cause it was never rejected for.
+import ocr_degeneracy as deg
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
@@ -85,22 +90,26 @@ def classify(t):
     digit = len(DIGIT.findall(body)) / n
 
     s = "".join(CJK.findall(body))
-    rep = run = 1
-    for i in range(1, len(s)):
-        run = run + 1 if s[i] == s[i - 1] else 1
-        rep = max(rep, run)
+    rep = deg.longest_run(s)
     distinct = (len(set(s)) / (len(s) / 1000.0)) if len(s) > 200 else 0.0
 
     # Order matters: the most actionable explanation wins.
+    #
+    # The collapse thresholds are ocr_degeneracy.py's, not this file's. They have
+    # to be the same numbers that rejected the book in the first place: a book
+    # held for "字种过少" and then diagnosed here as "其它" tells whoever reads
+    # the report that the pipeline is inconsistent, not what is wrong with the
+    # book. No baseline is available here (this script never reads the proofread
+    # corpus), so the absolute floors apply.
     if kana > 0.08:
         kind = "日文汉方(含假名)"
     elif latin + digit > 0.25:
         kind = "拉丁/数字为主(疑图版·目录·索引)"
-    elif rep >= 20:
+    elif rep >= deg.REP_MAX:
         kind = "识别崩溃(整段重复)"
-    elif distinct and distinct < 60:
+    elif distinct and distinct < deg.distinct_floor():
         kind = "字种极少(疑空白页·牌记)"
-    elif cjk < 0.80:
+    elif cjk < deg.CJK_MIN:
         kind = "杂符号多(疑版式噪声)"
     else:
         kind = "其它"
