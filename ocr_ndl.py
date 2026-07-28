@@ -3,6 +3,7 @@
 # 页图 <- 阅读器真实公开API(穿透123兜底,不直读R2——R2的book/前缀影像已于2026-07-17迁123,直读会全部NoSuchKey)
 # 识别结果 -> R2 _ocr/{book_id}/page_NNNN.txt(与RapidOCR那条ocr.py同一落点,阅读器fulltext.js两边通吃)
 import os, io, json, re, time, subprocess, sys, boto3, requests
+from collections import Counter
 
 _CJK_RE = re.compile(r"[一-鿿㐀-䶿぀-ゟ゠-ヿ]")
 
@@ -95,6 +96,35 @@ def d1_report_run(status, total, done_n, skip_n, err_n, low_conf_n, error_msg=""
     except Exception as e:
         print(f"WARN D1汇总行写入失败(不影响OCR本身,只是后台看板少一条): {str(e)[:200]}", flush=True)
 
+
+# 2026-07-28:死页规模也必须落进 D1,不能只印在 run log 里。
+# 铁律:"凡是只写进日志的产线一律视为没人看"——pan-register 在日志里连喊 12 天 not-in-D1=3965,
+# 零人响应。死页数是同一类数字:它反映的是上游 123 缺页的规模,只有进了库才能上看板/告警。
+# 哨兵行 book_id='_ndl_deadletter'/table_name='_pipeline_dead',与 per-book 行和
+# '_pipeline_run' 汇总行共存;纯 INSERT,不改任何已有记录。
+# 列的含义在这条产线上被复用,写清楚免得后人误读:
+#   total_pages   = 死信涉及多少本书
+#   done_pages    = 本轮新进死信的页数
+#   skip_pages    = 本轮因冷却未重试的页数(这个数越大,说明省下的空转越多)
+#   failed_pages  = 死信台账当前总页数
+def d1_report_dead(dead_pages, dead_books, dead_new, cooled, top):
+    now = int(time.time())
+    msg = "dead=%d books=%d new=%d cooled=%d top=%s" % (
+        dead_pages, dead_books, dead_new, cooled,
+        ",".join("%s:%d" % (b, c) for b, c in top))
+    try:
+        d1_query(
+            "INSERT INTO ocr_jobs (book_id, table_name, run_id, shard, status, engine, "
+            "total_pages, done_pages, skip_pages, failed_pages, low_conf_pages, error_msg, "
+            "created_at, started_at, finished_at, updated_at) "
+            "VALUES ('_ndl_deadletter','_pipeline_dead',?,?, 'deadletter', 'ndlocr-lite', "
+            "?,?,?,?,0,?, ?,?,?,?)",
+            [RUN_ID, SHARD, dead_books, dead_new, cooled, dead_pages, msg[:500],
+             now, now, now, now],
+        )
+    except Exception as e:
+        print(f"WARN D1死信行写入失败(死页统计只剩日志一份): {str(e)[:200]}", flush=True)
+
 rows = d1_query(
     "SELECT book_id, page_count, pan_dir_id FROM books_assets_v2 "
     "WHERE frontend_visible=1 AND upload_status='done' AND page_count > 0 "
@@ -121,8 +151,78 @@ if os.path.exists("ledger.json"):
         _ledger_early = set(json.load(open("ledger.json", encoding="utf-8")))
     except Exception:
         _ledger_early = set()
-mine = [t for t in mine if f"{t[0]}:{str(t[1]).zfill(4)}" not in _ledger_early][:RUN_CAP]
-print(f"shard {SHARD}/{TOTAL} 分到 {len(mine)}/{len(pages)} 页(已滤台账·本轮硬顶{RUN_CAP})  pilot={PILOT or '无'}", flush=True)
+
+# 2026-07-28 修"失败页无限重试":原先只有 done / low_conf 进 ledger,err 的页一次都不记,
+# 于是每 6 小时 cron 一到就把同一批死页原样再拉一遍。审计实测 2.7 天 done=46749 页、
+# err=93840 页——失败是成功的两倍,其中 92%+ 是"123未找到该页";抽样看 bcgm 这本书相隔 48 小时
+# 的两次 run 失败在几乎完全相同的一组页码(p942/p1102/p1382…),是稳定死页不是偶发抖动。
+# 更要命的不是浪费,是挤占:err 摊到每 shard 每轮约 217 页,而 RUN_CAP 只有 300,
+# 死页已经吃掉七成预算且只增不减——照这个趋势这条线会走到 100% 空转,一页新书都产不出。
+#
+# 死信 ≠ 永久拉黑。"123未找到该页"很可能是上游同步滞后,页以后会补上,拉黑等于自断退路。
+# 所以记「失败次数 n + 上次尝试时间 t」,按次数降频重探:前 FREE_TRIES 次照旧每轮重试
+# (网络抖动、临时 5xx 不该被当死页),之后 1 天 → 3 天 → 7 天封顶。任何一页最迟一周内
+# 都会被再试一次,上游补页后能自己恢复;成功即从死信摘除,数字能降下来。
+DEADLETTER = "deadletter.json"
+FREE_TRIES = 3
+COOLDOWN_STEPS = ((FREE_TRIES, 0), (6, 86400), (10, 3 * 86400))
+COOLDOWN_MAX = 7 * 86400
+
+
+def cooldown_for(n):
+    """失败 n 次之后,距离下次重试至少要等多少秒。"""
+    for lim, wait in COOLDOWN_STEPS:
+        if n < lim:
+            return wait
+    return COOLDOWN_MAX
+
+
+dead = {}
+if os.path.exists(DEADLETTER):
+    try:
+        _d = json.load(open(DEADLETTER, encoding="utf-8"))
+        if isinstance(_d, dict):
+            dead = _d
+    except Exception:
+        dead = {}
+_dead_stat = {"new": 0}
+_NOW = int(time.time())
+
+
+def dead_due(k):
+    e = dead.get(k)
+    if not e:
+        return True
+    return (_NOW - int(e.get("t", 0))) >= cooldown_for(int(e.get("n", 0)))
+
+
+def mark_dead(k, why):
+    e = dead.get(k)
+    if e is None:
+        e = {"n": 0}
+        _dead_stat["new"] += 1
+    e["n"] = int(e.get("n", 0)) + 1
+    e["t"] = int(time.time())
+    e["why"] = why
+    dead[k] = e
+
+
+def clear_dead(k):
+    """这页最终跑通了(常见于上游把缺的页补上了)——从死信摘掉。
+    不摘的话死信数只会单调上涨,涨成一个没人信的数字。"""
+    dead.pop(k, None)
+
+
+# 冷却过滤必须发生在 RUN_CAP 截断【之前】:放在后面等于死页照样先占满 300 页预算,
+# 这个修复就一点用都没有了。
+_slice = [t for t in mine if f"{t[0]}:{str(t[1]).zfill(4)}" not in _ledger_early]
+_before_cool = len(_slice)
+_slice = [t for t in _slice if dead_due(f"{t[0]}:{str(t[1]).zfill(4)}")]
+cooled = _before_cool - len(_slice)
+mine = _slice[:RUN_CAP]
+print(f"shard {SHARD}/{TOTAL} 分到 {len(mine)}/{len(pages)} 页"
+      f"(已滤台账·避开冷却中的死页{cooled}页·本轮硬顶{RUN_CAP})  pilot={PILOT or '无'}", flush=True)
+print(f"死信台账载入 {len(dead)} 页 / {len({k.split(':')[0] for k in dead})} 本", flush=True)
 
 OCR_SRC = "ndlocr-lite/src"
 TMP = "/tmp/ndl_work"
@@ -156,12 +256,14 @@ for bid, p, pdid in mine:
         content = fetch_page_from_123(pdid, pstr)
         if not content:
             print(f"ERR拉图 {bid} p{p} 123未找到该页", flush=True)
+            mark_dead(lkey, "123-missing")
             err += 1
             continue
         with open(img_path, "wb") as f:
             f.write(content)
     except Exception as e:
         print(f"ERR拉图异常 {bid} p{p} :: {str(e)[:100]}", flush=True)
+        mark_dead(lkey, "123-error")
         err += 1
         continue
 
@@ -171,6 +273,7 @@ for bid, p, pdid in mine:
         jf = f"{TMP}/page_{pstr}.json"
         if r.returncode != 0 or not os.path.exists(jf):
             print(f"ERR识别 {bid} p{p} :: {r.stderr[-150:]}", flush=True)
+            mark_dead(lkey, "ocr-failed")
             err += 1
             continue
         data = json.load(open(jf, encoding="utf-8"))
@@ -204,18 +307,21 @@ for bid, p, pdid in mine:
             s3.put_object(Bucket=BUCKET, Key=txtkey, Body=b"", ContentType="text/plain; charset=utf-8")
             low_conf += 1
             ledger.add(lkey)
+            clear_dead(lkey)
             if dropped:
                 print(f"低质量跳过 {bid} p{p}:{dropped}个块全部低于置信度{CONF_MIN},存空文件", flush=True)
         else:
             s3.put_object(Bucket=BUCKET, Key=txtkey, Body=text.encode("utf-8"), ContentType="text/plain; charset=utf-8")
             done += 1
             ledger.add(lkey)
+            clear_dead(lkey)
             if dropped:
                 print(f"部分过滤 {bid} p{p}:丢{dropped}个低置信度块,保留{len(kept)}个", flush=True)
             if done % 20 == 0:
                 print(f"进度 {done}/{len(mine)}", flush=True)
     except Exception as e:
         print(f"ERR处理异常 {bid} p{p} :: {str(e)[:100]}", flush=True)
+        mark_dead(lkey, "proc-error")
         err += 1
     finally:
         for f in (img_path, f"{TMP}/page_{pstr}.json"):
@@ -225,7 +331,24 @@ for bid, p, pdid in mine:
                 pass
 
 json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
+# 死信无条件落盘,哪怕是空 dict:workflow 的 cache save 列了这个路径,
+# 文件不存在会让整份死信记录静默丢掉,下一轮又从零开始把死页全部重拉一遍。
+json.dump(dead, open(DEADLETTER, "w", encoding="utf-8"), ensure_ascii=False, sort_keys=True)
+
+dead_pages = len(dead)
+_dead_by_book = Counter(k.split(":")[0] for k in dead)
+dead_books = len(_dead_by_book)
+top_dead = _dead_by_book.most_common(5)
+
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocr_ndl_{SHARD}.json",
-              Body=json.dumps({"shard": SHARD, "total": len(mine), "done": done, "skip": skip, "err": err, "low_conf": low_conf}).encode())
+              Body=json.dumps({"shard": SHARD, "total": len(mine), "done": done, "skip": skip,
+                               "err": err, "low_conf": low_conf, "cooled": cooled,
+                               "dead_pages": dead_pages, "dead_books": dead_books,
+                               "dead_new": _dead_stat["new"]}).encode())
 d1_report_run("done", len(mine), done, skip, err, low_conf)
+d1_report_dead(dead_pages, dead_books, _dead_stat["new"], cooled, top_dead)
 print(f"=== shard {SHARD} 完成 done={done} skip={skip} err={err} low_conf={low_conf} / {len(mine)} ===", flush=True)
+print(f"=== 死信 {dead_pages}页/{dead_books}本 (本轮新增{_dead_stat['new']}·冷却跳过{cooled}) ===", flush=True)
+if top_dead:
+    # 死页最集中的几本 = 上游 123 缺页最严重的几本,给 CTO 判断上游窟窿规模用。
+    print("    死页最多: " + "  ".join(f"{b}×{c}" for b, c in top_dead), flush=True)

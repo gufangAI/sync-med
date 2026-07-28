@@ -42,10 +42,17 @@ jobs:
           python-version: "3.11"
       - run: git clone --depth 1 https://github.com/ndl-lab/ndlocr-lite
       - run: pip install --quiet -r ndlocr-lite/requirements.txt boto3 requests
+      # deadletter.json rides in the same cache as the ledger: it is the record of
+      # pages that failed, without which every run re-fetches the same dead pages
+      # forever (2026-07-28: err was running at twice done, 92% of it the same
+      # "page not on 123" pages every 6 hours). Older cache entries hold only
+      # ledger.json; the script treats a missing dead-letter file as empty.
       - name: restore ledger cache
         uses: actions/cache/restore@v4
         with:
-          path: ledger.json
+          path: |
+            ledger.json
+            deadletter.json
           key: ocrndl-ledger-s${{ matrix.shard }}-${{ github.run_id }}
           restore-keys: |
             ocrndl-ledger-s${{ matrix.shard }}-
@@ -67,5 +74,7 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: ledger.json
+          path: |
+            ledger.json
+            deadletter.json
           key: ocrndl-ledger-s${{ matrix.shard }}-${{ github.run_id }}
