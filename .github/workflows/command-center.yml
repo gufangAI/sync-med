@@ -1,0 +1,69 @@
+name: 指挥中心
+
+# 把 GitHub Issue 变成指挥群：创始人在 Issue 里发一条指令，这里执行完把结果回帖。
+#
+# 为什么是 Issue 而不是另建一个平台：
+#   · 手机上的 GitHub App 已经在推送 fleet-watch / 日报的 Issue，创始人本来就在看。
+#   · 零新增基础设施 —— 不用申请机器人、不用维护一个常驻 webhook 服务、不用另付钱。
+#   · 指令和结果留在同一条 Issue 里，天然是可追溯的工单，不像聊天记录会散。
+#
+# 它解决的真实痛点：现在创始人只能在一个终端窗口跟 CTO 一问一答，CTO 派出去的
+# agent 他完全看不见，只能等转述。有了这个，常用的查证类指令他可以自己发，
+# 不必排队等人转述。
+#
+# 边界（老实说清楚，免得当成万能）：
+#   · 这里能跑的是「查状态 / 触发产线 / 做测量」这类确定性动作。
+#   · 需要多步推理和判断的活（改代码、写方案、审内容）仍然要派 Claude agent，
+#     那是 Claude Code 的能力，GitHub Actions 里做不到。
+#   · 任何 AI 调用只许走内部免费池网关。GitHub Models 是计费源，红线禁用。
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  actions: read
+  contents: read
+
+concurrency:
+  group: command-center-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    # 只认仓库主人和协作者的指令。任何人都能在 public 仓的 Issue 下评论，
+    # 不设这道闸等于把触发器开放给所有人。
+    if: |
+      startsWith(github.event.comment.body, '/') &&
+      (github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'COLLABORATOR')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 认领指令
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              comment_id: context.payload.comment.id, content: 'eyes'
+            });
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q requests
+
+      - name: 执行并回帖
+        id: run
+        env:
+          BODY: ${{ github.event.comment.body }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN_SCOPED }}
+        run: python scripts/command_center.py
