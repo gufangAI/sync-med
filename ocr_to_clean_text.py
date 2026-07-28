@@ -53,6 +53,10 @@ DRY = os.environ.get("DRY_RUN", "") == "1"
 # Page GETs dominate the wall clock; R2 handles this fanout fine and the
 # operations are Class B, which is the cheap side of the bill.
 FETCH_WORKERS = int(os.environ.get("FETCH_WORKERS", "16"))
+# How many shelved books to probe for unrecorded OCR output. One GET each, not
+# one per page, so sweeping thousands costs cents.
+PROBE_LIMIT = int(os.environ.get("PROBE_LIMIT", "3000"))
+RUN_ID = os.environ.get("GITHUB_RUN_ID", "local")
 
 
 def s3_client():
