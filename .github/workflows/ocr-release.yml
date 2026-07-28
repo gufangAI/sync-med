@@ -1,0 +1,41 @@
+# Release OCR books that clear the degeneracy check back into the ingest list.
+#
+# Parking was right for the 23% that are broken -- pages of 81 repeated
+# characters, books averaging 21 distinct characters per thousand where the
+# proofread corpus averages 97. It is wrong for the other 77%, whose statistics
+# sit inside the proofread corpus's own envelope. Each book is judged on its own
+# merits rather than held hostage to its neighbours.
+#
+# Released books are labelled qc=degeneracy-pass, not verified: this check can
+# prove a book is broken, never that it is accurate.
+name: ocr-release
+
+on:
+  schedule:
+    - cron: '20 6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "1 = report only"
+        required: false
+        default: ""
+
+concurrency:
+  group: ocr-manifest        # shares the manifest with ocr-to-rag / ocr-hold
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet boto3
+      - env:
+          R2_ENDPOINT:   ${{ secrets.VEC_R2_ENDPOINT }}
+          R2_ACCESS_KEY: ${{ secrets.VEC_R2_ACCESS_KEY }}
+          R2_SECRET_KEY: ${{ secrets.VEC_R2_SECRET_KEY }}
+          DRY_RUN:       ${{ github.event.inputs.dry_run }}
+        run: python release_passed_ocr.py
