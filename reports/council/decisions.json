@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "updated": "2026-07-27",
+ "updated": "2026-07-28",
  "decisions": [
   {
    "source": "arsenal:x1xhlol/system-prompts-and-models-of-ai-tools",
@@ -32,6 +32,22 @@
    "date": "2026-07-27",
    "issue": 124,
    "topic": "新技术研判:assafelovic/gpt-researcher(28648星)— 自主进行深度研究的智能体，利用任何 LLM 提供商对数据进行检索和网络抓取。",
+   "verdict_ok": true
+  },
+  {
+   "source": "arsenal:danny-avila/LibreChat",
+   "decision": "hold",
+   "date": "2026-07-28",
+   "issue": 133,
+   "topic": "新技术研判:danny-avila/LibreChat(41312星)— 增强版 ChatGPT 克隆，具备代理、技能、深度搜索等功能",
+   "verdict_ok": true
+  },
+  {
+   "source": "arsenal:hugohe3/ppt-master",
+   "decision": "hold",
+   "date": "2026-07-28",
+   "issue": 133,
+   "topic": "新技术研判:hugohe3/ppt-master(41263星)— 将文档或主题转换为真实的PowerPoint演示文稿",
    "verdict_ok": true
   }
  ]
