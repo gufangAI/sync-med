@@ -39,6 +39,34 @@ def load(rel):
     return t
 
 
+def _make_illegible(n, ratio, run_len, mark="□"):
+    """造一页【正好 n 字】、版面记号占比≈ratio、记号按 run_len 成段铺开的漫漶页。
+    真实的漫漶是"某一列糊了一片"而不是逐字随机丢,所以 run_len 要能调:
+    1=散点 / 4=小段 / 12=整列。基文取语料里那页正常正文,循环铺满。
+
+    这个造法只用来做【区域扫描】(证明整片占比区间都放行),不替代静态语料 ——
+    静态语料记的是"哪一次真事故",生成器记不了那个。"""
+    base = "".join(load("synthetic/shanghan_body_long.txt").split())
+    body = list((base * (n // len(base) + 2))[:n])
+    want = int(round(n * ratio))
+    n_runs = max(1, want // run_len)
+    step = max(run_len, n // n_runs)
+    placed, pos = 0, 0
+    while placed < want and pos < n:
+        take = min(run_len, want - placed, n - pos)
+        for j in range(take):
+            body[pos + j] = mark
+        placed += take
+        pos += step
+    i = 0
+    while placed < want and i < n:
+        if body[i] != mark:
+            body[i] = mark
+            placed += 1
+        i += 1
+    return "".join(body)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 正货:必须放行(label != reject)。每条后面写清它是哪一次事故的产物。
 # ─────────────────────────────────────────────────────────────────────────────
@@ -246,6 +274,21 @@ class TestLayoutMarks(unittest.TestCase):
                 self.assertAlmostEqual(a["mark_ratio"], want, places=2,
                                        msg="语料自己漂了,先修语料再看判决")
                 self.assertEqual(a["label"], "ok", f"reasons={a['reasons']}")
+
+    def test_illegible_pages_pass_across_lengths_and_shapes(self):
+        """同样四档占比,再乘上页长和"糊法"扫一遍 —— 改动前实测这三个维度对判决
+        毫无影响(判死的是 garbage_ratio 这个逐字符计数),改动后也必须一样毫无影响。
+        只钉四个静态语料文件是不够的:那样只证明了四个点,证不了"整片区域"。"""
+        for ratio in (0.40, 0.50, 0.60, 0.70):
+            for n in (30, 47, 90, 200):
+                for run_len, shape in ((1, "散点"), (4, "小段"), (12, "整列")):
+                    text = _make_illegible(n, ratio, run_len)
+                    a = q.analyze(text)
+                    with self.subTest(ratio=ratio, n=n, shape=shape):
+                        self.assertLess(a["mark_ratio"], q.MARK_RATIO_REJECT)
+                        self.assertEqual(a["label"], "ok",
+                                         f"□ 占 {a['mark_ratio']:.2f} 的 {n} 字漫漶页"
+                                         f"({shape})被判 {a['label']};reasons={a['reasons']}")
 
     def test_mark_ratio_death_line(self):
         """死线:记号占比 >= MARK_RATIO_REJECT 判死,低于它放行。
