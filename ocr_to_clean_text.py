@@ -26,6 +26,8 @@ import os
 import sys
 import time
 
+from concurrent.futures import ThreadPoolExecutor
+
 import boto3
 import requests
 from botocore.config import Config
@@ -48,6 +50,9 @@ D1_TOK = os.environ["D1_API_TOKEN"]
 LIMIT = int(os.environ.get("LIMIT", "200"))          # books per run
 MIN_CHARS = int(os.environ.get("MIN_CHARS", "500"))  # below this a book is not worth a vector
 DRY = os.environ.get("DRY_RUN", "") == "1"
+# Page GETs dominate the wall clock; R2 handles this fanout fine and the
+# operations are Class B, which is the cheap side of the bill.
+FETCH_WORKERS = int(os.environ.get("FETCH_WORKERS", "16"))
 
 
 def s3_client():
@@ -89,13 +94,25 @@ def main():
     print("manifest 现有 %d 本,其中 source=ocr 的 %d 本"
           % (len(books), sum(1 for b in books if b.get("source") == SOURCE)), flush=True)
 
-    # Books whose images are online and whose page count is known. page_count is
-    # what lets us construct keys instead of listing them.
+    # Ask which books OCR has actually finished, not which books exist.
+    #
+    # The first version of this queried books_assets_v2 -- every book whose
+    # images are online -- and then went looking for page files. Most of those
+    # books have never been through OCR, so the run spent its time issuing GETs
+    # that could only 404: fifty books took over nine minutes, and at 40k books
+    # it would never finish while billing Class B for the privilege.
+    #
+    # ocr_jobs carries one row per book with done_pages, written by ocr_ndl.py
+    # as it goes. Reading from there means every key we construct is one that
+    # should exist. Still zero LIST -- page numbers come from a count, not from
+    # enumerating the bucket.
     rows = d1_query(
-        "SELECT book_id, book_title, page_count FROM books_assets_v2 "
-        "WHERE frontend_visible=1 AND upload_status='done' AND page_count > 0 "
-        "ORDER BY book_id LIMIT ?", [LIMIT * 3])
-    print("D1 候选 %d 本" % len(rows), flush=True)
+        "SELECT j.book_id AS book_id, MAX(j.done_pages) AS done_pages, "
+        "       COALESCE(b.book_title, j.book_id) AS book_title "
+        "FROM ocr_jobs j LEFT JOIN books_assets_v2 b ON b.book_id = j.book_id "
+        "WHERE j.book_id != '_ndl_pipeline' AND j.done_pages > 0 "
+        "GROUP BY j.book_id ORDER BY j.book_id LIMIT ?", [LIMIT * 3])
+    print("D1: OCR 已产出页的书 %d 本" % len(rows), flush=True)
 
     added = skipped = empty = 0
     for row in rows:
@@ -103,23 +120,27 @@ def main():
             break
         bid = str(row.get("book_id") or "")
         title = str(row.get("book_title") or bid)
-        pages = int(row.get("page_count") or 0)
+        pages = int(row.get("done_pages") or 0)
         if not bid or pages <= 0:
             continue
         if (SOURCE, bid) in have:
             skipped += 1
             continue
 
-        parts = []
-        got = 0
-        for p in range(1, pages + 1):
-            t = get_text(s3, "%s%s/page_%04d.txt" % (OCR_PREFIX, bid, p))
-            if t is None:
-                continue          # page not OCR'd yet -- partial books are fine
-            got += 1
-            t = t.strip()
-            if t:
-                parts.append(t)
+        # Fetch pages concurrently but keep them in page order -- the text of a
+        # classical work is meaningless shuffled, and a prescription split across
+        # a page break has to rejoin in the right sequence.
+        def one(p):
+            return p, get_text(s3, "%s%s/page_%04d.txt" % (OCR_PREFIX, bid, p))
+
+        pairs = []
+        with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as ex:
+            for p, t in ex.map(one, range(1, pages + 1)):
+                if t is not None:
+                    pairs.append((p, t))
+        pairs.sort(key=lambda x: x[0])
+        got = len(pairs)
+        parts = [t.strip() for _, t in pairs if t.strip()]
 
         body = "\n\n".join(parts).strip()
         if len(body) < MIN_CHARS:
