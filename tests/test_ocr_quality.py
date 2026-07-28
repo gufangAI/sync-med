@@ -394,6 +394,27 @@ class TestReturnContract(unittest.TestCase):
                      "max_run_ratio", "abs_repeat_run", "model_meta_hit", "line_dup_ratio"):
             self.assertTrue(callable(getattr(q, name, None)), f"{name} 没了")
 
+    def test_every_measurement_reaches_the_reject_ledger(self):
+        """analyze() 量到的每个数,都必须能落进判退台账。
+
+        这不是形式主义:本模块的门槛全是【按实测样本】定的(ABS_REPEAT_REJECT=8 取判退侧
+        实测最小恶性值,ABS_REPEAT_CLEAN=2 取正货侧实测最大值),而台账就是那些样本的
+        唯一来源。少记一个数,下一轮想调对应的门槛就只能回 R2 逐页考古 —— ocr_reject_log
+        的注释写死了"记 ratio 就是为了不用再考古",这条用例是那句话的执行者。
+
+        允许不落台账的只有 label / reasons / len 这类非度量字段(reasons 已单独落)。
+        """
+        import ocr_reject_log                                  # 只用标准库,可安全导入
+        a = q.analyze(load("synthetic/illegible_real_style_47.txt"))
+        entries = []
+        ocr_reject_log.record(entries, "_ocr_rejected/x/page_0001.txt", a, stored=True)
+        logged = set(entries[0].keys())
+        NON_METRIC = {"label", "reasons", "len"}
+        missing = {k for k in a if k not in NON_METRIC} - logged
+        self.assertFalse(missing,
+                         f"analyze() 量了这些数却没落台账:{sorted(missing)} —— "
+                         f"下次调这几条的门槛就只能回 R2 考古。请在 ocr_reject_log.record 里补上。")
+
     def test_empty_and_whitespace_are_empty_not_reject(self):
         """产线靠 label 分流,空页必须是 empty 而不是 reject(reject 会被退回重跑,白烧配额)。"""
         for t in ("", "   ", "\n\n\t "):

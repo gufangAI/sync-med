@@ -60,6 +60,13 @@ def record(entries, key, qa, stored):
         "max_run": qa.get("max_run"),
         "run_period": qa.get("run_period"),
         "line_dup": qa.get("line_dup"),
+        # n_lines / repeat_unit(2026-07-28 补,由 tests 抓出来的既有漏洞):
+        # line_dup 的判决条件是 `n_lines >= LINE_DUP_MIN_LINES and line_dup >= 门槛`,
+        # 只记 line_dup 不记 n_lines,这一条在台账上【根本没法重算】——"不用回 R2 考古"
+        # 那句承诺对 line_dup 一直是空的。repeat_unit 同理:光有 repeat_ngram 的比例,
+        # 分不清复读的是真词还是乱码块,而它已经是 unicode_escape 过的,不回吐明文原文。
+        "n_lines": qa.get("n_lines"),
+        "repeat_unit": qa.get("repeat_unit"),
         "garbage_ratio": qa.get("garbage_ratio"),
         "single_char": qa.get("single_char"),
         "cjk_ratio": qa.get("cjk_ratio"),
@@ -71,6 +78,18 @@ def record(entries, key, qa, stored):
         "abs_repeat": qa.get("abs_repeat"),
         "abs_repeat_unit": qa.get("abs_repeat_unit"),
         "model_meta": qa.get("model_meta"),
+        # 版面记号(2026-07-28 加),同一个理由的第三次:
+        # MARK_RATIO_REJECT=0.85 是 CJK_SUSPECT 的补集推出来的,【不是从判退样本量出来的】
+        # ——真实漫漶页到底能糊到多少还留着内容,眼下一条线上样本都没有。不把 mark_ratio
+        # 和 content_len 记进台账,下次想按真实分布把这条线往上/往下挪,就又只能回 R2 考古。
+        # content_len 尤其要记:判据 9 的第二个分句就是拿它做零判定的。
+        "mark_ratio": qa.get("mark_ratio"),
+        "content_len": qa.get("content_len"),
+        # 旧口径(版面记号算乱码)的两条。判退台账是【跨版本】看的:同一页在
+        # 2026-07-28 之前是被 garbage=0.66 判死的,之后 garbage 就是 0.00 了。
+        # 两个口径都记下来,将来翻台账才分得清"这页当年为什么死"和"它今天还该不该死"。
+        "garbage_ratio_raw": qa.get("garbage_ratio_raw"),
+        "single_char_raw": qa.get("single_char_raw"),
         "score": qa.get("score"),
         "stored": bool(stored),
         "ts": int(time.time()),
