@@ -41,8 +41,86 @@
 import re
 from collections import Counter
 
-# CJK 统一表意 + 扩展A + 平/片假名(沿用 ocr_ndl.py 已实测标定的范围)
-_CJK_RE = re.compile(r"[一-鿿㐀-䶿぀-ゟ゠-ヿ]")
+# ---- CJK 覆盖表:哪些码位算「中日韩文字」-------------------------------------
+# 本表与 _REPEAT_MARKS(版面记号表)是本模块仅有的两张【字符身份表】,4 条判据共用:
+#   cjk_ratio(判据 6)/ garbage_ratio(判据 4)/ _is_content_char(判据 7 与 9)。
+#
+# 2026-07-28 补齐。在此之前只有【统一表意 + 扩展A + 平/片假名】四段
+# (沿用 ocr_ndl.py 当年标定的范围),扩展B~I、兼容表意(U+F900-FAFF)、
+# 康熙部首(U+2F00-2FDF)、汉字部首补充(U+2E80-2EFF)全部落在表外,
+# 于是 garbage_ratio 把这些码位的字【逐个计成乱码】。改前实测
+# (120 字正常古籍正文页,把其中一定比例的字逐字换成生僻字):
+#     掺入占比 0.10/0.20 -> ok      0.30/0.40 -> suspect(garbage~0.30/0.40)
+#     掺入占比 0.50      -> reject(garbage=0.50)   0.60 -> reject(garbage=0.60)
+#   扩展B(U+20B9F 𠮟)/ 兼容表意(U+F9A8)/ 康熙部首(U+2F97 ⾗)/ 部首补充(U+2E85 ⺅)
+#   四类走的是【完全同一条曲线】—— 判死的不是字,是"这个码位不在表里"这一件事。
+# 而古籍的生僻药名、人名、异体字真的会用到这些码位:兼容表意区里的 U+FA11 﨑、
+# U+FA10 塚 是日本人名/地名常用字(内閣文庫和刻本漢方书满篇都是),康熙部首整段是
+# 字書/類書的部首索引页(那种页面几乎 100% 由部首构成,改前 garbage=1.00 整页判死),
+# 扩展B 以上则是善本里最稀见的那一档异体字。越是稀见的古籍、越是需要精确保留的异体字,
+# 越容易中招 —— 和「漫漶善本被当乱码」是同一类病:判据把"我不认识"当成了"这是垃圾"。
+#
+# ★ 范围依据:取 Unicode【区块边界】,不取"当前 Unicode 版本已分配到哪个码位"。
+#   区块边界是固定的,已分配范围会随 Unicode 版本往后长(扩展H 是 Unicode 15.0 才有的,
+#   Python 3.11 的 unicodedata 是 14.0、3.12 是 15.0)—— 按已分配码位写,换个 Python
+#   版本就漂一次;按区块边界写,新版本新加的字自动在表内。代价是表里含未分配码位,
+#   而未分配码位在真实 OCR 文本里【不可能出现】,不吃亏。
+#   这不是抄来的常识:tests/test_ocr_quality.py::test_cjk_table_covers_every_ideographic_codepoint
+#   拿 Python 自带的 unicodedata 逐码点全量核对本表,漏一个码点当场红。
+#
+# ★ 星平面(U+10000 以上)的坑,实测过再写下来的:Python 3 的 str 按【码点】存,
+#   len("\U00020B9F") == 1、逐字符遍历拿到的就是那一个码点、sys.maxunicode = 0x10FFFF,
+#   没有 UTF-16 代理对那套问题;re 模块也直接支持 \UXXXXXXXX 转义与跨平面字符区间。
+#   所以 garbage_ratio 里的逐字符循环、single_char 的 Counter、mark_ratio 的计数
+#   全都不需要为 4 字节字符改写。(若哪天换成 JS/Java 那种 UTF-16 语言,这里必须重写。)
+#
+# ★ 写成 (lo, hi, name) 表 + 拼出正则,而不是一行字面量:一行字面量里 16 段区间
+#   肉眼核不出对错,而这一整轮修的就是"上一版那行字面量少画了 12 段"。
+#   表能被测试逐条核对,字面量不能。
+#
+# ★ 为什么这里可以"按标准全收",而门槛必须"只站在实测样本上"——这两条规矩不打架,
+#   而且分不清正是本 bug 的根:门槛是取舍(松一点漏垃圾、紧一点杀正货),没有实测
+#   就没有取舍依据;而"U+FA11 算不算汉字"是【事实问题】,答案在 Unicode 标准里,
+#   不在我们的语料里。上一版的表是照"我见过什么"画的,不是照"标准怎么定"画的,
+#   于是把没见过的真汉字判成了乱码。事实问题就该把事实收全。
+_CJK_BLOCKS = (
+    (0x02E80, 0x02EFF, "CJK Radicals Supplement"),              # 汉字部首补充 ⺀⺅
+    (0x02F00, 0x02FDF, "Kangxi Radicals"),                      # 康熙部首 ⼀⾗
+    (0x03040, 0x0309F, "Hiragana"),                             # 平假名(原有)
+    (0x030A0, 0x030FF, "Katakana"),                             # 片假名(原有)
+    (0x031F0, 0x031FF, "Katakana Phonetic Extensions"),         # 片假名语音扩展
+    (0x03400, 0x04DBF, "CJK Unified Ideographs Extension A"),   # 扩展A(原有)
+    (0x04E00, 0x09FFF, "CJK Unified Ideographs"),               # 统一表意(原有)
+    (0x0F900, 0x0FAFF, "CJK Compatibility Ideographs"),         # 兼容表意 﨑塚
+    (0x1AFF0, 0x1AFFF, "Kana Extended-B"),
+    (0x1B000, 0x1B0FF, "Kana Supplement"),                      # 変体仮名(和刻本)
+    (0x1B100, 0x1B12F, "Kana Extended-A"),                      # 変体仮名(和刻本)
+    (0x1B130, 0x1B16F, "Small Kana Extension"),
+    (0x20000, 0x2A6DF, "CJK Unified Ideographs Extension B"),
+    (0x2A700, 0x2B73F, "CJK Unified Ideographs Extension C"),
+    (0x2B740, 0x2B81F, "CJK Unified Ideographs Extension D"),
+    (0x2B820, 0x2CEAF, "CJK Unified Ideographs Extension E"),
+    (0x2CEB0, 0x2EBEF, "CJK Unified Ideographs Extension F"),
+    (0x2EBF0, 0x2EE5F, "CJK Unified Ideographs Extension I"),
+    (0x2F800, 0x2FA1F, "CJK Compatibility Ideographs Supplement"),
+    (0x30000, 0x3134F, "CJK Unified Ideographs Extension G"),
+    (0x31350, 0x323AF, "CJK Unified Ideographs Extension H"),
+)
+# 假名那 4 段星平面区块(Kana Supplement / Extended-A / Extended-B / Small Kana Extension)
+# 收进来是【同一个理由】,不是顺手:U+1B002 起整段是変体仮名,和刻本古籍满篇都是它,
+# 而原表只画了 BMP 里的现代平/片假名两段。全量核对时它们正是漏在表外的 44 个码点。
+# 【刻意没收进来的,连同理由一起写在这,免得下一轮再考古一遍】
+#   U+2FF0-2FFF 表意文字描述符(⿰⿱⿲):它描述的是"一个 Unicode 里没有的字长什么样",
+#     本身不是字,性质更接近 _REPEAT_MARKS 里的缺字方框 □。本仓至今零实测样本,
+#     按本模块规矩(门槛/覆盖只站在实测样本上,不向外推)不收。
+#   U+31C0-31EF 汉字笔画(㇀㇁)、U+31F0-31FF 片假名语音扩展(ㇰㇱ):同样零样本。
+#   U+3000-303F CJK 符号与标点:那是【标点】,归 _CJK_PUNCT / _REPEAT_MARKS 管
+#     (〇 U+3007、々 U+3005、〃 U+3003 都在那两张表里);收进来会把一页满是「。、《》」
+#     的文本的 cjk_ratio 抬高,反过来动到 cjk_low 与背靠背豁免的判决,不是本轮的事。
+#   U+AC00-D7AF 谚文音节:韩文古医籍写的是汉字(已在统一表意区内),谚文不是表意文字,
+#     收它会把 cjk_ratio 的语义从"表意文字占比"改掉。
+_CJK_RE = re.compile(
+    "[" + "".join("\\U%08X-\\U%08X" % (lo, hi) for lo, hi, _name in _CJK_BLOCKS) + "]")
 # CJK 常见标点 + 全角标点(算"正常"字符,不计乱码)
 _CJK_PUNCT = set(
     "　、。，．；：？！“”‘’"
@@ -305,6 +383,18 @@ def garbage_ratio(text, count_marks=False):
     ocr_recover_scan.old_gate_view 要回答的是"当年那一版闸会不会误杀它",
     它必须拿到当年的数,不能拿改后的数去替当年作答。产线一律用默认值。
     只加一个开关而不复制一份函数:本仓吃过"同一判据两份副本各自漂移"的亏。
+
+    ★ count_marks 这个考古开关【只回退版面记号那一个维度】,不回退 CJK 覆盖表。
+      2026-07-28 补齐 _CJK_BLOCKS 之后,含生僻字的页在 count_marks=True 下量到的也是
+      新表的数,不再是当年那一版的数。实测差多少:
+          部首檢字页        garbage_raw 当年 0.95 -> 今天 0.00
+          扩展B 異體字對照页  garbage_raw 当年 0.71 -> 今天 0.00
+          変体仮名和刻本页    garbage_raw 当年 0.54 -> 今天 0.00
+        (版面记号那一维不受影响:漫漶页 0.64 前后一致、纯记号页 1.00 前后一致。)
+      后果限定在【考古视图不准】,不影响任何判决:old_gate_view 那一列在生僻字页上会
+      答"当年也不判死",而当年确实判死了 —— 就是本轮修的那个 bug。
+      没有顺手加第二个考古开关,是因为那会变成 2x2 四种口径组合,而"当年"到底指哪一版
+      得先有人定义清楚;这是设计取舍,不是可以随手做的事,写进报告等 CTO 定。
     """
     t = _clean(text)
     if not t:
@@ -399,12 +489,15 @@ def _is_content_char(ch):
     判据 7(_unit_has_content)与判据 9(content_len)共用这一条 —— 本仓吃过
     "同一判据两份副本各自漂移"的亏,"什么叫内容字"只许有一个定义。
 
-    已知盲区(诚实标注,本轮不改):_CJK_RE 只覆盖 CJK 统一表意 + 扩展A + 假名。
-    扩展B/C(U+20000+)、兼容表意(U+F900-FAFF)、康熙部首(U+2F00-2FDF)都不算内容字
-    —— 而古籍里的生僻药名/人名真会用到它们。这【不是本函数引入的】:garbage_ratio
-    今天就已经把这些字逐个计成乱码(实测在正常古籍页里掺入 >=50% 即整页 reject、
-    >=30% 即 suspect),本函数只是沿用同一个既有盲区,没有把它扩大。
-    根子和本轮修的是同一类病:字符覆盖表画窄了,真汉字被当成乱码。"""
+    2026-07-28 覆盖表补齐后,这里【顺带】跟着变准了,而且变准的方向不止一个,
+    必须写清楚,因为其中一个方向是【收紧】:
+      ① 放宽侧:生僻字页的 content_len 不再恒为 0,判据 9 那句"记号之外一个内容字
+         都没有"不会再冤枉整页由扩展B/兼容表意/部首构成的真古籍页(如字書部首索引页)。
+      ② 收紧侧:abs_repeat 靠 _unit_has_content 决定"这段复读算不算数",
+         覆盖表窄的时候,一页把生僻字背靠背复读 20 次的垃圾,单元里一个"内容字"都
+         找不到,abs_repeat 恒报 1 —— 判据 7 对它完全瞎。补齐后它照常被 >=8 判死。
+         这是【同一个缺口的垃圾侧】,不是新增误杀:那种页本来就该死,只是以前看不见。
+         实测见 tests/test_ocr_quality.py::test_rare_char_spam_is_still_repeat_garbage。"""
     if ch in _REPEAT_MARKS:
         return False
     return bool(_CJK_RE.match(ch)) or ch in _ASCII_ALNUM

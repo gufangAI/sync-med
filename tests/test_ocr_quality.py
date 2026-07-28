@@ -17,6 +17,7 @@
 import io
 import os
 import sys
+import unicodedata
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -67,6 +68,30 @@ def _make_illegible(n, ratio, run_len, mark="□"):
     return "".join(body)
 
 
+# 第五轮之前(commit 7b68be3)的 CJK 覆盖表就这四段:平/片假名 + 扩展A + 统一表意。
+# 抄在这里而不是从 git 取,是被上一轮的坑逼出来的:上一轮拿 `git show HEAD:ocr_quality.py`
+# 当"修复前版本"来验新用例能不能红,而 HEAD 早已含修复,于是新用例假绿。
+# 「当年的表长什么样」是这批语料的立据,必须和语料放在一起,不能藏在版本历史里。
+_LEGACY_CJK_BLOCKS = ((0x3040, 0x309F), (0x30A0, 0x30FF),
+                      (0x3400, 0x4DBF), (0x4E00, 0x9FFF))
+
+
+def beyond_legacy_ratio(text):
+    """这一页里有多大比例的字符是【今天认作 CJK、当年不认】的。
+
+    这个数就是修复前 garbage_ratio 在这些页上量到的值 —— 当年这些码位既不在 CJK 表里,
+    也不在 _CJK_PUNCT / _ASCII_OK / _REPEAT_MARKS 任何一张表里,于是被逐个计成乱码。
+    钉住它 = 钉住"当年真正把这一页判死的那个度量":覆盖表哪天又被改窄,
+    这几页会立刻重新判死,而这个数先一步告诉你哨兵还站不站得住。"""
+    t = "".join((text or "").split())
+    if not t:
+        return 0.0
+    n = sum(1 for ch in t
+            if q._CJK_RE.match(ch)
+            and not any(lo <= ord(ch) <= hi for lo, hi in _LEGACY_CJK_BLOCKS))
+    return n / len(t)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 正货:必须放行(label != reject)。每条后面写清它是哪一次事故的产物。
 # ─────────────────────────────────────────────────────────────────────────────
@@ -101,6 +126,15 @@ GOOD = [
      "第四轮:60% 的 □ 逐字散布(不是成段糊)—— 糊法不该影响判决"),
     ("synthetic/illegible_boxes_column_r60.txt",
      "第四轮:60% 的 □ 成整列糊在一起,200 字长页"),
+    # ── 第五轮:CJK 覆盖表画窄,古籍生僻字被当乱码 ──────────────────────────
+    ("synthetic/rare_kangxi_radical_index.txt",
+     "第五轮:字書部首檢字页(康熙部首 + 部首补充)—— 改前 garbage=0.95 整页判死"),
+    ("synthetic/rare_extb_variant_table.txt",
+     "第五轮:扩展B 異體字對照页 —— 改前 garbage=0.71 判死;異體字正是校勘最要精确保留的东西"),
+    ("synthetic/rare_compat_wakoku_names.txt",
+     "第五轮:和刻本正俗字對照页(兼容表意 U+FA10 段)—— 改前 suspect,天天被日审计成异常"),
+    ("synthetic/rare_hentaigana_wakoku.txt",
+     "第五轮:和刻本假名旁訓(変体仮名,星平面)—— 改前 garbage=0.54 判死"),
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -136,6 +170,12 @@ JUNK = [
      "第四轮开出来的洞之二:记号占 83% 够不着 0.85,但记号之外一个内容字都没有"),
     ("synthetic/marks_launder_replacement.esc.txt", "garbage",
      "第四轮洗白试探:一半替换符 + 一半 □,记号不许把真乱码的占比稀释到门槛以下"),
+    # ── 第五轮:覆盖表放宽了,这两条钉住"不许顺手把垃圾也放了" ────────────────
+    ("synthetic/rare_launder_replacement.esc.txt", "garbage",
+     "第五轮洗白试探:一半扩展B + 一半替换符 —— 生僻字只该从乱码分子里退出,不许稀释分子"),
+    ("synthetic/rare_spam_extb_x12.txt", "abs_repeat",
+     "第五轮【收紧侧】:同一个扩展B字连出 12 次。改前 _unit_has_content 认不出扩展B,"
+     "abs_repeat 恒报 1,判据 7 对它完全瞎 -> 放行;补齐覆盖表后才看得见"),
 ]
 
 
@@ -339,6 +379,163 @@ class TestLayoutMarks(unittest.TestCase):
         # 反面:干净的正文页不许挂这条,否则 top_reasons 被刷屏
         b = q.analyze(load("synthetic/shanghan_body_long.txt"))
         self.assertNotIn("layout_marks", "".join(b["reasons"]))
+
+
+class TestCJKCoverage(unittest.TestCase):
+    """第五轮:CJK 覆盖表。根因和第四轮同一类 —— 【字符表画窄了,真字被当成乱码】,
+    只不过第四轮画窄的是版面记号表,这一轮画窄的是 CJK 表本身。
+
+    修复前(commit 7b68be3)的表只有四段:统一表意 + 扩展A + 平/片假名。
+    扩展B~I、兼容表意(U+F900-FAFF)、康熙部首(U+2F00-2FDF)、汉字部首补充(U+2E80-2EFF)、
+    変体仮名 全在表外,被 garbage_ratio 逐个计成乱码;实测正常古籍页掺入 >=0.30 即 suspect、
+    >=0.50 即整页 reject。而越稀见的古籍、越需要精确保留的異體字,越容易中招。
+    """
+
+    def test_cjk_table_covers_every_ideographic_codepoint(self):
+        """覆盖表必须盖住 Python 自带 unicodedata 认得的每一个 CJK 表意字/部首/假名。
+
+        这一条是本轮唯一【不靠人眼、不靠语料】的判据:上一版那行正则少画了 12 段区间,
+        少的是哪几段肉眼看不出来 —— 而 unicodedata 自带一份权威名单,拿它逐码点核对,
+        漏一个当场红。这也是为什么覆盖表写成 (lo, hi, name) 而不是一行字面量:
+        字面量没法被逐条核对。
+
+        注意判据方向【只有一个】:名单里的每个字都必须在表内。反过来不成立 ——
+        表按 Unicode【区块边界】划,区块里含未分配码位是刻意的(见 _CJK_BLOCKS 上方注释:
+        按已分配码位写,换个 Python/Unicode 版本就漂一次)。
+        """
+        prefixes = ("CJK UNIFIED IDEOGRAPH", "CJK COMPATIBILITY IDEOGRAPH",
+                    "KANGXI RADICAL", "CJK RADICAL",
+                    "HIRAGANA ", "KATAKANA ", "HENTAIGANA ")
+        missed, seen = [], 0
+        for cp in range(0x110000):
+            if 0xD800 <= cp <= 0xDFFF:          # 代理区,chr() 出来不是真字符
+                continue
+            ch = chr(cp)
+            try:
+                name = unicodedata.name(ch)
+            except ValueError:
+                continue
+            if not name.startswith(prefixes):
+                continue
+            seen += 1
+            if not q._CJK_RE.match(ch):
+                missed.append("U+%04X %s" % (cp, name))
+        self.assertGreater(seen, 90000, "unicodedata 里扫到的 CJK 码点太少,扫描逻辑坏了")
+        self.assertEqual(missed[:20], [],
+                         "这些字 unicodedata 认作 CJK,_CJK_BLOCKS 却不认(共 %d 个)—— "
+                         "它们会被 garbage_ratio 逐个当成乱码" % len(missed))
+
+    def test_cjk_block_table_is_sorted_and_disjoint(self):
+        """表自身的体检:升序、不重叠、lo<=hi。乱序/重叠不会报错,只会让人核不动这张表。"""
+        prev_hi = -1
+        for lo, hi, name in q._CJK_BLOCKS:
+            with self.subTest(block=name):
+                self.assertLessEqual(lo, hi, "%s 的区间反了" % name)
+                self.assertGreater(lo, prev_hi, "%s 与前一段重叠或乱序" % name)
+            prev_hi = hi
+
+    def test_every_cjk_block_is_content_not_garbage(self):
+        """逐段抽样过四条判据:表里每一段的字都必须是【内容字】,不是乱码、不是版面记号。
+        与 TestLayoutMarks 里那三条"记号表逐字符过判据"是同一个写法 ——
+        两张字符表互相不认正是第四轮的根因,这一轮把新表也按同样的方式钉住。"""
+        for lo, hi, name in q._CJK_BLOCKS:
+            for cp in (lo, (lo + hi) // 2, hi):
+                ch = chr(cp)
+                with self.subTest(block=name, cp="U+%04X" % cp):
+                    self.assertEqual(q.garbage_ratio(ch * 30), 0.0,
+                                     "%s 的 U+%04X 被 garbage_ratio 当成乱码" % (name, cp))
+                    self.assertEqual(q.cjk_ratio(ch * 30), 1.0)
+                    self.assertEqual(q.content_len(ch * 30), 30)
+                    self.assertEqual(q.mark_ratio(ch * 30), 0.0,
+                                     "%s 的字跑进版面记号表了 —— 两张表又打架了" % name)
+
+    def test_astral_chars_count_as_one_codepoint(self):
+        """星平面(U+10000 以上)那个坑:扩展B 及以上是 4 字节字符。
+
+        Python 3 的 str 按【码点】存,len 与逐字符遍历都按码点走,没有 UTF-16 代理对问题;
+        本模块的 garbage_ratio 逐字符循环、single_char 的 Counter、mark_ratio 的计数
+        全都建立在这个前提上。哪天换成按 UTF-16 计长的实现,这一条立刻红 ——
+        那时所有占比判据的分母都会凭空变成两倍,门槛全部失效。"""
+        self.assertEqual(sys.maxunicode, 0x10FFFF)
+        extb = "\U00020B9F"
+        self.assertEqual(len(extb), 1)
+        self.assertEqual(len(extb * 7), 7)
+        self.assertEqual([ord(c) for c in extb * 2], [0x20B9F, 0x20B9F])
+        self.assertEqual(q.analyze(extb * 30)["len"], 30, "分母按 UTF-16 算成 60 了")
+        self.assertEqual(q.cjk_ratio(extb * 30), 1.0)
+
+    def test_rare_char_pages_are_load_bearing(self):
+        """承重哨兵:钉住【改前真正把这几页判死的那个度量】。
+
+        改后 garbage_ratio 已经是 0.00,拿它断言什么都测不出来 —— 所以钉的是
+        beyond_legacy_ratio:这一页里"今天认作 CJK、当年不认"的字符占比,
+        那个数就是当年 garbage_ratio 在这页上量到的值。覆盖表一旦被改窄,
+        这几页立刻重新被判死,而这条断言先一步告诉你哨兵还站得住。
+        """
+        for rel, want in (("synthetic/rare_kangxi_radical_index.txt", q.GARBAGE_REJECT),
+                          ("synthetic/rare_extb_variant_table.txt", q.GARBAGE_REJECT),
+                          ("synthetic/rare_hentaigana_wakoku.txt", q.GARBAGE_REJECT),
+                          ("synthetic/rare_compat_wakoku_names.txt", q.GARBAGE_SUSPECT)):
+            with self.subTest(fixture=rel):
+                text = load(rel)
+                a = q.analyze(text)
+                self.assertGreaterEqual(
+                    beyond_legacy_ratio(text), want,
+                    "%s 已经够不着改前的判死/存疑门槛了 = 它不再是哨兵,请换一条" % rel)
+                self.assertEqual(a["garbage_ratio"], 0.0,
+                                 "这一页一个乱码都没有,garbage 却不是 0;reasons=%s" % a["reasons"])
+                self.assertEqual(a["cjk_ratio"], 1.0)
+                self.assertEqual(a["label"], "ok", "reasons=%s" % a["reasons"])
+
+    def test_rare_chars_cannot_launder_real_garbage(self):
+        """放宽覆盖表不许顺手把垃圾也放了:一半扩展B + 一半替换符,garbage 仍须够着判死。
+        生僻字只该从【乱码的分子】里退出去,不该把分子稀释掉 ——
+        与第四轮 test_marks_cannot_launder_real_garbage 同一个道理,换了一张表再钉一次。"""
+        a = q.analyze(load("synthetic/rare_launder_replacement.esc.txt"))
+        self.assertGreaterEqual(a["garbage_ratio"], q.GARBAGE_REJECT,
+                                "生僻字把真乱码洗白了;reasons=%s" % a["reasons"])
+        self.assertEqual(a["label"], "reject")
+
+    def test_rare_char_spam_is_still_repeat_garbage(self):
+        """本轮唯一的【收紧】方向,登记在案 —— 它是同一个覆盖缺口的垃圾侧,不是新增误杀。
+
+        abs_repeat 靠 _unit_has_content 决定"这段复读算不算数"。覆盖表窄的时候,
+        一页把生僻字背靠背复读十几次的垃圾,单元里一个"内容字"都找不到,abs_repeat 恒报 1,
+        判据 7 对它完全瞎 —— 改前这一页是 ok,直接进燃料池。
+        它和已有语料 repeat_shang_x8.txt(「上」连出 8 次)是同一种垃圾,
+        只是换了个模型没见过的字,判据就不认识了。
+        """
+        a = q.analyze(load("synthetic/rare_spam_extb_x12.txt"))
+        self.assertEqual(a["abs_repeat"], 12)
+        self.assertGreaterEqual(a["abs_repeat"], q.ABS_REPEAT_REJECT)
+        self.assertEqual(a["label"], "reject")
+        # 同一个字换成 BMP 汉字,判决必须一模一样 —— 判据不该因为"这个字我不认识"而两样
+        self.assertEqual(q.analyze("鶯" * 12)["label"], a["label"])
+        self.assertEqual(q.analyze("鶯" * 12)["abs_repeat"], a["abs_repeat"])
+
+    def test_widening_only_loosens_the_ratio_judgments(self):
+        """方向自证:补覆盖表对四条【比例】判据只可能松、不可能紧。
+
+        cjk_ratio 只增(cjk_low 更难命中、背靠背豁免更容易命中)、
+        garbage_ratio 只减、content_len 只增(判据 9 的"零内容字"更难命中)、
+        single_char / mark_ratio 压根不看这张表。
+        逐条语料两边对拍不现实(要两份实现),这里退一步:拿"当年不认的字"当探针,
+        证明这三个量在同一页上的单调方向 —— 方向对了,判决就不会往判死那边走。
+        """
+        base = "".join(load("synthetic/shanghan_body_long.txt").split())[:60]
+        for probe in ("\U00020B9F", "﨑", "⾗", "⺅", "\U0001B002"):
+            with self.subTest(probe="U+%04X" % ord(probe)):
+                mixed = "".join(base[i] + probe for i in range(30))
+                a = q.analyze(mixed)
+                # 当年:这半页探针字全被计成乱码 -> garbage 0.50 够着判死门槛
+                self.assertGreaterEqual(beyond_legacy_ratio(mixed), q.GARBAGE_REJECT)
+                # 今天:一个乱码都没有,内容字一个不少,CJK 满格
+                self.assertEqual(a["garbage_ratio"], 0.0)
+                self.assertEqual(a["content_len"], len(mixed))
+                self.assertEqual(a["cjk_ratio"], 1.0)
+                self.assertEqual(a["single_char"], q.single_char_ratio(mixed))
+                self.assertEqual(a["mark_ratio"], 0.0)
+                self.assertEqual(a["label"], "ok", "reasons=%s" % a["reasons"])
 
 
 class TestReturnContract(unittest.TestCase):
