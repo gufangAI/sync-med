@@ -80,15 +80,32 @@ def profile(t):
 
 def verdict(p, bl):
     """Reasons a book is rejected. Empty list means nothing broken was found --
-    which is not the same as 'accurate', and the label reflects that."""
+    which is not the same as 'accurate', and the label reflects that.
+
+    Thresholds corrected 2026-07-28 after the first pass rejected books that were
+    plainly fine. 01-0022912 is Cheng Wuji's annotated Shanghan Lun -- one of the
+    canonical commentaries -- opening "註解傷寒論巻第四 漢張仲景著晋王叔和撰次";
+    it was thrown out for having 51 distinct characters per thousand. Classical
+    Chinese concentrates its vocabulary: particles, drug names and formula names
+    recur constantly, so 50-60 is ordinary for a real text, not evidence of
+    collapse. The floor of 60 was mine, not the data's, and it outvoted the
+    baseline-derived figure of 34.
+
+    Repeat-run needs the same correction. A dense pharmacopoeia legitimately
+    prints long runs of 一 in dosage tables, so 12 caught real books; genuine
+    collapse in this corpus ran to 70+.
+
+    Rejecting a canonical commentary is worse than admitting a mediocre scan:
+    the whole reason for owning these books is that nobody else has them.
+    """
     why = []
     if p["cjk"] < 0.80:
         why.append("非汉字过多%.2f" % p["cjk"])
     if p["top1"] > max(0.15, bl["top1"] * 4):
         why.append("单字霸屏%.3f" % p["top1"])
-    if p["distinct"] < max(60.0, bl["distinct"] * 0.35):
+    if p["distinct"] < max(30.0, bl["distinct"] * 0.30):
         why.append("字种过少%.0f" % p["distinct"])
-    if p["rep"] >= 12:
+    if p["rep"] >= 30:
         why.append("连续重复%d" % p["rep"])
     return why
 
