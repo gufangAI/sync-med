@@ -16,6 +16,9 @@
 #   5) single_char    — 单一最高频字符占比:单字符刷屏(。。。。 / oooo)
 #   6) cjk_ratio      — CJK 占比(软信号:封面/牌记/西文页天然低,不单独判死)
 #
+# 每条判据都有自己的最短生效长度,短于它就不出判决(比例在小分母上没有判别力):
+#   1)2)3) -> MIN_LEN_FOR_REPEAT(=LONG_PAGE 40)   4)5) -> MIN_LEN_FOR_RATIO(20)   6) -> LONG_PAGE(40)
+#
 # 说明:纯规则闸主打"便宜可靠"地拦下上面这些主流失败模式;真正的"跨书语义串味"
 #   (内容是另一本书的正经文字)需语料统计或 LLM 复核,本模块诚实不声称覆盖,
 #   但短语刷屏式的模板串味(同一段幻觉 boilerplate 反复出现)会被 1/2/3 命中。
@@ -50,6 +53,34 @@ SINGLE_CHAR_REJECT = 0.60    # 单字符刷屏 >=60%(且够长)-> 判死
 CJK_SUSPECT = 0.15           # 够长但 CJK 占比极低 -> 存疑(可能西文页,不判死)
 MIN_LEN_FOR_RATIO = 20       # 太短的页不做乱码/单字符判死(避免误伤正常短牌记)
 LONG_PAGE = 40
+
+# 重复类三条判据(repeat_ngram / max_run / line_dup)的最短生效长度。
+# 取模块自己已有的 LONG_PAGE,不另立新数——本仓吃过"拍脑袋定阈值"的亏
+# (FALLBACK_BASELINE 的 distinct=300 误杀过成无己《註解傷寒論》),
+# 多一个能独立漂移的常量就是多一个会咬人的门槛。
+#
+# 为什么必须有这道下限:2026-07-28 之前【只有这三条没有长度下限】
+# (garbage / single_char 有 MIN_LEN_FOR_RATIO,cjk 有 LONG_PAGE)。
+# 页一短,正常的结构化中文靠巧合就撞阈值:比例的分母太小,一点点重复就占满全页。
+# 实测(判据一个没改,只换文本长度):
+#     桂枝湯组成          26 字 -> max_run=0.46      判退
+#     六君子湯组成        24 字 -> repeat_ngram=0.50 判退
+#     目录卷之一…卷之十   30 字 -> repeat_ngram=0.67 判退
+#     傷寒論正文          86 字 -> 0.09 / 0.15       放行
+#     真·短语刷屏        168 字 -> 0.57             判退
+# 判别力在正常长度的页上完好,只在短页上塌掉。而被误杀的恰恰是方剂组成页——
+# 药方库与 AI 寻脉「古籍出处」的原始来源,平台最核心的燃料。
+# 线上实证:2026-07-27 抽样审计 199 页,唯一一条 reject 是 _ocr/bcgmj21/page_0007.txt,
+# 清洗后 28 字的本草药名著录页(max_run=0.46, p=12)——不是垃圾,是正货。
+#
+# 代价说清楚:加下限的方向是【放松】,40 字以下"只靠短语重复才认得出"的短垃圾页
+# 会漏进燃料池。兜底还在:garbage / single_char 从 20 字起照常生效,
+# 乱码页与单字符刷屏页仍然判死。权衡是清楚的——漏几十字噪音 vs 丢掉方剂组成页。
+#
+# 与 ocr_degeneracy.MIN_CHARS 同一个思路:样本太小就不给判决,而不是给一个坏判决。
+# 2026-07-28 之前这道限长只在 ocr_ndl.py 里有一份(GATE_MIN_CHARS),
+# 另外 4 条线裸奔;收进本模块后 5 条线一致,不再有第二个会漂移的副本。
+MIN_LEN_FOR_REPEAT = LONG_PAGE
 
 
 def _clean(text):
@@ -161,19 +192,26 @@ def analyze(text):
     reject = False
     suspect = False
 
-    if rep >= REPEAT_NGRAM_REJECT:
+    # 重复类三条判据只在页够长时才有判别力(为什么:见 MIN_LEN_FOR_REPEAT 上方注释)。
+    # reject 与 suspect 一起挡:短页上这三个比例本身就没有意义,退一步给 suspect
+    # 同样是错的判决——审计报告的"非空异常率"会把正常方剂页计成异常,那是另一种虚惊。
+    # 注意只挡【判决】不挡【测量】:rep / run / ldup 的原值照旧算、照旧返回,
+    # 诊断信息一条不少,调用方要自己看比例随时能看。
+    long_enough = n >= MIN_LEN_FOR_REPEAT
+
+    if long_enough and rep >= REPEAT_NGRAM_REJECT:
         reject = True; reasons.append(f"repeat_ngram={rep:.2f}(n={rep_n})")
-    elif rep >= REPEAT_NGRAM_SUSPECT:
+    elif long_enough and rep >= REPEAT_NGRAM_SUSPECT:
         suspect = True; reasons.append(f"repeat_ngram~{rep:.2f}")
 
-    if run >= MAX_RUN_REJECT:
+    if long_enough and run >= MAX_RUN_REJECT:
         reject = True; reasons.append(f"max_run={run:.2f}(p={run_p})")
-    elif run >= MAX_RUN_SUSPECT:
+    elif long_enough and run >= MAX_RUN_SUSPECT:
         suspect = True; reasons.append(f"max_run~{run:.2f}")
 
-    if nlines >= LINE_DUP_MIN_LINES and ldup >= LINE_DUP_REJECT:
+    if long_enough and nlines >= LINE_DUP_MIN_LINES and ldup >= LINE_DUP_REJECT:
         reject = True; reasons.append(f"line_dup={ldup:.2f}({nlines}L)")
-    elif nlines >= LINE_DUP_MIN_LINES and ldup >= LINE_DUP_SUSPECT:
+    elif long_enough and nlines >= LINE_DUP_MIN_LINES and ldup >= LINE_DUP_SUSPECT:
         suspect = True; reasons.append(f"line_dup~{ldup:.2f}")
 
     if n >= MIN_LEN_FOR_RATIO and garbage >= GARBAGE_REJECT:

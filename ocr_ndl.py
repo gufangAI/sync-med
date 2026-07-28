@@ -240,24 +240,15 @@ CONF_MIN = 0.6    # 2026-07-19实测标定:密排类书垃圾输出置信度0.25
 CJK_MIN = 0.3     # 2026-07-19实测标定:垃圾幻觉块CJK占比恒为0(纯拉丁字母/数字),真实文字块恒接近1.0。
                   # 双重判据比单一置信度可靠:实测见过 confidence=0.944 的纯拉丁垃圾块,CJK 占比照样判得出。
 
-# 页级闸的最短生效长度。取 ocr_quality 自己的 LONG_PAGE(40),不另立新数,免得又多一个会漂移的常量。
+# 页级闸的最短生效长度【已上收】。2026-07-28 本文件曾自带一份 GATE_MIN_CHARS,
+# 用来挡住 repeat_ngram / max_run / line_dup 在短页上误杀方剂组成页;
+# 同日这道限长已收进 ocr_quality.MIN_LEN_FOR_REPEAT,5 条线一致生效,
+# 这里的副本随即撤掉——同一判据留两份就是 ocr_degeneracy.py 那次合并要治的病。
 #
-# 为什么要这道限长:ocr_quality 的 repeat_ngram / max_run / line_dup 三条【没有长度下限】
-# (garbage / single_char 有 MIN_LEN_FOR_RATIO,cjk 有 LONG_PAGE,这三条没有)。页一短,
-# 结构化的正常文字就会靠巧合撞上阈值。2026-07-28 接闸前实测(见报告):
-#     桂枝湯方「桂枝三兩去皮/芍藥三兩/甘草二兩炙/生薑三兩切/大棗十二枚擘」26字 -> max_run=0.46 判退
-#     六君子湯 24字 -> repeat_ngram=0.50 判退
-#     目录「卷之一…卷之十」30字 -> repeat_ngram=0.67 判退
-#     而傷寒論正文 86字 -> 0.09/0.15 放行,真刷屏 168字 -> 0.57 判退
-# 判别力在正常长度的页上完好,只在短页上塌掉。上面被误判的恰恰是方剂组成——中医内容里最硬的那部分。
-# 不设这道限长就等于用一个没在短文本上验过的阈值去毙掉《桂枝湯》,和 FALLBACK_BASELINE 误杀
-# 《註解傷寒論》是同一个错误的两次犯。
-#
-# 这不改 ocr_quality 的任何判据(它被 4 条线共用,动不得),只是调用方决定"什么时候该问它"——
-# 与 ocr_degeneracy.MIN_CHARS 同一个思路:样本太小就不给判决,而不是给一个坏判决。
-# 代价说明白:40 字以下的短垃圾页会漏进燃料池。权衡是清楚的——漏几十字噪音 vs 丢掉方剂组成页。
-# 【待 CTO 决定】正确的终局是把这道限长收进 ocr_quality.py,让 5 条线一致;那要动共用判据,不是我能拍板的。
-GATE_MIN_CHARS = ocr_quality.LONG_PAGE
+# 撤掉不是把行为改回去,是把行为改对:本地那份 GATE_MIN_CHARS 拦的是【整个 reject 判决】,
+# 连 garbage / single_char(它们自己的下限是 20 字,早就验过)一起拦掉了,
+# 于是 20~39 字的纯乱码页、单字符刷屏页在这条线上会被当好页写进 _ocr/。
+# 收进模块后只有该挡的三条被挡,乱码/刷屏照常判死,本线不再是 5 条里唯一的例外。
 
 # 2026-07-19创始人指示:去重台账改用GitHub Actions cache(本地ledger.json),
 # 不再逐页R2 head_object——省R2调用,也不再需要"删测试文件"碰destructive-op-gate。
@@ -347,7 +338,7 @@ for bid, p, pdid in mine:
             # 判退的不进燃料池,原样落 _ocr_rejected/ 留证(与 ocr.py / ocr_xf.py 同一落点约定),
             # 供换引擎重跑时比对。注意这不是新增 R2 写入:判退页原本也要 PUT 一次,只是换了前缀。
             qa = ocr_quality.analyze(text)
-            if qa["len"] >= GATE_MIN_CHARS and qa["label"] == "reject":
+            if qa["label"] == "reject":
                 try:
                     s3.put_object(Bucket=BUCKET, Key=f"_ocr_rejected/{bid}/page_{pstr}.txt",
                                   Body=text.encode("utf-8"), ContentType="text/plain; charset=utf-8")
