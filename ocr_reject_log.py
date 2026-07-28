@@ -63,6 +63,12 @@ def record(entries, key, qa, stored):
         "garbage_ratio": qa.get("garbage_ratio"),
         "single_char": qa.get("single_char"),
         "cjk_ratio": qa.get("cjk_ratio"),
+        # 短页两项判据(2026-07-28 加)也必须落台账,理由和上面六项一模一样:
+        # abs_repeat 的门槛 8 是按【实测到的最小恶性值】定的,3~7 那一段现在没有样本;
+        # 不把它记下来,将来想把门槛往下挪就又只能靠翻 run log + 逐个 HEAD 的考古法。
+        "abs_repeat": qa.get("abs_repeat"),
+        "abs_repeat_unit": qa.get("abs_repeat_unit"),
+        "model_meta": qa.get("model_meta"),
         "score": qa.get("score"),
         "stored": bool(stored),
         "ts": int(time.time()),

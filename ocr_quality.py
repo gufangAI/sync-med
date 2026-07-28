@@ -8,16 +8,25 @@
 #   纯拉丁/数字乱码、替换符/控制符乱码。这些若静默 put 进 _ocr/ 会毒化 SueAI 燃料。
 #   本模块给出 label(ok/suspect/reject/empty)+ reasons,调用方据此"标记/退回重跑"而非静默入库。
 #
-# 检测判据(全部语言无关的比例/重复数学,不含可读 CJK 字面量,符合 public 仓 opsec):
+# 检测判据 1)~6) 是语言无关的比例/重复数学;7) 是绝对计数;8) 是唯一一条看字面的:
 #   1) repeat_ngram   — 最高频 n-gram(n=2..8)占全文比例:短语刷屏的核心症状
 #   2) max_run        — 某周期 p 的连续复读(back-to-back)最长游程占比:"A后A后A后"
 #   3) line_dup       — 去空白后重复行占比:整行/整块复读
 #   4) garbage_ratio  — 既非 CJK、非 CJK 标点、非 ASCII 可打印的"乱码"字符占比(含 U+FFFD/控制符)
 #   5) single_char    — 单一最高频字符占比:单字符刷屏(。。。。 / oooo)
 #   6) cjk_ratio      — CJK 占比(软信号:封面/牌记/西文页天然低,不单独判死)
+#   7) abs_repeat     — 同一片段【背靠背连出】的绝对次数(不是占比):短页专用
+#   8) model_meta     — OCR 模型自己的元话术("图中包含的文字内容是…"):短页专用
 #
 # 每条判据都有自己的最短生效长度,短于它就不出判决(比例在小分母上没有判别力):
 #   1)2)3) -> MIN_LEN_FOR_REPEAT(=LONG_PAGE 40)   4)5) -> MIN_LEN_FOR_RATIO(20)   6) -> LONG_PAGE(40)
+#   7)8) 反过来:【只在】 n < MIN_LEN_FOR_REPEAT 时生效,专门补 1)2)3) 让开的那一档。
+#
+# opsec:1)~7) 不含可读 CJK 字面量,原文片段一律 unicode_escape 后才进返回值。
+#   8) 必须写中文字面量(它要认的就是那几句现代汉语),按本仓已有先例办
+#   ——ocr_recover_scan.py 的 _MARKERS 同样直接写「兩」「錢」「湯」等词典词,
+#   opsec 要挡的是把 OCR 出来的【原文】回吐进 public 仓,不是挡词典词。
+#   命中时 reasons 只报标记的【序号】(model_meta=k3),不回吐命中的原文。
 #
 # 说明:纯规则闸主打"便宜可靠"地拦下上面这些主流失败模式;真正的"跨书语义串味"
 #   (内容是另一本书的正经文字)需语料统计或 LLM 复核,本模块诚实不声称覆盖,
@@ -38,6 +47,13 @@ _ASCII_OK = set(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     " \t\r\n.,;:!?\"'()[]{}<>/\\-_=+*&%$#@|~`^"
 )
+_ASCII_ALNUM = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+# 版面记号:这些字符成串出现是【排版/缺字标记】,不是模型复读,abs_repeat 不认它们。
+#   〇 ○ □ ■ = 缺字/漫漶方框;… ‥ = 目录点线;・ = 假名分隔点;
+#   ヽ ヾ ゝ ゞ 々 〃 = 叠字/同上记号(和刻本表格里成列出现);ー ― — – = 长音符/横线。
+# 不排掉它们,一页「傷寒論………………三」的目录就会因为 12 个点线被判成复读。
+# 注意 ヽ ゝ ・ ー 落在 _CJK_RE 的假名区间里,不显式排除就会被当成"内容字符"。
+_REPEAT_MARKS = set("〇○●□■◇◆△▲▽▼※…‥・ヽヾゝゞ々〃ー―—–")
 
 # ---- 阈值(模块常量,便于调参)----
 REPEAT_NGRAM_REJECT = 0.50   # 最高频 2..8-gram 占全文 >=50% -> 短语刷屏,判死
@@ -81,6 +97,67 @@ LONG_PAGE = 40
 # 2026-07-28 之前这道限长只在 ocr_ndl.py 里有一份(GATE_MIN_CHARS),
 # 另外 4 条线裸奔;收进本模块后 5 条线一致,不再有第二个会漂移的副本。
 MIN_LEN_FOR_REPEAT = LONG_PAGE
+
+# ---- 短页专用判据(补 MIN_LEN_FOR_REPEAT 让开的那一档)-------------------
+# 上面那道下限方向是对的,但"低于 40 字就完全不判"太粗:2026-07-28 run 30339783256
+# 全量扫描 86 个历史判退页,11 页因这道下限从 reject 翻成 ok,其中大部分本来就该判退
+# (「鶯鳥」连出 12 次 24 字、「鵝鶚」连出 9 次 18 字、「上」连出 8 次 8 字)。
+#
+# 短页不能用【占比】,但可以用【绝对次数】—— 占比的分母一小就没判别力,次数没有这个毛病。
+#
+# ★ 关键:次数必须数"背靠背连出"的,不能数"任意位置出现"。这一条是实测逼出来的,
+#   不是推理出来的。同一批语料上两种数法的分离度:
+#                                      任意位置出现次数   背靠背连出次数
+#     八珍湯组成 32 字(「一錢」×8)          8            1     ← 正货
+#     桂枝湯组成 26 字                       3            1     ← 正货
+#     本草药名著录 28 字                     2            1     ← 正货
+#     「上」连出 8 次(8 字)                 7            8     ← 复读
+#     「鵝鶚」连出 9 次(18 字)              9            9     ← 复读
+#     「鶯鳥」连出 12 次(24 字)            12           12     ← 复读
+#   按"任意位置出现 >=8 次"判死,第一行的八珍湯组成页当场被误杀——方剂组成页里
+#   剂量单位天然重复(一錢/三兩/各等分),十全大補湯能到 10 次。那正是上一轮拼命救回来的页。
+#   改数背靠背连出,正货全部塌到 1,复读全部 >=8,两堆彻底不重叠。
+#
+# ★ 阈值 8 怎么定的(数据在前,数字在后):420 条语料(413 条构造页 + 7 条线上真实样本)
+#   跑下来,短页(<40 字)里——
+#     正货侧 abs_repeat 最大值 = 2   (167 条短页正货里 166 条 =1,唯一的 2 是「上上」这个 2 字页本身)
+#     判退侧 abs_repeat 最小值 = 8   (「上」连出 8 次那条)
+#     中间 3..7 一条样本都没有
+#   取 8 = 判退侧【实测到的最小恶性值】,不向下外推。为什么不取 6(正货侧仍有 3 倍余量)?
+#   因为 3..7 这一段我一条样本都没有,取 6 就是拿没证据的数当门槛——本仓正是这么被咬过的
+#   (FALLBACK_BASELINE 的 distinct=300 误杀成无己《註解傷寒論》)。
+#   代价说清楚:连出 3~7 次的短复读现在会漏过去。等判退台账(ocr_reject_log 已把
+#   abs_repeat 一起记下)攒出这一段的真实样本,再拿样本把门槛往下挪,而不是现在猜。
+ABS_REPEAT_REJECT = 8
+# 单元长度上限。取 4 是因为再长的片段背靠背连出 8 次要 32 字以上,已经越过 40 字长度门,
+# 归 max_run / repeat_ngram 管。下限取 1 而不是 2:实测样本「上」连出 8 次,
+# 按 2 字单元「上上」数只有 4 次,够不到门槛;单字连出正是最常见的一种复读。
+ABS_REPEAT_MAX_UNIT = 4
+
+# OCR 模型的「元话术」:模型没读出字时,不是返回空,而是用现代汉语描述这张图
+# (线上实测样本:一整页只有「图中包含的文字内容是日文。」13 字)。
+# 这不是识别结果,是模型在说话——它进了燃料池,SueAI 就会把它当成古籍原文引用。
+# 重复类判据永远抓不到它(它一个字都不重复:abs_repeat=1),只能单独认。
+#
+# 为什么误伤风险低(证据,不是感觉):
+#   ① 标记全部 >=3 字,而且是【整句现代汉语】(「图中包含」「文字内容是」「我无法」)。
+#      单字不行——讯飞 HunyuanOCR 会把繁体字形归一化成简体,单看「图」会冤枉真古籍页;
+#      但字形归一化只改字形、不会凭空造出这样的词序和内容,整句短语因此是安全的。
+#   ② 只在 n < MIN_LEN_FOR_REPEAT(40 字)时生效。够长的页 = 模型确实读出了东西,
+#      哪怕尾巴上缀了一句元话术也该保住正文,而不是整页判死。
+#   ③ 420 条语料实跑:20 条元话术页标记全中(其中 10 条短页判死、10 条长页按 ② 放行),
+#      250 条正货语料(长页短页都算)零命中。
+# 覆盖不到的(诚实标注):纯日语元话术(「画像には文字が含まれ…」)没有实测样本,没写;
+#   40 字以上的长篇道歉("抱歉,我无法识别…这可能是因为…建议您…")按 ② 放行。
+# 入选标准(卡死,别往里加顺手的短词):>=3 字,且脱离图片语境就说不通。
+# 「图书」「无法」「内容」这种词本身能出现在真书里,一律不收。
+MODEL_META_MARKERS = (
+    "图中包含", "图中的文字", "图中显示", "图中没有",
+    "图片中的文字", "图片中没有", "图片中包含", "该图片", "这张图", "这幅图",
+    "文字内容是", "文字内容如下", "以下是图",
+    "无法识别", "无法辨认", "无法提取", "未能识别", "没有可识别",
+    "不包含任何", "我无法", "作为AI", "作为人工智能",
+)
 
 
 def _clean(text):
@@ -160,6 +237,63 @@ def max_run_ratio(text):
     return min(best_run / L, 1.0), best_p
 
 
+def _unit_has_content(u):
+    """这个复读单元算不算"内容"。至少要有一个 CJK 表意字/假名或 ASCII 字母数字,
+    且它自己不是版面记号。挡的是目录点线、缺字方框、和刻本的同上记号成串出现
+    ——那些在真古籍页上本来就连成排,不该被当成模型复读。"""
+    for ch in u:
+        if ch in _REPEAT_MARKS:
+            continue
+        if _CJK_RE.match(ch) or ch in _ASCII_ALNUM:
+            return True
+    return False
+
+
+def abs_repeat_run(text):
+    """最长"同一片段背靠背连出"的【绝对次数】。返回 (repeats, unit_len)。
+
+    与 max_run_ratio 是同一个原语(周期 p 上 s[i]==s[i+p] 的连续段),差别只在
+    返回次数而不是占比——短页上占比没有判别力(分母太小),次数有。
+    刻意复用同一套游程逻辑,不另造一份数法:本仓吃过"同一判据两份副本各自漂移"的亏。
+    没有任何重复时返回 1(= 这个片段只出现了它自己那一次),不是 0。
+    """
+    t = _clean(text)
+    L = len(t)
+    if L < 2:
+        return 1, 0
+    best_rep, best_p = 1, 0
+    for p in range(1, ABS_REPEAT_MAX_UNIT + 1):
+        if L < p * 2:
+            break
+        run = 0
+        start = 0
+        i = 0
+        while i + p < L:
+            if t[i] == t[i + p]:
+                if run == 0:
+                    start = i          # 这一段周期性复读从 t[start] 起,单元 = t[start:start+p]
+                run += 1
+                # run 个字符的连续匹配 = run//p 个完整复读单元,再加上打头的那一个
+                rep = run // p + 1
+                if rep > best_rep and _unit_has_content(t[start:start + p]):
+                    best_rep, best_p = rep, p
+            else:
+                run = 0
+            i += 1
+    return best_rep, best_p
+
+
+def model_meta_hit(text):
+    """命中的元话术标记序号,没命中返回 -1。
+    返回序号而不是命中的字符串:reasons 会被印进 public 仓的 run log,
+    不能把页面原文回吐出去(ocr_ndl.py 那句"reasons 不含原文片段"要继续成立)。"""
+    t = _clean(text)
+    for i, m in enumerate(MODEL_META_MARKERS):
+        if m in t:
+            return i
+    return -1
+
+
 def line_dup_ratio(text):
     """去空白后,重复行占比 = 1 - 去重行数/总行数。返回 (ratio, n_lines)。"""
     lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
@@ -177,10 +311,13 @@ def analyze(text):
     reasons = []
 
     if n == 0:
+        # 键必须和下面正常返回的那份【完全一致】:ocr_recover_scan.py 是直接 a["xxx"] 索引的,
+        # 少一个键就是一次 KeyError。新增字段同样要在这里补齐。
         return {"len": 0, "label": "empty", "score": 0, "reasons": ["empty"],
                 "cjk_ratio": 0.0, "garbage_ratio": 0.0, "single_char": 0.0,
                 "repeat_ngram": 0.0, "repeat_n": 0, "repeat_unit": "",
-                "max_run": 0.0, "run_period": 0, "line_dup": 0.0, "n_lines": 0}
+                "max_run": 0.0, "run_period": 0, "line_dup": 0.0, "n_lines": 0,
+                "abs_repeat": 0, "abs_repeat_unit": 0, "model_meta": -1}
 
     cjk = cjk_ratio(text)
     garbage = garbage_ratio(text)
@@ -188,6 +325,8 @@ def analyze(text):
     rep, rep_n, rep_unit = repeat_ngram(text)
     run, run_p = max_run_ratio(text)
     ldup, nlines = line_dup_ratio(text)
+    arep, arep_u = abs_repeat_run(text)
+    meta_k = model_meta_hit(text)
 
     reject = False
     suspect = False
@@ -222,6 +361,17 @@ def analyze(text):
     if n >= MIN_LEN_FOR_RATIO and single >= SINGLE_CHAR_REJECT:
         reject = True; reasons.append(f"single_char={single:.2f}")
 
+    # ── 短页专用判据:【只在】上面三条被长度门挡住的那一档生效 ──────────────
+    # 写成 `not long_enough` 而不是另设一个上限常量,是为了让"长页零改动"是【结构上
+    # 成立】的,而不是靠回归跑出来碰巧没变:两个分支互斥,>=40 字的页根本走不到这里。
+    # 代价随之而来,写明白:长页里的【局部】复读(200 字正文里夹 20 字「鶯鳥鶯鳥…」,
+    # 占比才 0.11,三条比例判据都够不着)本次仍然漏,要不要放开长度门归 CTO 定。
+    if not long_enough:
+        if arep >= ABS_REPEAT_REJECT:
+            reject = True; reasons.append(f"abs_repeat={arep}(u={arep_u})")
+        if meta_k >= 0:
+            reject = True; reasons.append(f"model_meta=k{meta_k}")
+
     if n >= LONG_PAGE and cjk < CJK_SUSPECT and not reject:
         suspect = True; reasons.append(f"cjk_low={cjk:.2f}")
 
@@ -241,7 +391,11 @@ def analyze(text):
             "single_char": round(single, 3), "repeat_ngram": round(rep, 3),
             "repeat_n": rep_n, "repeat_unit": rep_unit,
             "max_run": round(run, 3), "run_period": run_p,
-            "line_dup": round(ldup, 3), "n_lines": nlines}
+            "line_dup": round(ldup, 3), "n_lines": nlines,
+            # 新增两项照旧【全长度返回】,只是判决被 not long_enough 挡在短页那一档。
+            # 长页也返回,是为了下次调门槛时能直接在判退台账上重算,不用回 R2 考古
+            # (ocr_reject_log 的注释写死了这条:记 ratio 就是为了不用再考古)。
+            "abs_repeat": arep, "abs_repeat_unit": arep_u, "model_meta": meta_k}
 
 
 def is_reject(text):
