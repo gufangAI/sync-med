@@ -1,0 +1,35 @@
+name: tests
+
+# 只挂 push / pull_request,【没有 cron】。这是一道 CI 闸,不是产线任务 ——
+# 它要在"判据被改坏的那一刻"红,不是每天定时跑一遍告诉你昨天就坏了。
+on:
+  push:
+  pull_request:
+
+# 同一分支连推几次时,取消掉过时的 run(本仓 workflow 通行规矩)。
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ocr-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 判据回归。ocr_quality.py 本身零第三方依赖,测试也只用标准库 unittest,
+      # 这里装 pytest 只是为了跟本地验收命令 `python -m pytest tests/ -q` 完全一致 ——
+      # CI 跑的和人手上跑的必须是同一条命令,不然两边会各自漂移。
+      - name: install pytest
+        run: pip install --quiet pytest
+
+      - name: OCR 质量闸判据回归(正货放行 + 垃圾判死)
+        run: python -m pytest tests/ -q
+
+      # 退路自检:没有 pytest 也必须跑得起来(测试用 unittest 写的就是为这个)。
+      # 这一步防的是"哪天 pytest 装不上,CI 直接哑火"。
+      - name: 零依赖退路(unittest)
+        run: python -m unittest discover -s tests -q
