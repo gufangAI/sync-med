@@ -4,17 +4,13 @@
 # 识别结果 -> R2 _ocr/{book_id}/page_NNNN.txt(与RapidOCR那条ocr.py同一落点,阅读器fulltext.js两边通吃)
 import os, io, json, re, time, subprocess, sys, boto3, requests
 from collections import Counter
+import ocr_quality   # 页级质量闸:与 ocr.py / ocr_xf.py / ocr_reflash.py 同一份幻觉/乱码判据
 
-_CJK_RE = re.compile(r"[一-鿿㐀-䶿぀-ゟ゠-ヿ]")
-
-def cjk_ratio(s):
-    """2026-07-19实测:垃圾幻觉块(如'State the the...'、'1/00 000...FORE')CJK占比恒为0,
-    真实古籍/漢方文字块恒接近1.0——即便置信度被模型判高(实测垃圾块confidence=0.944也见过),
-    CJK占比仍能正确区分,双重判据比单一置信度更可靠。"""
-    t = re.sub(r"\s", "", s or "")
-    if not t:
-        return 0.0
-    return len(_CJK_RE.findall(t)) / len(t)
+# CJK 占比改用 ocr_quality.cjk_ratio ——本文件原先自带一份字面完全相同的副本
+# (同一个正则、同一个去空白规则)。同一判据留两份就是 ocr_degeneracy.py 那次合并
+# 要治的病:拷贝各自漂移之后,同一本书这边判退那边放行,谁都说不清产线的判据到底是什么。
+# NDL 线自己保留的只是"用哪个阈值"这个决定,见下面的 CJK_MIN。
+cjk_ratio = ocr_quality.cjk_ratio
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKET = os.environ["S_BUCKET"]
 CF_ACC = os.environ["CF_ACCOUNT_ID"]; D1_DB = os.environ["D1_DATABASE_ID"]; D1_TOK = os.environ["D1_API_TOKEN"]
@@ -82,8 +78,15 @@ RUN_ID = os.environ.get("GITHUB_RUN_ID", "")
 # 2026-07-19创始人指示:OCR集结进后台管理资产——每个shard跑完写一行汇总到ocr_jobs,
 # 哨兵 book_id='_ndl_pipeline'/table_name='_pipeline_run'(与per-book行共存,见migrations/040)。
 # 后台 Tab4Ocr「云端NDLOCR流水线」区块靠这行数据显示,不用手动查GitHub。
-def d1_report_run(status, total, done_n, skip_n, err_n, low_conf_n, error_msg=""):
+def d1_report_run(status, total, done_n, skip_n, err_n, low_conf_n, error_msg="", rej_n=0):
     now = int(time.time())
+    # 质量闸判退数在 ocr_jobs 里没有自己的列,但它不能只印在 run log 里——铁律:
+    # "凡是只写进日志的产线一律视为没人看"(pan-register 在日志里连喊 12 天零人响应)。
+    # 判退率突然拉高 = 引擎退化或上游图质量塌了,是必须能在看板上看见的数字。
+    # 借 error_msg 这个自由文本列带出去:纯新增,不动表结构,不碰任何已有列的语义。
+    msg = error_msg or ""
+    if rej_n:
+        msg = (msg + " " if msg else "") + "rej=%d" % rej_n
     try:
         d1_query(
             "INSERT INTO ocr_jobs (book_id, table_name, run_id, shard, status, engine, "
@@ -91,7 +94,7 @@ def d1_report_run(status, total, done_n, skip_n, err_n, low_conf_n, error_msg=""
             "created_at, started_at, finished_at, updated_at) "
             "VALUES ('_ndl_pipeline','_pipeline_run',?,?,?, 'ndlocr-lite', ?,?,?,?,?,?, ?,?,?,?)",
             [RUN_ID, SHARD, status, total, done_n, skip_n, err_n, low_conf_n,
-             (error_msg or "")[:500], now, now, now, now],
+             msg[:500], now, now, now, now],
         )
     except Exception as e:
         print(f"WARN D1汇总行写入失败(不影响OCR本身,只是后台看板少一条): {str(e)[:200]}", flush=True)
@@ -228,8 +231,33 @@ OCR_SRC = "ndlocr-lite/src"
 TMP = "/tmp/ndl_work"
 os.makedirs(TMP, exist_ok=True)
 
+# ---- 块级闸(NDL 线独有,页级闸给不了)----
+# ocr_quality.py 只看文本:它拿不到 confidence,也不做块粒度的取舍。这两条必须留着——
+# 逐块过滤能在"部分清晰部分模糊"的页面上保住清晰的那部分,而不是整页一刀切。
+# 2026-07-28 接页级闸之后两层是叠加关系,不是替代:
+#   块级先剔掉坏块(低置信度 / 纯拉丁数字垃圾)→ 页级再看剩下的整页拼起来像不像人话。
 CONF_MIN = 0.6    # 2026-07-19实测标定:密排类书垃圾输出置信度0.25-0.49,正常识别0.9+,两者有明显断层
-CJK_MIN = 0.3     # 2026-07-19实测标定:垃圾幻觉块CJK占比恒为0(纯拉丁字母/数字),真实文字块恒接近1.0
+CJK_MIN = 0.3     # 2026-07-19实测标定:垃圾幻觉块CJK占比恒为0(纯拉丁字母/数字),真实文字块恒接近1.0。
+                  # 双重判据比单一置信度可靠:实测见过 confidence=0.944 的纯拉丁垃圾块,CJK 占比照样判得出。
+
+# 页级闸的最短生效长度。取 ocr_quality 自己的 LONG_PAGE(40),不另立新数,免得又多一个会漂移的常量。
+#
+# 为什么要这道限长:ocr_quality 的 repeat_ngram / max_run / line_dup 三条【没有长度下限】
+# (garbage / single_char 有 MIN_LEN_FOR_RATIO,cjk 有 LONG_PAGE,这三条没有)。页一短,
+# 结构化的正常文字就会靠巧合撞上阈值。2026-07-28 接闸前实测(见报告):
+#     桂枝湯方「桂枝三兩去皮/芍藥三兩/甘草二兩炙/生薑三兩切/大棗十二枚擘」26字 -> max_run=0.46 判退
+#     六君子湯 24字 -> repeat_ngram=0.50 判退
+#     目录「卷之一…卷之十」30字 -> repeat_ngram=0.67 判退
+#     而傷寒論正文 86字 -> 0.09/0.15 放行,真刷屏 168字 -> 0.57 判退
+# 判别力在正常长度的页上完好,只在短页上塌掉。上面被误判的恰恰是方剂组成——中医内容里最硬的那部分。
+# 不设这道限长就等于用一个没在短文本上验过的阈值去毙掉《桂枝湯》,和 FALLBACK_BASELINE 误杀
+# 《註解傷寒論》是同一个错误的两次犯。
+#
+# 这不改 ocr_quality 的任何判据(它被 4 条线共用,动不得),只是调用方决定"什么时候该问它"——
+# 与 ocr_degeneracy.MIN_CHARS 同一个思路:样本太小就不给判决,而不是给一个坏判决。
+# 代价说明白:40 字以下的短垃圾页会漏进燃料池。权衡是清楚的——漏几十字噪音 vs 丢掉方剂组成页。
+# 【待 CTO 决定】正确的终局是把这道限长收进 ocr_quality.py,让 5 条线一致;那要动共用判据,不是我能拍板的。
+GATE_MIN_CHARS = ocr_quality.LONG_PAGE
 
 # 2026-07-19创始人指示:去重台账改用GitHub Actions cache(本地ledger.json),
 # 不再逐页R2 head_object——省R2调用,也不再需要"删测试文件"碰destructive-op-gate。
@@ -242,7 +270,7 @@ if os.path.exists(LEDGER):
         ledger = set()
 print(f"ledger已有 {len(ledger)} 条记录", flush=True)
 
-done, skip, err, low_conf = 0, 0, 0, 0
+done, skip, err, low_conf, rejected = 0, 0, 0, 0, 0
 for bid, p, pdid in mine:
     pstr = str(p).zfill(4)
     lkey = f"{bid}:{pstr}"
@@ -311,6 +339,28 @@ for bid, p, pdid in mine:
             if dropped:
                 print(f"低质量跳过 {bid} p{p}:{dropped}个块全部低于置信度{CONF_MIN},存空文件", flush=True)
         else:
+            # 页级质量闸(2026-07-28 补接)。块级闸只能看单块:每块自己置信度够高、CJK 够多,
+            # 拼成一页仍可能是同一句刷屏、整栏复读、或版面分析把同一区域读了两遍——
+            # 这些只有拿整页文本才看得出来,单块视角天然看不见。
+            # 在此之前这条线没有这一层,而 NDL 已是主力 OCR(cron 30 */6):产出直落 _ocr/,
+            # 再被 ocr_to_clean_text.py 桥进 RAG,等于平台引用的"古籍原文"里可能混着没过闸的垃圾。
+            # 判退的不进燃料池,原样落 _ocr_rejected/ 留证(与 ocr.py / ocr_xf.py 同一落点约定),
+            # 供换引擎重跑时比对。注意这不是新增 R2 写入:判退页原本也要 PUT 一次,只是换了前缀。
+            qa = ocr_quality.analyze(text)
+            if qa["len"] >= GATE_MIN_CHARS and qa["label"] == "reject":
+                try:
+                    s3.put_object(Bucket=BUCKET, Key=f"_ocr_rejected/{bid}/page_{pstr}.txt",
+                                  Body=text.encode("utf-8"), ContentType="text/plain; charset=utf-8")
+                except Exception:
+                    pass
+                # 判退也要记账。不记的话每 6 小时 cron 会把同一页重拉重跑——同一张图喂同一个
+                # 引擎不会产出不同结果,那是刚修完的死页空转的同一个坑。
+                ledger.add(lkey)
+                clear_dead(lkey)
+                rejected += 1
+                # reasons 只含比例和 n,不含原文片段,可以安全印进 public 仓的 run log。
+                print(f"质量闸判退 {bid} p{p}:{'/'.join(qa['reasons'])}", flush=True)
+                continue
             s3.put_object(Bucket=BUCKET, Key=txtkey, Body=text.encode("utf-8"), ContentType="text/plain; charset=utf-8")
             done += 1
             ledger.add(lkey)
@@ -342,12 +392,14 @@ top_dead = _dead_by_book.most_common(5)
 
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocr_ndl_{SHARD}.json",
               Body=json.dumps({"shard": SHARD, "total": len(mine), "done": done, "skip": skip,
-                               "err": err, "low_conf": low_conf, "cooled": cooled,
+                               "err": err, "low_conf": low_conf, "rejected": rejected,
+                               "cooled": cooled,
                                "dead_pages": dead_pages, "dead_books": dead_books,
                                "dead_new": _dead_stat["new"]}).encode())
-d1_report_run("done", len(mine), done, skip, err, low_conf)
+d1_report_run("done", len(mine), done, skip, err, low_conf, rej_n=rejected)
 d1_report_dead(dead_pages, dead_books, _dead_stat["new"], cooled, top_dead)
-print(f"=== shard {SHARD} 完成 done={done} skip={skip} err={err} low_conf={low_conf} / {len(mine)} ===", flush=True)
+print(f"=== shard {SHARD} 完成 done={done} skip={skip} err={err} low_conf={low_conf} "
+      f"质量闸判退={rejected} / {len(mine)} ===", flush=True)
 print(f"=== 死信 {dead_pages}页/{dead_books}本 (本轮新增{_dead_stat['new']}·冷却跳过{cooled}) ===", flush=True)
 if top_dead:
     # 死页最集中的几本 = 上游 123 缺页最严重的几本,给 CTO 判断上游窟窿规模用。
