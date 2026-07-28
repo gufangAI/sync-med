@@ -1,0 +1,158 @@
+# coding: utf-8
+# Bridge OCR output into the RAG corpus.
+#
+# The OCR pipeline has been running for weeks, writing recognised pages to
+# _ocr/{book_id}/page_NNNN.txt. The ingest pipeline reads clean_text/ and gets
+# its book list from clean_text/_manifest.json. Nobody connected the two: the
+# manifest holds 1160 books from daizhige / kanripo / siku / wiki, and exactly
+# zero from OCR. Everything OCR has produced is reachable by the reader's
+# full-text search and by nothing else -- it never reaches the AI.
+#
+# This joins them. Per book: read the page files, concatenate in page order,
+# write one clean_text/ocr/{book_id}.txt, and append an entry to the manifest.
+# From there the existing ingest picks it up like any other source.
+#
+# Zero LIST, as the standing rule requires: the page count comes from D1's
+# ocr_jobs table, so keys are constructed rather than discovered. Never
+# list_objects, never a paginator -- the repo's CI guard fails the build for it
+# and the bill is the reason.
+#
+# Additive only: books already in the manifest are left alone, page files are
+# never deleted, and a book whose pages are all empty is skipped rather than
+# written as an empty entry.
+import io
+import json
+import os
+import sys
+import time
+
+import boto3
+import requests
+from botocore.config import Config
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
+BUCKET = "guyaofang-lib"
+OCR_PREFIX = "_ocr/"
+CLEAN_PREFIX = "clean_text/"
+MANIFEST_KEY = CLEAN_PREFIX + "_manifest.json"
+SOURCE = "ocr"                      # the manifest's source label for this line
+
+CF_ACC = os.environ["CF_ACCOUNT_ID"]
+D1_DB = os.environ["D1_DATABASE_ID"]
+D1_TOK = os.environ["D1_API_TOKEN"]
+
+LIMIT = int(os.environ.get("LIMIT", "200"))          # books per run
+MIN_CHARS = int(os.environ.get("MIN_CHARS", "500"))  # below this a book is not worth a vector
+DRY = os.environ.get("DRY_RUN", "") == "1"
+
+
+def s3_client():
+    return boto3.client(
+        "s3",
+        endpoint_url=os.environ["R2_ENDPOINT"],
+        aws_access_key_id=os.environ["R2_ACCESS_KEY"],
+        aws_secret_access_key=os.environ["R2_SECRET_KEY"],
+        region_name="auto",
+        config=Config(retries={"max_attempts": 5}),
+    )
+
+
+def d1_query(sql, params=None):
+    url = ("https://api.cloudflare.com/client/v4/accounts/%s/d1/database/%s/query"
+           % (CF_ACC, D1_DB))
+    r = requests.post(url, headers={"Authorization": "Bearer " + D1_TOK},
+                      json={"sql": sql, "params": params or []}, timeout=120)
+    r.raise_for_status()
+    j = r.json()
+    if not j.get("success"):
+        raise RuntimeError("D1 query failed: " + str(j.get("errors"))[:200])
+    return (j.get("result") or [{}])[0].get("results") or []
+
+
+def get_text(s3, key):
+    try:
+        return s3.get_object(Bucket=BUCKET, Key=key)["Body"].read().decode("utf-8", "replace")
+    except Exception:
+        return None
+
+
+def main():
+    s3 = s3_client()
+
+    manifest = json.loads(s3.get_object(Bucket=BUCKET, Key=MANIFEST_KEY)["Body"].read())
+    books = manifest.get("books") or []
+    have = {(b.get("source"), b.get("key")) for b in books}
+    print("manifest 现有 %d 本,其中 source=ocr 的 %d 本"
+          % (len(books), sum(1 for b in books if b.get("source") == SOURCE)), flush=True)
+
+    # Books whose images are online and whose page count is known. page_count is
+    # what lets us construct keys instead of listing them.
+    rows = d1_query(
+        "SELECT book_id, book_title, page_count FROM books_assets_v2 "
+        "WHERE frontend_visible=1 AND upload_status='done' AND page_count > 0 "
+        "ORDER BY book_id LIMIT ?", [LIMIT * 3])
+    print("D1 候选 %d 本" % len(rows), flush=True)
+
+    added = skipped = empty = 0
+    for row in rows:
+        if added >= LIMIT:
+            break
+        bid = str(row.get("book_id") or "")
+        title = str(row.get("book_title") or bid)
+        pages = int(row.get("page_count") or 0)
+        if not bid or pages <= 0:
+            continue
+        if (SOURCE, bid) in have:
+            skipped += 1
+            continue
+
+        parts = []
+        got = 0
+        for p in range(1, pages + 1):
+            t = get_text(s3, "%s%s/page_%04d.txt" % (OCR_PREFIX, bid, p))
+            if t is None:
+                continue          # page not OCR'd yet -- partial books are fine
+            got += 1
+            t = t.strip()
+            if t:
+                parts.append(t)
+
+        body = "\n\n".join(parts).strip()
+        if len(body) < MIN_CHARS:
+            # Either OCR has not reached this book, or every page came back
+            # empty (blank scans / all blocks below the confidence gate).
+            empty += 1
+            continue
+
+        key = "%socr/%s.txt" % (CLEAN_PREFIX, bid)
+        if DRY:
+            print("  [dry] %s  %d/%d 页有文本  %d 字" % (bid, got, pages, len(body)), flush=True)
+        else:
+            s3.put_object(Bucket=BUCKET, Key=key,
+                          Body=body.encode("utf-8"),
+                          ContentType="text/plain; charset=utf-8")
+            books.append({"source": SOURCE, "key": bid, "book": title})
+            print("  + %s《%s》 %d/%d 页  %d 字" % (bid, title[:24], got, pages, len(body)),
+                  flush=True)
+        added += 1
+
+    print("\n新增 %d 本 | 已在册跳过 %d | 无有效文本 %d" % (added, skipped, empty), flush=True)
+
+    if added and not DRY:
+        manifest["books"] = books
+        manifest["count"] = len(books)
+        manifest["updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        s3.put_object(Bucket=BUCKET, Key=MANIFEST_KEY,
+                      Body=json.dumps(manifest, ensure_ascii=False, indent=1).encode("utf-8"),
+                      ContentType="application/json; charset=utf-8")
+        print("manifest 已更新:%d 本(原 %d 本,纯追加)" % (len(books), len(books) - added),
+              flush=True)
+    elif not added:
+        print("本轮没有可接入的书 —— 不动 manifest", flush=True)
+
+
+main()
