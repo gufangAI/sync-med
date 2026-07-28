@@ -15,12 +15,18 @@
 #   4) garbage_ratio  — 既非 CJK、非 CJK 标点、非 ASCII 可打印的"乱码"字符占比(含 U+FFFD/控制符)
 #   5) single_char    — 单一最高频字符占比:单字符刷屏(。。。。 / oooo)
 #   6) cjk_ratio      — CJK 占比(软信号:封面/牌记/西文页天然低,不单独判死)
-#   7) abs_repeat     — 同一片段【背靠背连出】的绝对次数(不是占比):短页专用
+#   7) abs_repeat     — 同一片段【背靠背连出】的绝对次数(不是占比):全长度生效
 #   8) model_meta     — OCR 模型自己的元话术("图中包含的文字内容是…"):短页专用
 #
 # 每条判据都有自己的最短生效长度,短于它就不出判决(比例在小分母上没有判别力):
 #   1)2)3) -> MIN_LEN_FOR_REPEAT(=LONG_PAGE 40)   4)5) -> MIN_LEN_FOR_RATIO(20)   6) -> LONG_PAGE(40)
-#   7)8) 反过来:【只在】 n < MIN_LEN_FOR_REPEAT 时生效,专门补 1)2)3) 让开的那一档。
+#   7) 没有长度门:次数不吃分母,长短页一样有判别力(2026-07-28 由短页专用扩到全长度)。
+#   8) 反过来:【只在】 n < MIN_LEN_FOR_REPEAT 时生效,专门补 1)2)3) 让开的那一档。
+#
+# 7) 还兼一份【纠错】职责:1)2) 是比例,分不开"药名+剂量反复出现"(方剂组成页,正货)
+#   与"模型卡住复读"(垃圾)——两者比例长得一模一样;而 7) 把两堆分得干干净净
+#   (正货背靠背连出恒 1~2,复读恒 >=6)。所以 7) 极低时会把 1)2) 的判决豁免掉,
+#   详见 ABS_REPEAT_CLEAN。
 #
 # opsec:1)~7) 不含可读 CJK 字面量,原文片段一律 unicode_escape 后才进返回值。
 #   8) 必须写中文字面量(它要认的就是那几句现代汉语),按本仓已有先例办
@@ -58,6 +64,9 @@ _REPEAT_MARKS = set("〇○●□■◇◆△▲▽▼※…‥・ヽヾゝゞ�
 # ---- 阈值(模块常量,便于调参)----
 REPEAT_NGRAM_REJECT = 0.50   # 最高频 2..8-gram 占全文 >=50% -> 短语刷屏,判死
 REPEAT_NGRAM_SUSPECT = 0.32
+# repeat_ngram 扫到的最长 n-gram。原先是 repeat_ngram() 里写死的 range(2, 9),
+# 提成常量不是为了好看:ABS_REPEAT_MAX_UNIT 是从它算出来的,写死在两处就会各自漂移。
+REPEAT_NGRAM_MAX_N = 8
 MAX_RUN_REJECT = 0.45        # 连续复读游程 >=45% -> 判死
 MAX_RUN_SUSPECT = 0.28
 LINE_DUP_REJECT = 0.60       # 重复行占比 >=60%(且行数够多)-> 判死
@@ -98,7 +107,21 @@ LONG_PAGE = 40
 # 另外 4 条线裸奔;收进本模块后 5 条线一致,不再有第二个会漂移的副本。
 MIN_LEN_FOR_REPEAT = LONG_PAGE
 
-# ---- 短页专用判据(补 MIN_LEN_FOR_REPEAT 让开的那一档)-------------------
+# ---- 背靠背连出次数(判据 7)与元话术(判据 8)-----------------------------
+# 判据 7 最初是"短页专用"(补 MIN_LEN_FOR_REPEAT 让开的那一档),2026-07-28 扩到全长度,
+# 因为 40 字那条线把方剂组成页劈成了两半:短的救了,长的照样被比例判据误杀。
+#   八珍湯组成    39 字 -> ok       走短页路径
+#   十全大補湯    49 字 -> reject   走长页路径,被 repeat_ngram=0.50 判死
+# 十全大補湯、八味丸这类大方随便就超 40 字,不是边缘案例,是药方库的主力。
+# 而背靠背连出在长页上同样把两堆分得干干净净(正货恒 1~2,复读恒 >=6),
+# 说明错的是【比例判据】,不是页面本身。扩过去之后 7) 同时干两件事:
+#   ① 判死:背靠背连出 >= ABS_REPEAT_REJECT 的页,任何长度都判死
+#      (顺带补上原先自报的"代价②":长页里的局部复读,占比够不着但次数够得着)
+#   ② 豁免:背靠背连出 <= ABS_REPEAT_CLEAN 的页,把 1)2) 的判决降级掉(见下)
+#
+# 判据 8 仍然只在短页生效,理由没变,见 MODEL_META_MARKERS 上方 ②。
+#
+# 下面这段是判据 7 当初的立据,原样保留:
 # 上面那道下限方向是对的,但"低于 40 字就完全不判"太粗:2026-07-28 run 30339783256
 # 全量扫描 86 个历史判退页,11 页因这道下限从 reject 翻成 ok,其中大部分本来就该判退
 # (「鶯鳥」连出 12 次 24 字、「鵝鶚」连出 9 次 18 字、「上」连出 8 次 8 字)。
@@ -129,10 +152,56 @@ MIN_LEN_FOR_REPEAT = LONG_PAGE
 #   代价说清楚:连出 3~7 次的短复读现在会漏过去。等判退台账(ocr_reject_log 已把
 #   abs_repeat 一起记下)攒出这一段的真实样本,再拿样本把门槛往下挪,而不是现在猜。
 ABS_REPEAT_REJECT = 8
-# 单元长度上限。取 4 是因为再长的片段背靠背连出 8 次要 32 字以上,已经越过 40 字长度门,
-# 归 max_run / repeat_ngram 管。下限取 1 而不是 2:实测样本「上」连出 8 次,
-# 按 2 字单元「上上」数只有 4 次,够不到门槛;单字连出正是最常见的一种复读。
-ABS_REPEAT_MAX_UNIT = 4
+# 门槛 8 在长页上同样站得住(2026-07-28 扩到全长度时复测,123 条语料):
+#   长页正货侧 abs_repeat 最大 = 2;长页判退侧最小 = 6(6 条整行复读页,
+#   它本来就被 line_dup=0.83 + repeat_ngram=0.50 两条判死,不靠这条)。
+#   其余长页垃圾全在 8..300。3..5 依旧一条样本没有,门槛不动、不向下外推。
+
+# 单元长度上限。旧值 4 是"短页专用"时代定的(理由:再长的片段背靠背连出 8 次要 32 字
+# 以上,已越过 40 字长度门,归 max_run / repeat_ngram 管)。判据扩到长页后这条理由
+# 不再成立,而且恰恰反过来——长单元的复读会同时骗过旧 abs_repeat 和肉眼。实测:
+#     「傷寒論卷之」×15 (75 字)  旧 abs_repeat = 1
+#     「太陽之爲病脉浮頭」×10 (80 字) 旧 abs_repeat = 1
+#     「太陽之爲病脉浮頭項強痛而惡寒太陽」×8 (128 字) 旧 abs_repeat = 2
+#   它们全是模型卡住复读,旧值一律报"没有重复"。这一档如果拿去做豁免判据,
+#   就会把这三页从 reject 放行进燃料池 —— 豁免比判死更需要这个上限够宽。
+#
+# 新值 25 是【算出来的,不是拍的】:一个 u 字单元背靠背铺满整页时,repeat_ngram
+# 最高只能到 min(REPEAT_NGRAM_MAX_N, u)/u;要够得着它最松的一档 REPEAT_NGRAM_SUSPECT,
+# 就得 8/u >= 0.32,即 u <= 25。单元比 25 还长的背靠背复读,比例判据本来就一句话不说,
+# 豁免也就没有"豁错"的可能 —— 上限取 25 正好把"比例判据会开口"的区间盖满,不多不少。
+# 写成表达式而不是字面量 25:阈值一改这里跟着走,不留第二个会漂移的副本。
+#
+# 下限仍取 1 而不是 2:实测样本「上」连出 8 次,按 2 字单元「上上」数只有 4 次,
+# 够不到门槛;单字连出正是最常见的一种复读。
+#
+# 加宽【不动短页的判死行为】,这是算出来的不是跑出来的:rep = run // p + 1 >= 8
+# 要求 run >= 7p,而 run <= L - p,故 L >= 8p。L < 40 时只有 p <= 4 够得着门槛 8,
+# 与旧上限完全一致。加宽只会让短页的 abs_repeat 报得更准(进台账),不改判决。
+# 代价是扫描量 O(25·L):2000 字的页 5 万次字符比较,实测毫秒级。
+ABS_REPEAT_MAX_UNIT = int(round(REPEAT_NGRAM_MAX_N / REPEAT_NGRAM_SUSPECT))   # = 25
+
+# 「背靠背连出次数低到这个数以内」= 这一页里根本没有复读。
+# 此时 repeat_ngram / max_run 看到的"重复"是【散布】的 —— 方剂组成页里药名与剂量单位
+# 天然反复出现(一錢/三兩/各等分),十全大補湯的「一錢」能占到全页一半,比例判据当场
+# 判死,而它一次背靠背都没有。比例分不开的,背靠背分得开,所以让背靠背去纠比例的错。
+#
+# 取 2 = 【正货侧实测到的最大值】,不向上外推。123 条语料的长页(n>=40)上:
+#     正货侧 abs_repeat 最大 = 2   (傷寒論正文/序跋 60 字以上偶尔 =2,方剂组成页恒 =1)
+#     判退侧 abs_repeat 最小 = 6   (整行复读 6 行那条)
+#     中间 3..5 一条样本都没有
+# 与 ABS_REPEAT_REJECT 正好是一对:那个取判退侧实测最小值(8),这个取正货侧实测
+# 最大值(2),中间无样本区 3..7 两边都不碰 —— 既不豁免也不判死,维持比例判据原判。
+# 本仓被"拿没证据的数当门槛"咬过(FALLBACK_BASELINE 的 distinct=300 误杀成无己
+# 《註解傷寒論》),两个门槛都只站在自己那侧的实测极值上。
+#
+# ★ 豁免还有第二道闸:必须 cjk_ratio >= CJK_SUSPECT。理由是实测逼出来的,不是谨慎:
+#   替换符乱码页、纯 ASCII 符号刷屏页的复读单元不含 CJK/字母数字,被 _unit_has_content
+#   挡在计数外,abs_repeat 报 1 —— 光看"背靠背=1"会把它们当正货放行。而它们的
+#   cjk_ratio 恒为 0.00,方剂组成页恒为 1.00,两堆零重叠。语义上也对得上:
+#   "重复是散布的药名剂量"这个说法,只对【确实是中日文正文页】的页成立。
+#   复用已有的 CJK_SUSPECT,不另立新数。
+ABS_REPEAT_CLEAN = 2
 
 # OCR 模型的「元话术」:模型没读出字时,不是返回空,而是用现代汉语描述这张图
 # (线上实测样本:一整页只有「图中包含的文字内容是日文。」13 字)。
@@ -200,7 +269,7 @@ def repeat_ngram(text):
     if n_total < 6:
         return 0.0, 0, ""
     best, best_n, best_unit = 0.0, 0, ""
-    for n in range(2, 9):
+    for n in range(2, REPEAT_NGRAM_MAX_N + 1):
         if n_total < n * 3:
             break
         c = Counter(t[i:i + n] for i in range(0, n_total - n + 1))
@@ -253,9 +322,13 @@ def abs_repeat_run(text):
     """最长"同一片段背靠背连出"的【绝对次数】。返回 (repeats, unit_len)。
 
     与 max_run_ratio 是同一个原语(周期 p 上 s[i]==s[i+p] 的连续段),差别只在
-    返回次数而不是占比——短页上占比没有判别力(分母太小),次数有。
+    返回次数而不是占比——占比吃分母(短页分母太小、长页分母太大),次数不吃。
     刻意复用同一套游程逻辑,不另造一份数法:本仓吃过"同一判据两份副本各自漂移"的亏。
     没有任何重复时返回 1(= 这个片段只出现了它自己那一次),不是 0。
+
+    注意周期上限:本函数扫 p=1..ABS_REPEAT_MAX_UNIT(25),max_run_ratio 扫 p=1..12。
+    两者不一样是【故意的】——max_run 是占比,长单元的复读它靠 p<=12 那一段已经能看见;
+    本函数要给豁免当依据,必须把"比例判据会开口"的单元长度全盖住,漏一档就漏一页垃圾。
     """
     t = _clean(text)
     L = len(t)
@@ -338,15 +411,29 @@ def analyze(text):
     # 诊断信息一条不少,调用方要自己看比例随时能看。
     long_enough = n >= MIN_LEN_FOR_REPEAT
 
-    if long_enough and rep >= REPEAT_NGRAM_REJECT:
+    # 「散布型重复」:这一页一次背靠背都没有(见 ABS_REPEAT_CLEAN),而且它确实是
+    # 中日文正文页。此时 repeat_ngram / max_run 量到的重复来自药名与剂量单位反复出现,
+    # 不是模型卡住 —— 比例分不开正货和垃圾,背靠背分得开,让背靠背纠比例的错。
+    # 只纠 repeat_ngram / max_run 这两条【量同一件事(片段重复)】的,不动 line_dup:
+    # 整行一模一样是字面重复,方剂组成页每行药名都不同,它不会被这个机制冤枉。
+    scattered = arep <= ABS_REPEAT_CLEAN and cjk >= CJK_SUSPECT
+    repeat_judgable = long_enough and not scattered
+
+    if repeat_judgable and rep >= REPEAT_NGRAM_REJECT:
         reject = True; reasons.append(f"repeat_ngram={rep:.2f}(n={rep_n})")
-    elif long_enough and rep >= REPEAT_NGRAM_SUSPECT:
+    elif repeat_judgable and rep >= REPEAT_NGRAM_SUSPECT:
         suspect = True; reasons.append(f"repeat_ngram~{rep:.2f}")
 
-    if long_enough and run >= MAX_RUN_REJECT:
+    if repeat_judgable and run >= MAX_RUN_REJECT:
         reject = True; reasons.append(f"max_run={run:.2f}(p={run_p})")
-    elif long_enough and run >= MAX_RUN_SUSPECT:
+    elif repeat_judgable and run >= MAX_RUN_SUSPECT:
         suspect = True; reasons.append(f"max_run~{run:.2f}")
+
+    # 豁免真的生效时(= 比例本来要开口了)才留痕,否则每一页干净长页都会带上这条,
+    # 审计报告的 top_reasons 会被刷屏。留痕是必须的:豁免是本模块唯一一条【放行】
+    # 逻辑,它要是哪天放错了,得有人能在日审报告里看见它放了多少页。
+    if long_enough and scattered and (rep >= REPEAT_NGRAM_SUSPECT or run >= MAX_RUN_SUSPECT):
+        reasons.append(f"scattered_repeat={arep}")
 
     if long_enough and nlines >= LINE_DUP_MIN_LINES and ldup >= LINE_DUP_REJECT:
         reject = True; reasons.append(f"line_dup={ldup:.2f}({nlines}L)")
@@ -361,16 +448,20 @@ def analyze(text):
     if n >= MIN_LEN_FOR_RATIO and single >= SINGLE_CHAR_REJECT:
         reject = True; reasons.append(f"single_char={single:.2f}")
 
-    # ── 短页专用判据:【只在】上面三条被长度门挡住的那一档生效 ──────────────
-    # 写成 `not long_enough` 而不是另设一个上限常量,是为了让"长页零改动"是【结构上
-    # 成立】的,而不是靠回归跑出来碰巧没变:两个分支互斥,>=40 字的页根本走不到这里。
-    # 代价随之而来,写明白:长页里的【局部】复读(200 字正文里夹 20 字「鶯鳥鶯鳥…」,
-    # 占比才 0.11,三条比例判据都够不着)本次仍然漏,要不要放开长度门归 CTO 定。
-    if not long_enough:
-        if arep >= ABS_REPEAT_REJECT:
-            reject = True; reasons.append(f"abs_repeat={arep}(u={arep_u})")
-        if meta_k >= 0:
-            reject = True; reasons.append(f"model_meta=k{meta_k}")
+    # ── 判据 7:背靠背连出次数,【不设长度门】────────────────────────────────
+    # 2026-07-28 由 `if not long_enough:` 改成无条件。原先挡在短页那一档是为了让
+    # "长页零改动"结构上成立,代价是长页里的【局部】复读全漏(200 字正文里夹 20 字
+    # 「鶯鳥鶯鳥…」,占比才 0.11,三条比例判据都够不着 —— 那正是上一轮自报的代价②)。
+    # 次数判据不吃分母,长页上和短页上一样准,没有理由只用一半。实测:那条局部复读页
+    # 的背靠背连出 = 15,门槛 8 稳稳抓住;而长页正货最大才 2,离门槛还有 4 倍。
+    if arep >= ABS_REPEAT_REJECT:
+        reject = True; reasons.append(f"abs_repeat={arep}(u={arep_u})")
+
+    # ── 判据 8:元话术,仍然只在短页生效 ────────────────────────────────────
+    # 理由没变(见 MODEL_META_MARKERS 上方 ②):够长的页 = 模型确实读出了东西,
+    # 哪怕尾巴上缀了一句元话术也该保住正文,而不是整页判死。本轮不动它。
+    if not long_enough and meta_k >= 0:
+        reject = True; reasons.append(f"model_meta=k{meta_k}")
 
     if n >= LONG_PAGE and cjk < CJK_SUSPECT and not reject:
         suspect = True; reasons.append(f"cjk_low={cjk:.2f}")
@@ -392,8 +483,8 @@ def analyze(text):
             "repeat_n": rep_n, "repeat_unit": rep_unit,
             "max_run": round(run, 3), "run_period": run_p,
             "line_dup": round(ldup, 3), "n_lines": nlines,
-            # 新增两项照旧【全长度返回】,只是判决被 not long_enough 挡在短页那一档。
-            # 长页也返回,是为了下次调门槛时能直接在判退台账上重算,不用回 R2 考古
+            # abs_repeat 全长度参与判决(2026-07-28);model_meta 仍只在短页判决,
+            # 但两者照旧【全长度返回】,下次调门槛能直接在判退台账上重算,不用回 R2 考古
             # (ocr_reject_log 的注释写死了这条:记 ratio 就是为了不用再考古)。
             "abs_repeat": arep, "abs_repeat_unit": arep_u, "model_meta": meta_k}
 
