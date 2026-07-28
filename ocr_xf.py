@@ -7,6 +7,7 @@
 import os, io, re, json, base64, sys, time, threading, requests, boto3
 from concurrent.futures import ThreadPoolExecutor
 import ocr_quality   # OCR 质量闸:LLM 视觉 OCR 幻觉/乱码检测(纯规则,治讯飞幻觉静默入库)
+import ocr_reject_log   # 判退页台账:判退的是【哪几页】必须留下名单,不能只留一个计数(见该模块开头)
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKET = os.environ["S_BUCKET"]
 CF_ACC = os.environ["CF_ACCOUNT_ID"]; D1_DB = os.environ["D1_DATABASE_ID"]; D1_TOK = os.environ["D1_API_TOKEN"]
@@ -185,6 +186,7 @@ if _pilot:
 print(f"shard {SHARD}/{TOTAL} key#{SHARD % len(KEYS)} pages {len(mine)}/{len(pages)} pilot={_pilot or 'no'}", flush=True)
 
 lock = threading.Lock(); cnt = {"done": 0, "skip": 0, "err": 0, "rej": 0}
+rejects = []   # 本轮判退明细,收尾时一次性合并进 _ledger/rejected_ocrxf_{SHARD}.json
 
 LEDGER = "ledger.json"
 ledger = set()
@@ -215,14 +217,22 @@ def work(item):
             return
         # OCR 质量闸:讯飞 LLM 视觉 OCR 在空白/密排页会幻觉出短语刷屏/整行复读/乱码。
         # reject 的不进 _ocr/ 燃料池,改落 _ocr_rejected/ 标记(供换引擎退回重跑),记账避免每轮重烧。
-        if ocr_quality.verdict(txt) == "reject":
+        # 用 analyze 而不是 verdict:verdict 只给 label,拿不到 reasons/ratio,
+        # 台账就又退回成「只有一个计数」——那正是这次要治的病。判决逻辑完全一样
+        # (verdict 内部就是 analyze()["label"]),不改行为。
+        qa = ocr_quality.analyze(txt)
+        if qa["label"] == "reject":
             rejkey = f"_ocr_rejected/{bid}/page_{pstr}.txt"
+            stored = True
             try:
                 s3.put_object(Bucket=BUCKET, Key=rejkey, Body=txt.encode("utf-8"))
             except Exception:
-                pass
+                # PUT 失败被吞的页在 R2 里一个字节都不存在:既不在 _ocr/ 也不在
+                # _ocr_rejected/。台账是它唯一的存在证明,所以照记,只是标 stored=False。
+                stored = False
             with lock:
                 ledger.add(txtkey); cnt["rej"] += 1
+                ocr_reject_log.record(rejects, rejkey, qa, stored)
             return
         s3.put_object(Bucket=BUCKET, Key=txtkey, Body=txt.encode("utf-8"))
         with lock:
@@ -239,6 +249,9 @@ with ThreadPoolExecutor(max_workers=WORKERS) as ex:
     list(ex.map(work, mine))
 
 json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
+# 判退明细台账(每 shard 一次 GET + 一次 PUT,零 LIST)。
+# 汇总台账里的 rej 只是个数字;要知道被判退的是【哪几页】只能靠它。
+ocr_reject_log.flush(s3, BUCKET, "ocrxf", SHARD, rejects)
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocrxf_{SHARD}.json",
               Body=json.dumps({"shard": SHARD, "total": len(mine),
                                "ocrd": cnt["skip"] + cnt["done"], "new": cnt["done"],

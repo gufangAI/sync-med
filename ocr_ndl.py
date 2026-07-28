@@ -5,6 +5,7 @@
 import os, io, json, re, time, subprocess, sys, boto3, requests
 from collections import Counter
 import ocr_quality   # 页级质量闸:与 ocr.py / ocr_xf.py / ocr_reflash.py 同一份幻觉/乱码判据
+import ocr_reject_log   # 判退页台账:判退的是【哪几页】必须留下名单,不能只留一个计数(见该模块开头)
 
 # CJK 占比改用 ocr_quality.cjk_ratio ——本文件原先自带一份字面完全相同的副本
 # (同一个正则、同一个去空白规则)。同一判据留两份就是 ocr_degeneracy.py 那次合并
@@ -262,6 +263,7 @@ if os.path.exists(LEDGER):
 print(f"ledger已有 {len(ledger)} 条记录", flush=True)
 
 done, skip, err, low_conf, rejected = 0, 0, 0, 0, 0
+rejects = []   # 本轮判退明细,收尾时一次性合并进 _ledger/rejected_ocr_ndl_{SHARD}.json
 for bid, p, pdid in mine:
     pstr = str(p).zfill(4)
     lkey = f"{bid}:{pstr}"
@@ -339,11 +341,19 @@ for bid, p, pdid in mine:
             # 供换引擎重跑时比对。注意这不是新增 R2 写入:判退页原本也要 PUT 一次,只是换了前缀。
             qa = ocr_quality.analyze(text)
             if qa["label"] == "reject":
+                rejkey = f"_ocr_rejected/{bid}/page_{pstr}.txt"
+                stored = True
                 try:
-                    s3.put_object(Bucket=BUCKET, Key=f"_ocr_rejected/{bid}/page_{pstr}.txt",
+                    s3.put_object(Bucket=BUCKET, Key=rejkey,
                                   Body=text.encode("utf-8"), ContentType="text/plain; charset=utf-8")
                 except Exception:
-                    pass
+                    # PUT 失败被吞的页在 R2 里一个字节都不存在:既不在 _ocr/ 也不在
+                    # _ocr_rejected/。台账是它唯一的存在证明,所以照记,只是标 stored=False。
+                    stored = False
+                # 判退【哪几页】要留下名单,不能只留计数 rejected。判据本身会随时间调整
+                # (2026-07-28 就刚给三条重复类判据补了长度下限),没有名单就只能靠翻
+                # run log + 重建候选集 + 逐个 HEAD 的考古法把误杀的页找回来。
+                ocr_reject_log.record(rejects, rejkey, qa, stored)
                 # 判退也要记账。不记的话每 6 小时 cron 会把同一页重拉重跑——同一张图喂同一个
                 # 引擎不会产出不同结果,那是刚修完的死页空转的同一个坑。
                 ledger.add(lkey)
@@ -381,6 +391,10 @@ _dead_by_book = Counter(k.split(":")[0] for k in dead)
 dead_books = len(_dead_by_book)
 top_dead = _dead_by_book.most_common(5)
 
+# 判退明细台账(每 shard 一次 GET + 一次 PUT,零 LIST)。这条线每 6 小时一轮 cron、
+# 每轮只啃 RUN_CAP 页,所以台账必须是【累积】的:模块内部会先读回旧台账再合并,
+# 直接覆盖写等于每轮把上一轮的名单抹掉,一周后只剩最后 6 小时,那还是没人看得见。
+ocr_reject_log.flush(s3, BUCKET, "ocr_ndl", SHARD, rejects)
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocr_ndl_{SHARD}.json",
               Body=json.dumps({"shard": SHARD, "total": len(mine), "done": done, "skip": skip,
                                "err": err, "low_conf": low_conf, "rejected": rejected,

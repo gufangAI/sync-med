@@ -7,6 +7,7 @@ from PIL import Image
 from botocore.exceptions import ClientError
 from rapidocr_onnxruntime import RapidOCR
 import ocr_quality
+import ocr_reject_log   # 判退页台账:判退的是【哪几页】必须留下名单,不能只留一个计数(见该模块开头)
 import pan_fetch   # OCR 质量闸:重复短语/整行复读/乱码率检测(纯规则),不合格标记不入库
 
 EP = os.environ["S_EP"]; AK = os.environ["S_AK"]; SK = os.environ["S_SK"]; BUCKET = os.environ["S_BUCKET"]
@@ -159,6 +160,7 @@ if os.path.exists(LEDGER):
 print(f"ledger已有 {len(ledger)} 条记录", flush=True)
 
 done = 0; skipped = 0; rejected = 0
+rejects = []   # 本轮判退明细,收尾时一次性合并进 _ledger/rejected_ocr_{SHARD}.json
 USE_PAN = False
 # Two failure modes that look identical in a "0 new" line but need opposite
 # fixes: the book has no 123 folder id in the manifest (refresh the manifest),
@@ -238,12 +240,20 @@ for k in mine:
         res, _ = engine(im)
         txt = "\n".join(l[1] for l in (res or []))   # res = [[box, text, score], ...]
         # OCR 质量闸:reject(短语刷屏/整行复读/乱码)不进 _ocr/ 燃料池,落 _ocr_rejected/ 标记
-        if ocr_quality.verdict(txt) == "reject":
+        # 用 analyze 而不是 verdict:verdict 只给 label,拿不到 reasons/ratio,
+        # 台账就又退回成「只有一个计数」——那正是这次要治的病。判决逻辑完全一样
+        # (verdict 内部就是 analyze()["label"]),不改行为。
+        qa = ocr_quality.analyze(txt)
+        if qa["label"] == "reject":
+            rejkey = "_ocr_rejected/" + k[len("book/"):].rsplit(".", 1)[0] + ".txt"
+            stored = True
             try:
-                s3.put_object(Bucket=BUCKET, Key="_ocr_rejected/" + k[len("book/"):].rsplit(".", 1)[0] + ".txt",
-                              Body=txt.encode("utf-8"))
+                s3.put_object(Bucket=BUCKET, Key=rejkey, Body=txt.encode("utf-8"))
             except Exception:
-                pass
+                # PUT 失败被吞的页在 R2 里一个字节都不存在:既不在 _ocr/ 也不在
+                # _ocr_rejected/。台账是它唯一的存在证明,所以照记,只是标 stored=False。
+                stored = False
+            ocr_reject_log.record(rejects, rejkey, qa, stored)
             ledger.add(txtkey); rejected += 1
             continue
         s3.put_object(Bucket=BUCKET, Key=txtkey, Body=txt.encode("utf-8"))
@@ -255,6 +265,9 @@ for k in mine:
         print("ERR", k, str(e)[:50], flush=True)
 
 json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=False)
+# 判退明细台账(每 shard 一次 GET + 一次 PUT,零 LIST)。
+# 汇总台账里的 rej 只是个数字;要知道被判退的是【哪几页】只能靠它。
+ocr_reject_log.flush(s3, BUCKET, "ocr", SHARD, rejects)
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocr_{SHARD}.json",
               Body=json.dumps({"shard": SHARD, "total": len(mine), "ocrd": skipped + done,
                                "new": done, "rej": rejected,
