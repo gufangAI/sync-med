@@ -1,0 +1,67 @@
+name: ocr-recover-scan
+
+# 判退页捞回 · 第 1 步定位 + 第 2 步空跑判级。**只读**,不写回任何 R2 对象。
+# 质量闸的三条重复类判据原先没有长度下限,把短的方剂组成页当垃圾判退;判据已在
+# 1824f50 修好,本 workflow 负责把当时被误杀、积在 _ocr_rejected/ 下的页找出来重判,
+# 出一张表让 CTO 决定第 3 步(放回 _ocr/)怎么走。第 3 步不在本 workflow 里。
+#
+# 只挂 workflow_dispatch,**不加 cron**:这是一次性考古,不是产线。
+# 定位全程 head_object,零 list_objects(零 LIST 铁律);重判只 GET 命中的那几十个对象。
+on:
+  workflow_dispatch:
+    inputs:
+      window:
+        description: 第一轮扫多少个候选(已知候选集 = 排序后前 800,默认留一倍余量防漂移)
+        default: "2000"
+      max_window:
+        description: 数不够时自动加宽的上限
+        default: "8000"
+      expect:
+        description: 验收判据 - 应找到多少个判退对象(run log 逐 shard 相加 = 4+83 = 87)
+        default: "87"
+      snippet_mode:
+        description: 报告里的正文片段 plain(可读,默认) / escaped(转义)
+        default: "plain"
+      use_allow:
+        description: 是否套 ALLOW_KEY 白名单(历史 run 当时取不到,默认 0 忠实复刻)
+        default: "0"
+
+concurrency:
+  group: ocr-recover-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet boto3 requests
+      - name: locate + re-grade rejected pages (read-only)
+        run: python ocr_recover_scan.py
+        env:
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          ALLOW_KEY: ${{ secrets.ALLOW_KEY }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          WINDOW: ${{ github.event.inputs.window || '2000' }}
+          MAX_WINDOW: ${{ github.event.inputs.max_window || '8000' }}
+          EXPECT: ${{ github.event.inputs.expect || '87' }}
+          SNIPPET_MODE: ${{ github.event.inputs.snippet_mode || 'plain' }}
+          USE_ALLOW: ${{ github.event.inputs.use_allow || '0' }}
+      # if: always() —— 判据不通过时脚本会 exit 1,而那恰恰是最需要看报告的时候。
+      - name: upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-recover-report
+          path: |
+            ocr_recover_report.md
+            ocr_recover_hits.json
+          if-no-files-found: warn
