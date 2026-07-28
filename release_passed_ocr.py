@@ -94,11 +94,16 @@ def main():
             base.append(p)
     bl = deg.baseline_of(base)
     if not base:
-        # Say so out loud: the fallback baseline is far stricter than the measured
-        # one (distinct 300 x 0.30 = 90 against a real floor of 30), so a silent
-        # baseline outage looks exactly like a batch of suddenly-bad books.
-        print("WARN 取不到已校对基线,改用保守默认值 —— 本轮判定会明显偏严,"
-              "大批判退时先怀疑基线而不是书", flush=True)
+        # The fallback used to be far stricter than the measured baseline
+        # (distinct 300 x 0.30 = 90 against a floor of 30), so an outage looked
+        # exactly like a batch of suddenly-bad books. FALLBACK_BASELINE is now
+        # the measured 97, which max() discards in favour of the floor -- the
+        # relative arm simply stops contributing and the absolute floors apply.
+        # Still say it out loud: this script releases books into the index, and
+        # an unreadable proofread corpus is a fault worth chasing on its own.
+        print("WARN 取不到已校对基线(语料读不到 / 本批无对应版本)—— 相对判据本轮不生效,"
+              "只用绝对下限(千字异字 %.0f);判定不会因此变严,但基线读不到本身要查"
+              % deg.distinct_floor(bl), flush=True)
     print("基线(%d 本已校对): CJK %.3f | 最高频 %.4f | 千字异字 %.1f"
           % (len(base), bl["cjk"], bl["top1"], bl["distinct"]), flush=True)
 

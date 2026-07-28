@@ -168,8 +168,13 @@ def intrinsic(s3, ocr_books, truth):
         print("\n   已校对语料基线(%d 本): CJK占比 %.3f | 最高频字占比 %.4f | 每千字不同字 %.1f"
               % (len(base), bl["cjk"], bl["top1"], bl["distinct"]), flush=True)
     else:
-        print("\n   WARN 取不到基线,用保守默认值 —— 判定会明显偏严(千字异字门槛 %.0f 而非 %.0f),"
-              "整批判退时先怀疑基线" % (deg.distinct_floor(bl), deg.DISTINCT_ABS_MIN), flush=True)
+        # FALLBACK_BASELINE 的 distinct 从 300 改成实测的 97 之后,回落不再把门槛抬到 90,
+        # 而是退回绝对下限 30(97 x 0.30 = 29.1 被 max() 丢弃)。所以这里不能再说"偏严"。
+        # 但仍要喊:基线取不到最常见的原因是 title_key() 把书名滤空、或已校对语料读不到,
+        # 两者都是要查的故障,只是不会再连带把整批书误判成退化。
+        print("\n   WARN 取不到基线 —— 相对判据本轮不生效,只用绝对下限(千字异字门槛 %.0f);"
+              "判定不会因此变严,但基线读不到本身要查(已校对语料不可读 / 书名匹配不上)"
+              % deg.distinct_floor(bl), flush=True)
 
     sample = random.sample(ocr_books, min(SAMPLE, len(ocr_books)))
     rows = []

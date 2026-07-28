@@ -90,12 +90,36 @@ REP_MAX = 30
 # corpus ran to 70+ (one sampled page was 81 identical characters), so 30 sits in
 # the empty gap between the two populations rather than inside the good one.
 
-FALLBACK_BASELINE = {"cjk": 0.95, "top1": 0.05, "distinct": 300.0}
-# Used only when the proofread corpus cannot be read at all. Deliberately
-# conservative, and note the consequence: distinct 300 x 0.30 = 90, far above the
-# 30 floor, so a baseline outage makes the check much stricter than intended and
-# would reject the Shanghan Lun again. Callers should report when they fall back
-# to this rather than let it pass silently.
+FALLBACK_BASELINE = {"cjk": 0.95, "top1": 0.05, "distinct": 97.0}
+# Used only when the proofread corpus cannot be read at all.
+#
+# Only one entry here has teeth. `cjk` is never read by verdict() -- CJK_MIN is
+# absolute -- and `top1` can only loosen the ceiling, because top1_ceiling() is
+# max(0.15, top1 x 4). `distinct` is the one the relative arm tightens with:
+# distinct_floor() is max(30, distinct x 0.30). So this dict does not decide how
+# conservative the fallback looks. It decides HOW STRICT THE CHECK BECOMES WHEN
+# THE BASELINE GOES MISSING, and that is a much easier thing to get wrong.
+#
+# It was 300, and 300 x 0.30 = 90 -- three times the floor of 30, and far above
+# the 51 distinct-per-1000 of Cheng Wuji's annotated Shanghan Lun. Any baseline
+# outage would therefore have rejected that book again, by the same arithmetic
+# that the floor of 60 was corrected for in e09dd5f. The fallback path was
+# quietly keeping the exact bug the floor had just been fixed for, and the only
+# thing standing between the pipeline and a repeat was the baseline never
+# failing to load. It does fail: title_key() returning empty for a batch whose
+# titles carry no Han characters is enough, as is one unreadable clean-text key.
+#
+# 97 is not a replacement guess. It is the measured average of the proofread
+# corpus, the same figure cited under DISTINCT_ABS_MIN above. 97 x 0.30 = 29.1,
+# which max() discards in favour of the 30 floor -- and that is the point: with
+# no baseline there is nothing to tighten with, so the check falls back to
+# exactly the absolute floors and no further. Losing the baseline must never
+# silently make the pipeline stricter than the numbers anyone has evidence for.
+#
+# Callers must still report when they fall back to this. Not because the verdict
+# gets harsher -- it no longer does -- but because a proofread corpus that
+# cannot be read is a fault in its own right, and the pass/fail counts alone
+# will not show it.
 
 BASELINE_KEYS = ("cjk", "top1", "distinct")
 
