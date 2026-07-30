@@ -46,6 +46,32 @@ def gh(path, method='GET', payload=None):
         return json.loads(r.read() or b'{}')
 
 
+
+_CRON_CACHE = {}
+
+def _has_cron(fname):
+    """读 workflow 正文判断是否真的配了 schedule。API 不给触发器信息，只能看文件。"""
+    if fname in _CRON_CACHE:
+        return _CRON_CACHE[fname]
+    ok = False
+    try:
+        import base64
+        d = gh(f'/repos/{REPO}/contents/.github/workflows/{fname}')
+        body = base64.b64decode(d.get('content', '')).decode('utf-8', 'replace')
+        # 只认没被注释掉的 cron 行：`- cron:` 前面若有 # 则是人为停用，不算停摆
+        for line in body.splitlines():
+            s = line.strip()
+            if s.startswith('#'):
+                continue
+            if 'cron:' in s:
+                ok = True
+                break
+    except Exception:
+        ok = False          # 读不到就当没有 cron，宁可漏报也不误报
+    _CRON_CACHE[fname] = ok
+    return ok
+
+
 def main():
     wfs = gh(f'/repos/{REPO}/actions/workflows?per_page=100').get('workflows', [])
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -75,7 +101,14 @@ def main():
         if r.get('conclusion') == 'failure':
             failed.append((w['name'], fname, hours, r.get('html_url')))
         elif hours is not None and hours >= STALE_HOURS and r.get('conclusion') == 'success':
-            # 只有带 cron 的才算"停摆"——纯手动触发的 workflow 很久没跑是正常的
+            # 只有真带 cron 的才算"停摆"——纯手动触发的 workflow 几百小时没跑完全正常。
+            #
+            # 第一版漏了这道判断，一上线就报了 27 条"疑似停摆"，里面混着大量
+            # 本来就靠 workflow_dispatch 手动跑的诊断脚本（diag_* / *-smoke / ocr_compare 等）。
+            # 误报比不报更糟：人只要被假警报训练两次，真出事那天也会顺手划掉。
+            # GitHub 的 workflows API 不返回触发器信息，只能读 yml 正文判断。
+            if not _has_cron(fname):
+                continue
             stale.append((w['name'], fname, hours))
 
     print(f'扫描 {len(wfs)} 个 workflow · 最近一次失败 {len(failed)} 个 · 疑似停摆 {len(stale)} 个')
