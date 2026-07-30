@@ -49,27 +49,45 @@ def gh(path, method='GET', payload=None):
 
 _CRON_CACHE = {}
 
-def _has_cron(fname):
-    """读 workflow 正文判断是否真的配了 schedule。API 不给触发器信息，只能看文件。"""
+def _cron_period_hours(fname):
+    """
+    返回该 workflow 的 cron 执行周期（小时）；没有未注释的 cron 返回 None。
+
+    为什么要算周期而不是用一个固定阈值：第二版用统一的 48h 判停摆，
+    结果把 report-weekly（100h 没跑）、report-monthly（126h）、weekly-hunter（85h）
+    全报成了异常——它们本来就是每周/每月跑一次，几天不动完全正常。
+    误报比不报更糟：人被假警报训练两次，真出事那天也会顺手划掉。
+
+    只做粗判：看 cron 的"日"和"月"字段是不是固定值，够区分 时/日/周/月 四档。
+    """
     if fname in _CRON_CACHE:
         return _CRON_CACHE[fname]
-    ok = False
+    period = None
     try:
-        import base64
+        import base64, re
         d = gh(f'/repos/{REPO}/contents/.github/workflows/{fname}')
         body = base64.b64decode(d.get('content', '')).decode('utf-8', 'replace')
-        # 只认没被注释掉的 cron 行：`- cron:` 前面若有 # 则是人为停用，不算停摆
         for line in body.splitlines():
             s = line.strip()
-            if s.startswith('#'):
+            if s.startswith('#') or 'cron:' not in s:
+                continue          # 注释掉的 cron = 人为停用，不算
+            m = re.search(r"cron:\s*['\"]([^'\"]+)", s)
+            if not m:
                 continue
-            if 'cron:' in s:
-                ok = True
-                break
+            f = m.group(1).split()
+            if len(f) < 5:
+                continue
+            minute, hour, dom, month, dow = f[:5]
+            if month != '*':          p = 24 * 365      # 每年
+            elif dom != '*' and not dom.startswith('*'): p = 24 * 30   # 每月固定某日
+            elif dow != '*':          p = 24 * 7        # 每周
+            elif hour != '*' and not hour.startswith('*'): p = 24      # 每天固定点
+            else:                     p = 6             # 每几小时或更密
+            period = p if period is None else min(period, p)
     except Exception:
-        ok = False          # 读不到就当没有 cron，宁可漏报也不误报
-    _CRON_CACHE[fname] = ok
-    return ok
+        period = None                # 读不到就当没 cron，宁可漏报不误报
+    _CRON_CACHE[fname] = period
+    return period
 
 
 def main():
@@ -107,9 +125,15 @@ def main():
             # 本来就靠 workflow_dispatch 手动跑的诊断脚本（diag_* / *-smoke / ocr_compare 等）。
             # 误报比不报更糟：人只要被假警报训练两次，真出事那天也会顺手划掉。
             # GitHub 的 workflows API 不返回触发器信息，只能读 yml 正文判断。
-            if not _has_cron(fname):
+            period = _cron_period_hours(fname)
+            if period is None:
+                continue                      # 纯手动触发，几百小时不跑是正常的
+            # 阈值 = 该任务自己周期的 2.5 倍，且不低于 STALE_HOURS。
+            # 周报允许 420h、日报允许 60h —— 各按各的节奏判，不搞一刀切。
+            limit = max(STALE_HOURS, int(period * 2.5))
+            if hours < limit:
                 continue
-            stale.append((w['name'], fname, hours))
+            stale.append((w['name'], fname, hours, limit))
 
     print(f'扫描 {len(wfs)} 个 workflow · 最近一次失败 {len(failed)} 个 · 疑似停摆 {len(stale)} 个')
     for n, f, h, _ in failed:
@@ -125,9 +149,9 @@ def main():
     for n, f, h, url in failed:
         lines.append(f'- **{n}** (`{f}`) · {h} 小时前 · [查看运行]({url})')
     if stale:
-        lines += ['', f'## 🟡 超 {STALE_HOURS}h 未运行（触发器可能断了）', '']
-        for n, f, h in stale:
-            lines.append(f'- {n} (`{f}`) · 上次 {h} 小时前')
+        lines += ['', '## 🟡 超出各自 cron 周期未运行（触发器可能断了）', '']
+        for n, f, h, lim in stale:
+            lines.append(f'- {n} (`{f}`) · 上次 {h} 小时前（该任务阈值 {lim}h）')
         lines += ['', '停摆先查"是不是没触发/被 cancel"，别先改代码——'
                       '「之前几天好好的、代码越改越停」是改坏停摆反模式。']
     body = '\n'.join(lines)
