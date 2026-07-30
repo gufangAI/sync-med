@@ -102,7 +102,14 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0 Safari/537.36"
 s3 = boto3.client("s3", endpoint_url=S_EP, aws_access_key_id=S_AK, aws_secret_access_key=S_SK, region_name="auto")
 
 # free-only models accepted by /api/ai/expert (must avoid its PAID set, which needs login/vipcode)
-FREE_EXPERT_MODELS = ["sensenova", "longcat", "zhipu", "agnes", "cerebras", "modelscope"]
+# 2026-07-31 重排：顺序按当天实测的稳定度，不是随手写的。
+# 原顺序前三是 sensenova/longcat/zhipu，而 call_expert 只试前 N 家——
+# run 30523830732 就死在这：sensenova 502、longcat 超时、zhipu 超时，三家全挂，
+# 名单里后面几家明明是好的却根本没轮到，整个 job 报 "No files were found: out.mp4"。
+# 实测同一道医案题打 /api/ai/expert（expert=zhongjing）：nvidia / cerebras / agnes /
+# zhipu / longcat 五家返回 200，modelscope 与 sensenova 返回非 JSON（超时或网关错）。
+# 把稳的排前面比加重试次数更省预算——第一家就成功，根本不会进入重试。
+FREE_EXPERT_MODELS = ["nvidia", "cerebras", "agnes", "zhipu", "longcat", "modelscope", "sensenova"]
 
 
 def sh(cmd, check=True):
@@ -134,7 +141,8 @@ def http_bytes(url, headers=None, timeout=60):
 # ---------- 1. real grounded content: call the production expert-persona API ----------
 def call_expert(q, expert=EXPERT_KEY):
     last_err = None
-    for m in FREE_EXPERT_MODELS[:3]:   # cap attempts so one bad title doesn't eat the whole job budget
+    for m in FREE_EXPERT_MODELS[:4]:   # 3→4：留一档余量，前三家同时抽风时不至于整个 job 报废；
+                                   # 仍设上限，免得一个坏标题把所有供应商挨个耗一遍
         try:
             status, j = http_json("POST", EXPERT_API, {"expert": expert, "model": m, "q": q}, timeout=100)
             if status == 200 and j.get("ok") and j.get("analysis"):
