@@ -1,0 +1,40 @@
+name: 💰 Intake Sentry · 内测申请哨兵
+
+# 有人想付钱时，确保有人知道。
+#
+# /pricing 的三个申请入口提交后只往 D1 写一行，没有任何通知——
+# CLAUDE.md 第 8 条：「凡是只写进日志的产线，一律视为没人看」。
+# 2026-07-31 把网站导航的「創始內測」入口补上之后建此哨兵：门开了，得配上铃。
+#
+# 每 4 小时一次而非每天一次：想付钱的人等半天没回音就会走，
+# 巡查间隔要短于人的耐心。零积压时不开 Issue，避免噪音淹掉真信号。
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: intake-sentry
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 巡查待处理申请
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_API_TOKEN:  ${{ secrets.D1_API_TOKEN }}
+          GITHUB_TOKEN:  ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/intake_sentry.py
