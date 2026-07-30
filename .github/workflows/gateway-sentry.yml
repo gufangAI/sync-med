@@ -1,0 +1,36 @@
+name: 🔌 Gateway Sentry · 网关链头哨兵
+
+# 供应商挂了要有人知道，而不是等用户先发现。
+#
+# 2026-07-31 血证：讯飞 chat 授权整片失效，寻脉链头一挂就静默落回小模型——
+# 接口返回 200、JSON 完整、监控全绿，用户看到的是"古籍里没有找到直接记载"。
+# 我是在质量指标掉光、改了三轮自己的代码之后才想到去打健康检查的。
+#
+# 每 2 小时一次：链头挂掉是功能级故障，比内测申请更急。
+# 全绿时不开 Issue，避免噪音淹掉真信号。
+
+on:
+  schedule:
+    - cron: '15 */2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: gateway-sentry
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 巡查网关链头
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          XUNMAI_HEAD: nvidia
+        run: python scripts/gateway_sentry.py
