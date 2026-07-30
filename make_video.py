@@ -176,13 +176,37 @@ def _rewrite_via_nova(analysis, expert_name):
         "不该出现在输出里;这些是你自己的草稿念头,不是讲给观众听的话。\n\n"
         f"研讨者:{expert_name}\n{raw}"
     )
-    body = {"model": "auto", "messages": [{"role": "user", "content": prompt}],
+    # 2026-07-31 改走平台自己的网关 /api/gateway/chat，不再依赖外部 nova-gateway。
+    #
+    # 起因：run 30576913623 的日志里有一行
+    #   [script] nova-gateway rewrite failed, using local fallback: HTTP Error 401 Unauthorized
+    # 视频照样产出了，但口播词降级成本地模板拼接而非 AI 改写——这种"半哑"最难发现：
+    # workflow 是绿的、产物也在，只有质量悄悄掉了一档。
+    #
+    # NOVA_KEY 这个 secret 07-03 就配着，是外部 worker 那侧的凭据失效了。与其去修一个
+    # 单点外部依赖，不如收回平台网关：既符合「一切 AI 调用只走内部免费池网关」的铁律，
+    # 也从"一个 worker 说了算"变成 15 家可落（当日健康检查实测 15/30 可用）。
+    #
+    # 仍保留 nova-gateway 作二落：它历史上一直好用，等凭据修好会自动重新生效。
+    body = {"messages": [{"role": "user", "content": prompt}],
             "max_tokens": 500, "temperature": 0.7}
-    status, j = http_json("POST", NOVA_URL + "/v1/chat/completions", body,
-                           headers={"Authorization": "Bearer " + NOVA_KEY}, timeout=60)
-    text = j["choices"][0]["message"]["content"].strip()
+    text = ""
+    try:
+        status, j = http_json("POST", "https://www.gufangai.com/api/gateway/chat", body, timeout=90)
+        if status == 200:
+            # 该端点把正文放在顶层 text 字段（不是 OpenAI 风格的 choices）
+            text = (j.get("text") or (j.get("data") or {}).get("content") or "").strip()
+    except Exception as e:
+        print(f"[script] platform gateway rewrite failed: {e}", flush=True)
+
     if not text:
-        raise RuntimeError("nova-gateway returned empty content")
+        body2 = dict(body, model="auto")
+        status, j = http_json("POST", NOVA_URL + "/v1/chat/completions", body2,
+                               headers={"Authorization": "Bearer " + NOVA_KEY}, timeout=60)
+        text = j["choices"][0]["message"]["content"].strip()
+
+    if not text:
+        raise RuntimeError("both platform gateway and nova-gateway returned empty content")
     return text
 
 
