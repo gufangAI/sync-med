@@ -1,0 +1,39 @@
+name: 🏭 Workflow Sentry · 产线失败兜底哨兵
+
+# 兜住所有"有 cron 但没有告警出口"的 workflow。
+#
+# 2026-07-31 排查：sync-med 65 个 workflow 里 20 个有 cron 却没有任何 Issue 出口，
+# 失败了只在 Actions 页留一个红叉。其中就有 pan-register.yml——
+# CLAUDE.md 第 8 条那条血证的主角（每天成功、日志喊 not-in-D1=3965、连喊 12 天零响应）。
+# fleet-watch 覆盖了其中 4 个，剩下 16 个是真空。
+#
+# 与其给 16 个 workflow 各加一遍告警（以后新建的还会漏），不如在外面兜一层。
+# 只读不自愈——自愈是 fleet-watch 的职责，两处都动会打架。
+#
+# 每 6 小时：产线失败不像链头挂掉那样立刻影响用户，但也不能过夜。
+
+on:
+  schedule:
+    - cron: '40 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: workflow-sentry
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 巡查产线
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/workflow_sentry.py
