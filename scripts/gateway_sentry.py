@@ -45,7 +45,14 @@ def gh(method, path, payload=None):
 
 
 def main():
-    with urllib.request.urlopen(f'{SITE}/api/gateway/health', timeout=180) as r:
+    # 必须带正常 UA：urllib 默认发 "Python-urllib/3.11"，会被 CF 的 Bot 防护
+    # 直接 403 拦掉（2026-07-31 第一次跑就栽在这，日志里只有一句 HTTP 403 Forbidden，
+    # 看不出是被谁拦的——端点本身没有任何鉴权）。
+    req = urllib.request.Request(
+        f'{SITE}/api/gateway/health',
+        headers={'User-Agent': 'gufangai-gateway-sentry/1.0 (+https://www.gufangai.com)',
+                 'Accept': 'application/json'})
+    with urllib.request.urlopen(req, timeout=180) as r:
         txt = r.read().decode('utf-8', 'replace')
 
     # 用正则逐条抠而不是整体 json.loads：供应商的 error 字段里常带未转义的引号，
