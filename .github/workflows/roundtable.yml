@@ -10,8 +10,8 @@ on:
         description: '本次产帖数'
         required: false
         default: '1'
-  # schedule:
-  #   - cron: '*/6 * * * *'    # 每 6 分钟 1 篇 ≈ 120 篇/12h(可调;先 dispatch 测试无误再启用)
+  schedule:
+    - cron: '*/12 * * * *'    # 每 12 分钟 1 篇(温和,避 sync-med 队列堆积);本地循环是主力,Actions 作云端持久备份
 
 concurrency:
   group: roundtable-factory
