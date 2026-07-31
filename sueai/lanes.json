@@ -63,13 +63,13 @@
         "general"
       ],
       "verified": true,
-      "status": "active",
-      "lastChecked": "2026-07-30",
-      "lastError": null,
+      "status": "error",
+      "lastChecked": "2026-07-31",
+      "lastError": "超时 60000ms（境外 lane 请确认已加 --use-env-proxy）",
       "metrics": {
         "latencyMs": 4934,
         "latencyNote": "经代理实测",
-        "probeMs": 20253,
+        "probeMs": 60002,
         "latencyRangeMs": [
           4934,
           26073
@@ -94,11 +94,11 @@
         "general"
       ],
       "verified": true,
-      "status": "active",
-      "lastChecked": "2026-07-30",
-      "lastError": null,
+      "status": "error",
+      "lastChecked": "2026-07-31",
+      "lastError": "HTTP 500 ",
       "metrics": {
-        "probeMs": 267,
+        "probeMs": 59075,
         "gateDate": "2026-07-27",
         "gateCases": 6,
         "gatePass": 3,
@@ -126,11 +126,11 @@
       ],
       "verified": true,
       "status": "active",
-      "lastChecked": "2026-07-30",
+      "lastChecked": "2026-07-31",
       "lastError": null,
       "metrics": {
         "rateLimit": "tight",
-        "probeMs": 550
+        "probeMs": 182
       },
       "notes": "最快。在 Cloudflare 后面：默认 UA 吃 403（error 1010），必须带浏览器 UA。限流紧，并发压低。"
     },
@@ -150,7 +150,7 @@
       ],
       "verified": true,
       "status": "no_key",
-      "lastChecked": "2026-07-30",
+      "lastChecked": "2026-07-31",
       "lastError": "环境里没有 SILICONFLOW_KEY（也没有别名 SILICONFLOW_API_KEY）",
       "metrics": {
         "passRate72b": 0.69,
@@ -176,11 +176,11 @@
       ],
       "verified": true,
       "status": "active",
-      "lastChecked": "2026-07-30",
+      "lastChecked": "2026-07-31",
       "lastError": null,
       "metrics": {
         "latencyMs": 669,
-        "probeMs": 1130
+        "probeMs": 2170
       },
       "notes": "免费档，实测 669ms 返回正确。glm-5.x 是付费档，勿顺手升版本号。"
     },
@@ -199,10 +199,10 @@
       ],
       "verified": true,
       "status": "active",
-      "lastChecked": "2026-07-30",
+      "lastChecked": "2026-07-31",
       "lastError": null,
       "metrics": {
-        "probeMs": 6513
+        "probeMs": 6591
       },
       "notes": "免费。粗活主力。"
     },
@@ -223,10 +223,10 @@
       ],
       "verified": true,
       "status": "no_credit",
-      "lastChecked": "2026-07-30",
+      "lastChecked": "2026-07-31",
       "lastError": "429 持续（间隔 15s 两次均限流）: HTTP 429 限流（凭据有效，瞬时）: {\"error\":{\"message\":\"rpm exhausted\",\"type\":\"quota_exceeded_error\",\"code\":\"8\"}}",
       "metrics": {
-        "probeMs": 918
+        "probeMs": 1046
       },
       "notes": "商汤免费档转发 deepseek-v4-flash。"
     },
