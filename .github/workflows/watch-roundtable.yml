@@ -1,0 +1,38 @@
+name: 内容工厂哨兵
+
+# 每 2 小时查百家论道产帖健康;停滞(近3h新增<2篇)自动写 Issue 报警。
+# 铁律:自动产线关键缺口必须上升成哨兵/Issue,不能只躺 log 没人看。
+on:
+  schedule:
+    - cron: '25 */2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: roundtable-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - id: check
+        run: python tools/roundtable/watch.py
+        env:
+          CF_D1_TOKEN: ${{ secrets.D1_API_TOKEN }}
+      - name: 停滞则写 Issue
+        if: steps.check.outputs.stalled == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `⚠️ 百家论道内容工厂产帖停滞(近3h新增 ${{ steps.check.outputs.recent }} 篇)`,
+              body: `内容工厂产帖疑似停滞。累计 ${{ steps.check.outputs.total }} 帖。\n\n排查:①本地循环 loop_8h.log 是否还在跑 ②Actions cron roundtable.yml 是否触发失败 ③/api/gateway/chat 免费池是否可达 ④D1_API_TOKEN 是否过期。`,
+              labels: ['content-factory', 'alert']
+            });
