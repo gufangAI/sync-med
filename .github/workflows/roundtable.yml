@@ -1,0 +1,44 @@
+name: 百家论道内容工厂
+
+# 多 AI 学派分身圆桌研讨 → 研讨帖 → community_posts。免费池算力,零成本。
+# 上云 12h 不停:去掉下面 schedule 的注释即可(需先在仓库 Secrets 配 CF_D1_TOKEN,
+#   scoped token,权限仅 D1:Edit 对应 guyaofang-db,绝不用 Global API Key)。
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: '本次产帖数'
+        required: false
+        default: '1'
+  # schedule:
+  #   - cron: '*/6 * * * *'    # 每 6 分钟 1 篇 ≈ 120 篇/12h(可调;先 dispatch 测试无误再启用)
+
+concurrency:
+  group: roundtable-factory
+  cancel-in-progress: false
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 产研讨帖(免费池)
+        run: python tools/roundtable/roundtable.py --count ${{ github.event.inputs.count || 1 }}
+        env:
+          CF_D1_TOKEN: ${{ secrets.D1_API_TOKEN }}
+      - name: 失败上报 Issue(哨兵)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `⚠️ 百家论道内容工厂失败 · run#${context.runNumber}`,
+              body: `内容工厂 workflow 失败。\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n排查:①CF_D1_TOKEN 是否配置/过期 ②/api/gateway/chat 是否可达 ③grounding_raw.json 是否在仓。`,
+              labels: ['content-factory', 'alert']
+            });
