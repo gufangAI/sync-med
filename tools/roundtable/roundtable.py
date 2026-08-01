@@ -111,6 +111,28 @@ def wrangler_file(sql_path):
     r = _run_wrangler(f'--file "{sql_path}"')
     return (r.returncode == 0, (r.stdout or "") + (r.stderr or ""))
 
+# ── 源头清洗:切思维链草稿 + 溯源书名归一(2026-08-01 治"帖子混AI思维链+露现代点校本") ──
+def strip_thinking(txt):
+    if not txt:
+        return txt
+    marks = ["1. 分析", "1.分析", "分析用户请求", "分析要求", "**角色：", "**人设：", "角色：", "人设：",
+             "限制条件", "源材料", "分析“对手”", "分析'对手'", "在座学派：", "关键特征", "**背景："]
+    cut = len(txt)
+    for m in marks:
+        i = txt.find(m)
+        if i > 20:  # 前面得有正文,才认后面是附带思维链草稿
+            cut = min(cut, i)
+    return txt[:cut].strip()
+
+def clean_book(book):
+    import re as _re
+    s = _re.sub(r'_qwen.*$', '', str(book or ''))
+    s = _re.sub(r'^\d+[.、\s]+', '', s).strip()          # 去编号前缀 002./01
+    m = _re.search(r'《([^》]+)》', s)
+    title = m.group(1) if m else _re.split(r'[-—(（]', s)[0].strip()
+    dyn = _re.search(r'[(（]([唐宋金元明清汉晋隋])[)）]\s*([^\s；;，,（(著辑录点校编]{1,5})', s)  # (金)李杲
+    return f"{title}·{dyn.group(1)}·{dyn.group(2)}" if dyn else title
+
 # ── grounding(读 Git Bash 预导出的 grounding_raw.json)───────────────
 _GROUNDING_CACHE = None
 def load_grounding(school):
@@ -146,11 +168,11 @@ def gateway_chat(messages, temperature=0.7, max_tokens=800):
             txt = d.get("text") or (d.get("data") or {}).get("text") or d.get("content")
             model = d.get("model") or (d.get("data") or {}).get("model") or "?"
             if txt:
-                txt = txt.strip()
-                if len(txt) > 520:  # 防话痨模型(GLM-4.7 实测交锋 2700 字)撑爆帖子;截到最后一个整句
-                    cut = txt[:520]
+                txt = strip_thinking(txt.strip())   # 先切掉思维链草稿(1.分析/人设/限制条件/源材料…)
+                if len(txt) > 800:  # 防话痨(GLM-4.7 交锋 2700 字);放宽到 800、只截到整句、绝不留半句
+                    cut = txt[:800]
                     k = max(cut.rfind('。'), cut.rfind('!'), cut.rfind('?'), cut.rfind('！'), cut.rfind('？'))
-                    txt = cut[:k + 1] if k > 200 else cut
+                    txt = cut[:k + 1] if k > 100 else txt
                 return txt, model
         except Exception as e:
             print(f"    ! gateway 第{attempt+1}次:", str(e)[:120]); time.sleep(3)
@@ -162,7 +184,7 @@ def sys_prompt(panel, g):
         f"严格站在本派立场,依据本派判断指纹发言,不得脱离本派法度:\n"
         f"【本派判断指纹】{g['zhiwen']}\n【核心病机观】{g['bingji']}\n"
         f"【治法用药特色】{g['yongyao']}\n【与他派分歧】{g['fenqi']}\n"
-        f"以上源自古籍《{g['book']}》的{panel['school']}视角蒸馏。\n"
+        f"以上源自古籍《{clean_book(g['book'])}》的{panel['school']}视角蒸馏。\n"
         "硬规矩:①有理有据引本派法度,这是学术研讨、非诊疗。②有鲜明个性和立场,可犀利争辩,"
         "但严禁脏话与人身攻击,只论学理。③绝不开具方剂的具体剂量。④主语是文献与学理,不是'你该吃什么'。"
         "⑤只输出发言正文,不要'作为AI''以下是'之类元话术。")
@@ -189,7 +211,7 @@ def assemble(topic, tbg, panels, opens, rebuts, summary, G):
             continue
         g = G[p["school"]]
         L.append(f"### {p['sign']}\n\n{opens[p['school']]}\n\n"
-                 f"> 本派观点源自古籍《{g['book']}》的{p['school']}视角蒸馏\n")
+                 f"> 源自古籍《{clean_book(g['book'])}》的{p['school']}视角蒸馏\n")
     if any(p["school"] in rebuts for p in panels):
         L.append("## 交锋\n")
         for p in panels:
