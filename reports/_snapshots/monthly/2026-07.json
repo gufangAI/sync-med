@@ -1,36 +1,36 @@
 {
  "extra": {
   "actions": {
-   "cancelled": 254,
-   "failure": 423,
+   "cancelled": 381,
+   "failure": 436,
    "per_workflow": {
     "CodeQL": {
-     "cancelled": 16,
+     "cancelled": 52,
      "failure": 1,
-     "n": 297,
+     "n": 536,
      "other": 0,
-     "success": 280
+     "success": 483
     },
     "Competitor & Regulatory Radar": {
      "cancelled": 0,
      "failure": 0,
-     "n": 2,
+     "n": 3,
      "other": 0,
-     "success": 2
+     "success": 3
     },
     "Eagle Weekly Hunter": {
      "cancelled": 0,
      "failure": 0,
-     "n": 5,
+     "n": 6,
      "other": 0,
-     "success": 5
+     "success": 6
     },
     "Intel Radar Daily Report v3": {
      "cancelled": 0,
      "failure": 10,
-     "n": 43,
+     "n": 51,
      "other": 0,
-     "success": 33
+     "success": 41
     },
     "align-full": {
      "cancelled": 0,
@@ -39,26 +39,33 @@
      "other": 0,
      "success": 3
     },
-    "clean-embed-ingest": {
-     "cancelled": 2,
-     "failure": 1,
-     "n": 88,
+    "book-health-check": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
      "other": 0,
-     "success": 85
+     "success": 1
+    },
+    "clean-embed-ingest": {
+     "cancelled": 3,
+     "failure": 1,
+     "n": 118,
+     "other": 0,
+     "success": 114
     },
     "code-self-audit": {
      "cancelled": 0,
      "failure": 0,
-     "n": 4,
+     "n": 5,
      "other": 0,
-     "success": 4
+     "success": 5
     },
     "ctext_harvest": {
      "cancelled": 2,
      "failure": 7,
-     "n": 97,
+     "n": 123,
      "other": 0,
-     "success": 88
+     "success": 114
     },
     "ctext_migrate_rename": {
      "cancelled": 1,
@@ -81,12 +88,26 @@
      "other": 0,
      "success": 2
     },
+    "fangji-ai-refine": {
+     "cancelled": 25,
+     "failure": 0,
+     "n": 28,
+     "other": 0,
+     "success": 3
+    },
+    "fangji-video-render": {
+     "cancelled": 1,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 0
+    },
     "fleet-health": {
      "cancelled": 5,
      "failure": 0,
-     "n": 145,
+     "n": 201,
      "other": 0,
-     "success": 140
+     "success": 196
     },
     "fojing-cbeta": {
      "cancelled": 0,
@@ -103,11 +124,18 @@
      "success": 0
     },
     "formula-mine": {
-     "cancelled": 0,
+     "cancelled": 1,
      "failure": 1,
-     "n": 4,
-     "other": 1,
-     "success": 2
+     "n": 5,
+     "other": 0,
+     "success": 3
+    },
+    "frontend-sentinel": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 68,
+     "other": 0,
+     "success": 68
     },
     "graph-smoke": {
      "cancelled": 0,
@@ -119,9 +147,9 @@
     "guard-no-list-objects": {
      "cancelled": 1,
      "failure": 258,
-     "n": 291,
+     "n": 419,
      "other": 0,
-     "success": 32
+     "success": 160
     },
     "guji-sync": {
      "cancelled": 53,
@@ -146,10 +174,17 @@
     },
     "india_harvest": {
      "cancelled": 2,
-     "failure": 0,
-     "n": 65,
+     "failure": 1,
+     "n": 91,
      "other": 0,
-     "success": 63
+     "success": 88
+    },
+    "lane-probe": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 6,
+     "other": 0,
+     "success": 6
     },
     "make-book-video": {
      "cancelled": 1,
@@ -160,10 +195,10 @@
     },
     "make_video": {
      "cancelled": 2,
-     "failure": 11,
-     "n": 31,
+     "failure": 14,
+     "n": 40,
      "other": 0,
-     "success": 18
+     "success": 24
     },
     "media-smoke": {
      "cancelled": 0,
@@ -174,10 +209,10 @@
     },
     "ocr": {
      "cancelled": 25,
-     "failure": 43,
-     "n": 85,
+     "failure": 45,
+     "n": 92,
      "other": 0,
-     "success": 17
+     "success": 22
     },
     "ocr-compare": {
      "cancelled": 0,
@@ -186,19 +221,40 @@
      "other": 0,
      "success": 1
     },
-    "ocr-ndl": {
-     "cancelled": 3,
-     "failure": 0,
-     "n": 36,
+    "ocr-diagnose": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 3,
      "other": 0,
-     "success": 33
+     "success": 2
     },
-    "ocr-quality-audit": {
+    "ocr-hold": {
      "cancelled": 0,
      "failure": 0,
      "n": 1,
      "other": 0,
      "success": 1
+    },
+    "ocr-ndl": {
+     "cancelled": 3,
+     "failure": 3,
+     "n": 62,
+     "other": 0,
+     "success": 56
+    },
+    "ocr-quality": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 7,
+     "other": 0,
+     "success": 7
+    },
+    "ocr-quality-audit": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 2,
+     "other": 0,
+     "success": 2
     },
     "ocr-race": {
      "cancelled": 0,
@@ -207,12 +263,33 @@
      "other": 0,
      "success": 1
     },
+    "ocr-recover-scan": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 1,
+     "other": 0,
+     "success": 0
+    },
     "ocr-reflash": {
      "cancelled": 0,
      "failure": 0,
      "n": 2,
      "other": 0,
      "success": 2
+    },
+    "ocr-release": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 6,
+     "other": 0,
+     "success": 6
+    },
+    "ocr-to-rag": {
+     "cancelled": 1,
+     "failure": 1,
+     "n": 17,
+     "other": 0,
+     "success": 15
     },
     "ocr_xf": {
      "cancelled": 0,
@@ -224,9 +301,9 @@
     "pan-audit": {
      "cancelled": 2,
      "failure": 0,
-     "n": 15,
+     "n": 22,
      "other": 0,
-     "success": 13
+     "success": 20
     },
     "pan-enroll": {
      "cancelled": 0,
@@ -245,9 +322,9 @@
     "pan-register": {
      "cancelled": 14,
      "failure": 3,
-     "n": 50,
+     "n": 56,
      "other": 0,
-     "success": 33
+     "success": 39
     },
     "pan-reorg": {
      "cancelled": 2,
@@ -259,43 +336,50 @@
     "pan-tidy": {
      "cancelled": 0,
      "failure": 0,
-     "n": 110,
+     "n": 179,
      "other": 0,
-     "success": 110
+     "success": 179
     },
     "r2-usage-audit": {
      "cancelled": 0,
      "failure": 1,
-     "n": 10,
+     "n": 16,
      "other": 0,
-     "success": 9
+     "success": 15
     },
     "report-daily": {
      "cancelled": 0,
      "failure": 0,
-     "n": 1,
+     "n": 8,
      "other": 0,
-     "success": 1
+     "success": 8
     },
     "report-monthly": {
      "cancelled": 0,
      "failure": 0,
      "n": 2,
-     "other": 1,
-     "success": 1
+     "other": 0,
+     "success": 2
     },
     "report-weekly": {
      "cancelled": 0,
      "failure": 0,
-     "n": 2,
-     "other": 1,
-     "success": 1
+     "n": 3,
+     "other": 0,
+     "success": 3
+    },
+    "sueai-council": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 15,
+     "other": 0,
+     "success": 15
     },
     "sync": {
-     "cancelled": 103,
+     "cancelled": 154,
      "failure": 72,
-     "n": 187,
-     "other": 2,
+     "n": 237,
+     "other": 1,
      "success": 10
     },
     "tcm-judge": {
@@ -308,9 +392,16 @@
     "team-report-audit": {
      "cancelled": 0,
      "failure": 0,
-     "n": 19,
+     "n": 26,
      "other": 0,
-     "success": 19
+     "success": 26
+    },
+    "tests": {
+     "cancelled": 11,
+     "failure": 0,
+     "n": 32,
+     "other": 0,
+     "success": 21
     },
     "vectorize-ingest": {
      "cancelled": 1,
@@ -322,37 +413,79 @@
     "warm-dlink": {
      "cancelled": 0,
      "failure": 0,
-     "n": 2,
-     "other": 1,
-     "success": 1
+     "n": 47,
+     "other": 0,
+     "success": 47
     },
     "warm-thumbs": {
      "cancelled": 1,
      "failure": 0,
-     "n": 1,
+     "n": 2,
      "other": 0,
-     "success": 0
+     "success": 1
+    },
+    "内容工厂哨兵": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 2,
+     "other": 0,
+     "success": 2
+    },
+    "指挥中心": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 2,
+     "other": 1,
+     "success": 1
+    },
+    "百家论道内容工厂": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 3,
+     "other": 0,
+     "success": 3
+    },
+    "🏭 Workflow Sentry · 产线失败兜底哨兵": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 7,
+     "other": 0,
+     "success": 7
+    },
+    "💰 Intake Sentry · 内测申请哨兵": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 8,
+     "other": 0,
+     "success": 8
+    },
+    "🔌 Gateway Sentry · 网关链头哨兵": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 12,
+     "other": 0,
+     "success": 11
     },
     "🔍 本地-GitHub 一致性审计": {
      "cancelled": 0,
      "failure": 0,
-     "n": 1,
+     "n": 2,
      "other": 0,
-     "success": 1
+     "success": 2
     },
     "🛡️ Fleet Watch": {
      "cancelled": 15,
      "failure": 0,
-     "n": 265,
+     "n": 334,
      "other": 0,
-     "success": 250
+     "success": 319
     }
    },
-   "success": 1297,
-   "total": 1980
+   "success": 2211,
+   "total": 3030
   },
   "attendance": {
-   "expected": 25,
+   "expected": 31,
    "missing": [
     "2026-07-01",
     "2026-07-02",
@@ -374,17 +507,23 @@
     "2026-07-19",
     "2026-07-20",
     "2026-07-21",
-    "2026-07-22"
+    "2026-07-22",
+    "2026-07-26",
+    "2026-07-27",
+    "2026-07-29",
+    "2026-07-30"
    ],
    "present": [
     "2026-07-14",
     "2026-07-23",
     "2026-07-24",
-    "2026-07-25"
+    "2026-07-25",
+    "2026-07-28",
+    "2026-07-31"
    ]
   }
  },
- "generated_at": "2026-07-25T20:49:51.108118+08:00",
+ "generated_at": "2026-08-01T12:41:12.592651+08:00",
  "key": "2026-07",
  "metrics": {
   "cand_pending": {
@@ -397,27 +536,31 @@
   },
   "formulas_books": {
    "err": null,
-   "value": 6
+   "value": 1210
   },
   "formulas_names": {
    "err": null,
-   "value": 1827
+   "value": 44563
   },
   "formulas_total": {
    "err": null,
-   "value": 2207
+   "value": 98174
   },
   "graph_edges": {
    "err": null,
-   "value": 3026
+   "value": 259686
   },
   "graph_edges_tier1": {
    "err": null,
-   "value": 1069
+   "value": 257729
   },
   "graph_nodes": {
    "err": null,
-   "value": 1823
+   "value": 69555
+  },
+  "gufang_lib": {
+   "err": null,
+   "value": 0
   },
   "guji_visible": {
    "err": null,
@@ -425,7 +568,7 @@
   },
   "med_visible": {
    "err": null,
-   "value": 44775
+   "value": 45098
   }
  },
  "period": "monthly",
@@ -433,7 +576,7 @@
   "2026-07-01",
   "2026-07-31"
  ],
- "run_id": "30158562750",
+ "run_id": "30683699327",
  "tables": {
   "daodu_by_ver": {
    "err": null,
@@ -457,11 +600,15 @@
    "rows": [
     {
      "k": "overseas_guji",
-     "n": 23906
+     "n": 23920
     },
     {
      "k": "overseas",
-     "n": 20856
+     "n": 20892
+    },
+    {
+     "k": "fojing",
+     "n": 273
     },
     {
      "k": "nonmed_junk",
