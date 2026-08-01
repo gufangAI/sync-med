@@ -1,0 +1,26 @@
+name: 评论区吵架引擎
+
+# 每 3 小时给评论少的百家论道帖生成大白话多角色吵架评论(带回复链)。免费池,合规同研讨。
+# 铁律:自动产线,失败要能看见 —— 复用内容工厂哨兵(watch)口径,异常时人工介入。
+on:
+  schedule:
+    - cron: '15 */3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: comment-drama
+  cancel-in-progress: false
+
+jobs:
+  drama:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 生成评论区吵架
+        run: python tools/roundtable/community_drama.py
+        env:
+          CF_D1_TOKEN: ${{ secrets.D1_API_TOKEN }}
