@@ -35,6 +35,12 @@ PROMPT_VER = "hf-v2-2026-08-02"   # v2:留空优于编造 + 题材限定中药�
 # 并发路数:单条要调一次网关约 1~2 分钟,串行跑 49 分钟只出 21 条 —— 这是产能的真瓶颈。
 # 免费池网关本身是多供应商轮转,6 路是实测不触发限流的稳妥值;要调用 CF_WORKERS 环境变量。
 WORKERS    = int(os.environ.get("CF_WORKERS", "6"))
+# 扩题**点名**用直答型模型(2026-08-02 诊断实证):
+#   免费池轮到某些模型时,它会把 3000 token 全烧在「1. **分析请求:** *角色…* *硬性要求…*」
+#   这样的思考复述上,**还没写到答案就被截断** —— 日志里解析出的那两项正是它复述到一半的
+#   占位符 `["名称", "学名或英`。连续 4 轮返回 0 的真因就是这个,不是解析器、也不是波动。
+#   glm-4-flash(zhipu)实测直接给数组;这里点名它,它挂了仍按容错链兜。
+EXPAND_SUPPLIER = os.environ.get("CF_EXPAND_SUPPLIER", "zhipu")
 
 # ── 合规硬闸:命中任一即整条丢弃 ─────────────────────────────────
 BANNED = [
@@ -100,7 +106,9 @@ def expand_topics(kind, existing, want=40, clean_sample=None):
                      f"{json.dumps(exclude, ensure_ascii=False)}\n"
                      f"请再列 {want} 个**上面没出现过**的。常见的多半已被收录,"
                      f"请往**较少见但确有文献记载**的方向列(次级代谢产物、同类衍生物、"
-                     f"冷门药材的特征成分都可以)。只输出 JSON 数组。", max_tokens=3000)
+                     f"冷门药材的特征成分都可以)。\n"
+                     f"**直接以 `[` 开头输出 JSON 数组,不要写任何分析、复述或解释。**",
+                     max_tokens=3000, supplier=EXPAND_SUPPLIER)
         # 2026-08-02 血证:这里原来有**自己一套**内联解析,还在用 rfind("]") ——
         #   我上午只把对象解析器换成了 raw_decode,漏了这个数组解析器,
         #   于是扩题稳定报 "Extra data: line 1 column 17" 失败 → 降级回图谱 OCR 碎词
@@ -171,14 +179,17 @@ def d1(sql, params=None):
     return (j.get("result") or [{}])[0].get("results") or []
 
 
-def ask(system, user, timeout=120, max_tokens=2600):
+def ask(system, user, timeout=120, max_tokens=2600, supplier=None):
     # max_tokens 实测教训(2026-08-02):原值 1400 对中文长字段不够,
     # biocomp 的 mechanism(120-200字)+ tcm_link(100-180字)一起就会把 JSON 截断,
     # 报 "Unterminated string" —— 上一轮 14 次失败里有 5 次是这个。
-    body = json.dumps({
+    payload = {
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         "max_tokens": max_tokens, "temperature": 0.3, "json": True, "source": "content_factory",
-    }, ensure_ascii=False).encode("utf-8")
+    }
+    if supplier:
+        payload["supplier"] = supplier      # 点名供应商;这家挂了仍按容错链兜(fallback 默认 true)
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
         GATEWAY, method="POST", data=body,
         headers={"Content-Type": "application/json; charset=utf-8",
