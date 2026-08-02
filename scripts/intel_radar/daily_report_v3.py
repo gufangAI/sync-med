@@ -1790,6 +1790,37 @@ def _selfcheck_scalar(sql: str):
     r = _selfcheck_d1(sql)
     return list(r[0].values())[0] if r else 0
 
+
+# ── ①发现环:候选模型落库(2026-08-02)──────────────────────────────
+# 为什么加:发现环此前只把结果写进 Actions artifact,30 天自动删、没人主动看,
+#   "发现"的输出流不进"评估",四环回路第一段就断了。
+# 做什么:把 HF trending models 落进 D1 `model_candidates`,
+#   赛马引擎 scripts/model_race.py 可从库里取候选 → 回路接上。
+# 安全:UNIQUE(provider, model_id) 天然去重;只 INSERT OR IGNORE,不改任何已有行;
+#   调用方已用 try 包住,这里再兜一层,绝不阻断主日报。
+def _push_model_candidates(hf_models: list, limit: int = 60) -> None:
+    if not hf_models:
+        print("  [候选池] 无 HF 模型数据,跳过", flush=True)
+        return
+    rows = []
+    for m in hf_models[:limit]:
+        mid = (m.get("title") or m.get("id") or "").strip()
+        if not mid:
+            continue
+        mid = mid.replace("'", "''")[:180]
+        url = (m.get("url") or "").replace("'", "''")[:300]
+        rows.append(f"('hf:{mid}','hf_models','huggingface','{mid}','{mid}',0,"
+                    f"'{{\"url\":\"{url}\"}}','new',{int(time.time())})")
+    if not rows:
+        print("  [候选池] 解析后为空,跳过", flush=True)
+        return
+    sql = ("INSERT OR IGNORE INTO model_candidates "
+           "(candidate_id, source, provider, model_id, display_name, is_free_hint, "
+           "raw_meta, status, discovered_at) VALUES " + ",".join(rows))
+    _selfcheck_d1(sql)
+    n = _selfcheck_scalar("SELECT COUNT(*) FROM model_candidates")
+    print(f"  [候选池] 本轮提交 {len(rows)} 条 → 库内累计 {n} 条(去重后)", flush=True)
+
 def generate_selfcheck_section() -> str:
     rows = []   # [(器官, 实测值, is_gap)]
     # 👄 寻脉:从真实调用日志 sue_call_logs 看健康度(D1 内部查询·云端可靠;
@@ -2150,6 +2181,16 @@ def main():
 
     
     hf_models_sample = hf_models[:50] if hf_models else []
+
+    # ★ 2026-08-02 ①发现环:候选模型落 D1,不再只落 artifact(30 天被删、无人看)
+    #   立此因:自进化盘点写明「发现环产出只落 Actions artifact、30 天删,报告无人主动看」,
+    #   于是"发现"永远流不进"评估"。这里把 HF trending models 写进 model_candidates 表,
+    #   赛马引擎(scripts/model_race.py)就能从库里取候选,回路第一段才真正接上。
+    #   全程软失败:写库异常绝不阻断主日报。
+    try:
+        _push_model_candidates(hf_models)
+    except Exception as _e:
+        print(f"  [候选池] 落库跳过: {str(_e)[:120]}", flush=True)
 
     freebies = prefilter_dedup(freebies)
 
