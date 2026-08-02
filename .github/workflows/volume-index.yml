@@ -18,17 +18,20 @@ name: Volume Index
 
 on:
   schedule:
+    # 参数按**实测**定,不拍脑袋:8 并发下 20 卷耗时 112 秒 = 每卷 5.6 秒;
+    #   55 分钟 timeout 留足余量能装约 400 卷,取 350。
+    #   350卷 × 6轮/天 ≈ 2100卷/天 → 7568 卷约 3.6 天补完(原 80/轮要 16 天)。
     - cron: '50 */4 * * *'    # 每 4 小时一轮
   workflow_dispatch:
     inputs:
       limit:
         description: '本轮处理多少卷'
         required: false
-        default: '80'
+        default: '350'
       workers:
         description: '并发路数'
         required: false
-        default: '6'
+        default: '8'
 
 concurrency:
   group: volume-index
@@ -37,7 +40,7 @@ concurrency:
 jobs:
   index:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -49,6 +52,6 @@ jobs:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
-          CF_WORKERS:     ${{ github.event.inputs.workers || '6' }}
+          CF_WORKERS:     ${{ github.event.inputs.workers || '8' }}
           PYTHONIOENCODING: utf-8
-        run: python scripts/content_factory/volume_index.py --limit ${{ github.event.inputs.limit || '80' }}
+        run: python scripts/content_factory/volume_index.py --limit ${{ github.event.inputs.limit || '350' }}
