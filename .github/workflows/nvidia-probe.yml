@@ -1,0 +1,70 @@
+# ============================================================
+# NVIDIA 全量模型探针
+#
+# 立此因(2026-08-02):一把 NVIDIA key 的 /models 列 102 个模型,
+#   我们 2026-07-31 只逐个实打了 14 个、通过 5 个,然后就停了 —— 88 个从没测过。
+#   「NVIDIA 有 140+ 模型,你接入 1 个就认为你很伟大了」—— 这个 workflow 是把话说清楚:
+#   到底几个能调、几个答得对,拿真数字,不拍脑袋。
+#
+# 为什么必须跑在 Actions 而不是 CF Worker:
+#   已实测(见 guyaofang-web/functions/api/gateway/_providers.js 注释)——
+#   NVIDIA 经 CF Worker 出网 49 秒超时,CDN 边缘按共享 IP 拒;本地/Actions 直连 2.1 秒正常。
+#   所以探测结果写进 model_registry 的 **task='batch'**(离线编译/赛马用),
+#   **绝不进 web 容错链**,不影响任何线上用户路径。
+#
+# 手动触发为主(探测有额度消耗,不必天天跑);每月 1 号自动跑一次看清单有无变化。
+# ============================================================
+
+name: NVIDIA Model Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: '最多探测几个模型(留空=全部)'
+        required: false
+        default: '999'
+      write_d1:
+        description: '是否把通过的写入 model_registry(batch池)'
+        type: boolean
+        required: false
+        default: true
+  schedule:
+    - cron: '0 4 1 * *'   # 每月 1 号 04:00 UTC,看清单有无新增/下架
+
+concurrency:
+  group: nvidia-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run probe
+        env:
+          NVIDIA_API_KEY:  ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_KEYS:     ${{ secrets.NVIDIA_KEYS }}
+          NVIDIA_API_KEYS: ${{ secrets.NVIDIA_API_KEYS }}
+          CF_ACCOUNT_ID:   ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID:  ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:    ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          python scripts/nvidia_probe.py \
+            --limit ${{ github.event.inputs.limit || '999' }} \
+            ${{ (github.event.inputs.write_d1 == 'false') && ' ' || '--write-d1' }}
+
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvidia-probe-result
+          path: nvidia_probe_result.json
+          retention-days: 30
