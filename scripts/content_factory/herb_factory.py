@@ -399,7 +399,12 @@ def main():
         clean = [s[0] for s in fallback]          # 库里还没干净货,就用兜底种子当范例
     print(f"  [扩题] 干净范例 {len(clean)} 个(只用它当范例,去重仍按全库 {len(have)} 条)", flush=True)
 
-    for _ in range(6):
+    # 轮次与容忍度定这么松,是有实测依据的(2026-08-02):
+    #   本地连跑同一个 expand_topics 三轮,分别拿到 5 / 5 / 19 条新题材 —— 函数本身没问题,
+    #   **是单次调用会被截断的波动**。云端 run 30739376569 恰好连续两轮都空,
+    #   原来「连续 2 轮空即罢手」就把整轮判死、入库 0。
+    #   一次调用几十秒,多试几轮的代价远小于整轮空跑。
+    for _ in range(8):
         if len(seed) >= need:
             break
         got = expand_topics(args.target, have | {s[0] for s in seed}, want=PER_CALL, clean_sample=clean)
@@ -410,7 +415,8 @@ def main():
             empty_rounds = 0
         else:
             empty_rounds += 1
-            if empty_rounds >= 2:            # 连续两轮扩不出新的才罢手,不因一次抽风就降级
+            if empty_rounds >= 4:            # 连续四轮都空才认定题材真枯竭,不为一两次抽风放弃
+                print("  [扩题] 连续四轮无新题材,判定本轮题材枯竭", flush=True)
                 break
 
     # 图谱兜底只留给本草线。**生物计算已实测证明它是净负值**:
