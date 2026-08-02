@@ -220,8 +220,30 @@ def parse_json_array(t):
                 pass
         print(f"  [扩题] 模型没吐出 JSON 数组,原文前120字: {t[:120]!r}", flush=True)
         return []
+    # 扫描**全文每一个** `[`,取解析得到的**最长**数组 ——
+    # 2026-08-02 诊断实证:云端有的模型会把思考过程当答案输出,先复述一遍
+    #   「硬性要求…每项形如 ["名称","学名或英文名"]」,真正的答案在最后面。
+    #   只取第一个数组 → 取到的是复述里的**占位符示例** → 过滤后恒为 0(连续 4 轮 0 就是这么来的)。
+    #   取最长的那个,思考文本里的零星小数组自然被真答案盖过去。
+    #   注意:不能简单取「最长」—— `[["甘草酸","Glycyrrhizic acid"]]` 的内层(2项)比外层(1项)长,
+    #   会被误选成内层。所以先收集所有候选及其跨度,**剔除嵌在别人里面的**,再在顶层里挑最长。
+    dec = json.JSONDecoder()
+    cands = []                      # [(start, end, value)]
+    i = a
+    while i >= 0:
+        try:
+            cand, end = dec.raw_decode(t, i)
+            if isinstance(cand, list):
+                cands.append((i, end, cand))
+        except json.JSONDecodeError:
+            pass
+        i = t.find("[", i + 1)
+    top = [c for c in cands
+           if not any(o[0] < c[0] and c[1] <= o[1] for o in cands)]   # 被别人包住的不算顶层
+    if top:
+        return max(top, key=lambda c: len(c[2]))[2]
     try:
-        arr, _end = json.JSONDecoder().raw_decode(t, a)
+        arr, _end = dec.raw_decode(t, a)
         return arr if isinstance(arr, list) else []
     except json.JSONDecodeError:
         b = t.rfind("]")
