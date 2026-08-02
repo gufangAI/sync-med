@@ -78,23 +78,22 @@ def expand_topics(kind, existing, want=40):
     try:
         txt, _ = ask(SYS_EXPAND,
                      f"类别:{label}\n已有(不要重复):{json.dumps(sample, ensure_ascii=False)}\n"
-                     f"请再列 {want} 个,输出 JSON 数组。")
-        t = (txt or "").strip()
-        if t.startswith("```"):
-            parts = t.split("```")
-            t = parts[1] if len(parts) > 1 else t
-            t = t.replace("json", "", 1).strip()
-        a, b = t.find("["), t.rfind("]")
-        if a < 0 or b <= a:
-            print(f"  [扩题] 模型没吐出 JSON 数组,原文前120字: {t[:120]!r}", flush=True)
-            return []
-        arr = json.loads(t[a:b + 1])
+                     f"请再列 {want} 个,输出 JSON 数组。", max_tokens=3000)
+        # 2026-08-02 血证:这里原来有**自己一套**内联解析,还在用 rfind("]") ——
+        #   我上午只把对象解析器换成了 raw_decode,漏了这个数组解析器,
+        #   于是扩题稳定报 "Extra data: line 1 column 17" 失败 → 降级回图谱 OCR 碎词
+        #   → 90 个候选 84 个被判否。**一个函数修一半,等于没修。**
+        arr = parse_json_array(txt)
         out = []
         for it in arr:
             if isinstance(it, list) and len(it) >= 2 and it[0]:
                 out.append((str(it[0]).strip(), str(it[1]).strip()))
             elif isinstance(it, str) and it.strip():
                 out.append((it.strip(), ""))
+        # 模型有时把提示词里的字段名当条目吐回来(实测混进过「名称」「学名或英文名」),
+        # 这类占位符会被当成药材名喂进生成阶段,必须在入池前挡掉
+        PLACEHOLDER = {"名称", "学名", "英文名", "学名或英文名", "名称()", "成分", "药材", "示例", "example", "name"}
+        out = [(n, s) for (n, s) in out if n and n not in PLACEHOLDER and len(n) <= 24]
         return out
     except Exception as e:
         print(f"  [扩题] 失败,降级到兜底种子: {type(e).__name__} {str(e)[:80]}", flush=True)
@@ -163,6 +162,51 @@ def ask(system, user, timeout=120, max_tokens=2600):
     return txt, (j.get("model") or j.get("supplier") or "")
 
 
+def _unfence(t):
+    """剥掉 ```json 围栏,返回裸文本。对象与数组两个解析器共用,别再各写一份。"""
+    t = (t or "").strip()
+    if t.startswith("```"):
+        parts = t.split("```")
+        t = parts[1] if len(parts) > 1 else t
+        if t.lstrip().lower().startswith("json"):
+            t = t.lstrip()[4:]
+        t = t.strip()
+    return t
+
+
+def parse_json_array(t):
+    """取出第一个完整的 JSON **数组**。与 parse_json 同一套判据,失败返回空表。"""
+    t = _unfence(t)
+    a = t.find("[")
+    if a < 0:
+        print(f"  [扩题] 模型没吐出 JSON 数组,原文前120字: {t[:120]!r}", flush=True)
+        return []
+    try:
+        arr, _end = json.JSONDecoder().raw_decode(t, a)
+        return arr if isinstance(arr, list) else []
+    except json.JSONDecodeError:
+        b = t.rfind("]")
+        if b > a:
+            try:
+                return json.loads(t[a:b + 1])
+            except Exception:
+                pass
+        # 整体解析不了就逐项抢救 —— 截断的数组里,前面那些完整的条目仍然是好的
+        out, dec, i = [], json.JSONDecoder(), a + 1
+        while i < len(t):
+            while i < len(t) and t[i] in ' ,\n\r\t':
+                i += 1
+            if i >= len(t) or t[i] == ']':
+                break
+            try:
+                obj, i = dec.raw_decode(t, i)
+                out.append(obj)
+            except json.JSONDecodeError:
+                break
+        print(f"  [扩题] 数组不完整,逐项抢救出 {len(out)} 条", flush=True)
+        return out
+
+
 def parse_json(t):
     """从模型输出里取出**第一个完整**的 JSON 对象。
 
@@ -172,13 +216,7 @@ def parse_json(t):
       改用 raw_decode:解析到第一个对象闭合就收手,后面的尾巴一概不要。
     截断类失败("Unterminated string")这里救不了,由调用方加大 max_tokens 重试。
     """
-    t = (t or "").strip()
-    if t.startswith("```"):
-        parts = t.split("```")
-        t = parts[1] if len(parts) > 1 else t
-        if t.lstrip().lower().startswith("json"):
-            t = t.lstrip()[4:]
-        t = t.strip()
+    t = _unfence(t)
     a = t.find("{")
     if a < 0:
         raise ValueError("模型输出里没有 JSON 对象:" + t[:80])
