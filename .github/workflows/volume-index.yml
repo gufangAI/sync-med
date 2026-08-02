@@ -1,0 +1,54 @@
+# ============================================================
+# 卷级语义索引 · 给古籍每一卷生成「这一卷讲什么」
+#
+# 立此因(2026-08-02 创始人转来的 DeepTutor 分析):
+#   「读教材用 PageIndex 按页索引…大多数工具给你一种方式处理所有材料,
+#     它给了你五把不同的刀」。
+#   我们实测家底:语义向量检索 ✅ 已在用;知识图谱 ⚠️ 只用一跳;
+#   **按卷的层级索引 ❌ 完全没有** —— 7589 卷的 vol_title 全是「卷 1」这种占位,零语义。
+#   读者读古籍是读整本,没有卷级导航,导读项目就没有骨架。
+#
+# 成本:只走内部免费池(OpenCode 免密端点,不通回落网关),零按量计费;
+#      素材取 D1 已有的 chunk 预览,**零 R2 读取**;public 仓 standard runner 不计费。
+# 安全:概要主语是文献不是人;含剂量/疗效承诺的整条丢弃并计数;
+#      片段不足时写 unclear 留空 —— **宁可留空,不编一段像模像样的假概要**。
+# ============================================================
+
+name: Volume Index
+
+on:
+  schedule:
+    - cron: '50 */4 * * *'    # 每 4 小时一轮
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: '本轮处理多少卷'
+        required: false
+        default: '80'
+      workers:
+        description: '并发路数'
+        required: false
+        default: '6'
+
+concurrency:
+  group: volume-index
+  cancel-in-progress: false
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 生成卷级概要
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          CF_WORKERS:     ${{ github.event.inputs.workers || '6' }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/content_factory/volume_index.py --limit ${{ github.event.inputs.limit || '80' }}
