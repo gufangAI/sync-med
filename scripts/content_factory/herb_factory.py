@@ -115,8 +115,14 @@ def expand_topics(kind, existing, want=40, clean_sample=None):
         # 模型有时把提示词里的字段名当条目吐回来(实测混进过「名称」「学名或英文名」),
         # 这类占位符会被当成药材名喂进生成阶段,必须在入池前挡掉
         PLACEHOLDER = {"名称", "学名", "英文名", "学名或英文名", "名称()", "成分", "药材", "示例", "example", "name"}
-        out = [(n, s) for (n, s) in out if n and n not in PLACEHOLDER and len(n) <= 24]
-        return out
+        kept = [(n, s) for (n, s) in out if n and n not in PLACEHOLDER and len(n) <= 24]
+        # 诊断(2026-08-02):云端连续 4 轮返回 0,而本地同一函数正常拿到 5/5/19 条 ——
+        #   说明是环境差异而非逻辑错。与其继续猜,不如让产线**自己把真相打出来**:
+        #   拿到 0 条时,原样打印解析前后的数量和模型原文开头,下一轮 cron 就能定位。
+        if not kept:
+            print(f"  [扩题·诊断] 解析出 {len(arr)} 项 → 成对 {len(out)} 个 → 过滤后 0 个;"
+                  f"应答模型原文前 200 字: {(txt or '(空)')[:200]!r}", flush=True)
+        return kept
     except Exception as e:
         print(f"  [扩题] 失败,降级到兜底种子: {type(e).__name__} {str(e)[:80]}", flush=True)
         return []
