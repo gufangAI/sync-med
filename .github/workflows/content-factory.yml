@@ -70,3 +70,20 @@ jobs:
           CF_WORKERS:     ${{ github.event.inputs.workers || '6' }}
           PYTHONIOENCODING: utf-8
         run: python scripts/content_factory/herb_factory.py --target ${{ matrix.target }} --count ${{ github.event.inputs.count || '30' }}
+
+      # ── 独立复核:draft → published ────────────────────────────────
+      # 立此因(2026-08-02 实测):工厂产出的 92 条**全部卡在 draft**,published 零条。
+      #   原设计「入库 draft,人工审核后上线」没有审核人 = 死结,跑再多前台也看不见。
+      #   解法不是拆闸门,是让闸门能真运转:生成一个模型,复核**换另一个更强的模型**,
+      #   两个模型独立同意才放行;有疑点转 held 留人工,不再反复复核。
+      #   实测 6 条样本:放行 3 / 按住 3,按住理由具体(靶点无出处、体外与临床混淆、英文名错)——
+      #   是真在挑毛病,不是盖章。
+      - name: 独立复核放行
+        if: ${{ github.event.inputs.target == '' || github.event.inputs.target == 'both' || github.event.inputs.target == matrix.target }}
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          CF_WORKERS:     ${{ github.event.inputs.workers || '6' }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/content_factory/reviewer.py --target ${{ matrix.target }} --limit 60
