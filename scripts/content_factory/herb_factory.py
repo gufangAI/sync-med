@@ -350,18 +350,30 @@ def main():
     seed = [s for s in fallback if s[0] not in have]
     need = max(args.count * 3, 40)
 
-    for _ in range(3):                       # 一次扩不够就再要一轮,最多三轮
+    # 每次只要 20 条 —— 实测教训:一次要 60 条,模型输出常被截断,
+    #   上一轮只抢救出 1 条就降级了(run 30738747904)。小批多轮比一次要一大把稳得多。
+    PER_CALL = 20
+    empty_rounds = 0
+    for _ in range(6):
         if len(seed) >= need:
             break
-        got = expand_topics(args.target, have | {s[0] for s in seed}, want=need)
+        got = expand_topics(args.target, have | {s[0] for s in seed}, want=PER_CALL)
         fresh = [g for g in got if g[0] not in have and g[0] not in {s[0] for s in seed}]
         print(f"  [扩题] AI 续列 {len(got)} 个,其中新的 {len(fresh)} 个", flush=True)
-        if not fresh:
-            break                            # 扩不出新的了,别空转
-        seed += fresh
+        if fresh:
+            seed += fresh
+            empty_rounds = 0
+        else:
+            empty_rounds += 1
+            if empty_rounds >= 2:            # 连续两轮扩不出新的才罢手,不因一次抽风就降级
+                break
 
-    if args.target == "biocomp" and len(seed) < need:
-        seed += [s for s in herbs_from_d1_graph(200) if s[0] not in have]   # 兜底:图谱药材名
+    # 图谱兜底只留给本草线。**生物计算已实测证明它是净负值**:
+    #   图谱是古籍 OCR 的药材名(饮片名/碎句),到了生物计算这层要么生成阶段被判否,
+    #   要么复核阶段因「无分子式」被拦 —— 至今没有一条能发布,却每条都要烧一次网关调用
+    #   (run 30738747904:判否 58 条)。所以这里直接不给它兜底,宁可本轮少产几条。
+    if args.target == "herb" and len(seed) < need:
+        seed += [s for s in herbs_from_d1_graph(120) if s[0] not in have]
     print(f"  本轮可用题材 {len(seed)} 个\n", flush=True)
 
     ins = dup = fail = rej = invalid = 0
