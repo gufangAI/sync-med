@@ -76,10 +76,18 @@ SYS_EXPAND = (
 )
 
 
-def expand_topics(kind, existing, want=40):
-    """让 AI 按已有名单续列同类候选。失败返回空表,由调用方降级到兜底种子。"""
+def expand_topics(kind, existing, want=40, clean_sample=None):
+    """让 AI 按已有名单续列同类候选。失败返回空表,由调用方降级到兜底种子。
+
+    clean_sample:喂给模型当"范例"的名单。**必须是干净的** ——
+      2026-08-02 实测,我把库里的名单原样喂过去,模型直接拒绝干活并回了一条 error:
+      「您提供的名单中包含大量非中药活性成分(如药材名、炮制品、描述性文字等),
+        且存在阿托品、东莨菪碱、可待因等明确排除的条目」。
+      它是对的 —— 脏范例会把模型带偏,甚至让它罢工。所以范例与去重名单必须分开:
+      `existing` 只用于去重(要全),`clean_sample` 才是给模型看的(要精)。
+    """
     label = "阿育吠陀药材(印度传统医学本草)" if kind == "herb" else "中药活性成分(单体化合物)"
-    sample = list(existing)[:60]
+    sample = list(clean_sample if clean_sample else existing)[:40]
     try:
         txt, _ = ask(SYS_EXPAND,
                      f"类别:{label}\n已有(不要重复):{json.dumps(sample, ensure_ascii=False)}\n"
@@ -184,6 +192,17 @@ def parse_json_array(t):
     t = _unfence(t)
     a = t.find("[")
     if a < 0:
+        # 2026-08-02 实测:模型有时不给数组,而是给一个「名称→学名」的对象
+        #   (`{"Ashwagandha (Withania somnifera)":"Withania somnifera", ...}`)。
+        #   语义完全等价,没理由因为容器类型不同就整批丢掉。
+        b = t.find("{")
+        if b >= 0:
+            try:
+                obj, _ = json.JSONDecoder().raw_decode(t, b)
+                if isinstance(obj, dict) and obj and "error" not in obj:
+                    return [[str(k), str(v)] for k, v in obj.items() if k]
+            except json.JSONDecodeError:
+                pass
         print(f"  [扩题] 模型没吐出 JSON 数组,原文前120字: {t[:120]!r}", flush=True)
         return []
     try:
@@ -354,10 +373,26 @@ def main():
     #   上一轮只抢救出 1 条就降级了(run 30738747904)。小批多轮比一次要一大把稳得多。
     PER_CALL = 20
     empty_rounds = 0
+    # 给模型看的范例必须干净:生物计算只取**有分子式**的(那才是真的活性成分),
+    # 本草只取已通过独立复核的。拿库里的脏名单当范例 = 把模型带偏(实测它会直接罢工)。
+    try:
+        if args.target == "biocomp":
+            clean = [r["n"] for r in d1("SELECT name_cn AS n FROM biocomp_entries "
+                                        "WHERE formula IS NOT NULL AND TRIM(formula)<>'' "
+                                        "ORDER BY updated_at DESC LIMIT 40")]
+        else:
+            clean = [r["n"] for r in d1("SELECT name_cn AS n FROM herb_compare "
+                                        "WHERE status='published' ORDER BY updated_at DESC LIMIT 40")]
+    except Exception:
+        clean = []
+    if not clean:
+        clean = [s[0] for s in fallback]          # 库里还没干净货,就用兜底种子当范例
+    print(f"  [扩题] 干净范例 {len(clean)} 个(只用它当范例,去重仍按全库 {len(have)} 条)", flush=True)
+
     for _ in range(6):
         if len(seed) >= need:
             break
-        got = expand_topics(args.target, have | {s[0] for s in seed}, want=PER_CALL)
+        got = expand_topics(args.target, have | {s[0] for s in seed}, want=PER_CALL, clean_sample=clean)
         fresh = [g for g in got if g[0] not in have and g[0] not in {s[0] for s in seed}]
         print(f"  [扩题] AI 续列 {len(got)} 个,其中新的 {len(fresh)} 个", flush=True)
         if fresh:
