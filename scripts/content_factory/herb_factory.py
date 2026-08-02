@@ -39,7 +39,13 @@ BANNED = [
     "建议你服用", "你应该服用", "可以服用", "推荐剂量", "用法用量",
 ]
 
-HERB_SEED = [  # 候选池:阿育吠陀常用药,AI 只需就"已给定的名字"产出结构化内容,不自己编药名
+# ── 题材源(2026-08-02 创始人:「也让他们产生几千几万个数据」)────────────
+# 原来是手写的 12+12 条固定名单 —— 那是硬瓶颈,跑两轮就没题了,永远到不了几千。
+# 改法:三级供源,越靠前越权威,自动降级:
+#   ① D1 现成资产:sue_graph_nodes 里的本草节点(4 万+ 真实药材名)—— 生物计算直接用它当来源药材
+#   ② AI 扩题:让模型按"已产出的名单"续列同类候选(去重后入池),题材自增长
+#   ③ 兜底种子:网络/模型都不可用时至少还能跑
+HERB_FALLBACK = [
     ("Shatavari", "Asparagus racemosus"), ("Triphala", "Terminalia chebula 等三果"),
     ("Neem", "Azadirachta indica"), ("Amla", "Phyllanthus emblica"),
     ("Brahmi", "Bacopa monnieri"), ("Guggul", "Commiphora wightii"),
@@ -47,12 +53,77 @@ HERB_SEED = [  # 候选池:阿育吠陀常用药,AI 只需就"已给定的名字
     ("Vacha", "Acorus calamus"), ("Yashtimadhu", "Glycyrrhiza glabra"),
     ("Pippali", "Piper longum"), ("Arjuna", "Terminalia arjuna"),
 ]
-BIO_SEED = [
+BIO_FALLBACK = [
     ("黄芩苷", "Baicalin"), ("丹参酮ⅡA", "Tanshinone IIA"), ("黄芪甲苷", "Astragaloside IV"),
     ("人参皂苷Rg1", "Ginsenoside Rg1"), ("小檗碱", "Berberine"), ("川芎嗪", "Ligustrazine"),
     ("葛根素", "Puerarin"), ("芍药苷", "Paeoniflorin"), ("雷公藤甲素", "Triptolide"),
     ("青蒿素", "Artemisinin"), ("淫羊藿苷", "Icariin"), ("绿原酸", "Chlorogenic acid"),
 ]
+
+SYS_EXPAND = (
+    "你是本草/药化资料整理助手。任务:按给定的**已有名单**,继续列出**同类别的其他真实存在的**条目。\n"
+    "硬性要求:①只列真实存在、有文献记载的,**绝不编造**;②不得与已有名单重复;"
+    "③只输出 JSON 数组,每项形如 [\"名称\",\"学名或英文名\"];④不写任何说明文字。"
+)
+
+
+def expand_topics(kind, existing, want=40):
+    """让 AI 按已有名单续列同类候选。失败返回空表,由调用方降级到兜底种子。"""
+    label = "阿育吠陀药材(印度传统医学本草)" if kind == "herb" else "中药活性成分(单体化合物)"
+    sample = list(existing)[:60]
+    try:
+        txt, _ = ask(SYS_EXPAND,
+                     f"类别:{label}\n已有(不要重复):{json.dumps(sample, ensure_ascii=False)}\n"
+                     f"请再列 {want} 个,输出 JSON 数组。")
+        t = (txt or "").strip()
+        if t.startswith("```"):
+            parts = t.split("```")
+            t = parts[1] if len(parts) > 1 else t
+            t = t.replace("json", "", 1).strip()
+        a, b = t.find("["), t.rfind("]")
+        if a < 0 or b <= a:
+            print(f"  [扩题] 模型没吐出 JSON 数组,原文前120字: {t[:120]!r}", flush=True)
+            return []
+        arr = json.loads(t[a:b + 1])
+        out = []
+        for it in arr:
+            if isinstance(it, list) and len(it) >= 2 and it[0]:
+                out.append((str(it[0]).strip(), str(it[1]).strip()))
+            elif isinstance(it, str) and it.strip():
+                out.append((it.strip(), ""))
+        return out
+    except Exception as e:
+        print(f"  [扩题] 失败,降级到兜底种子: {type(e).__name__} {str(e)[:80]}", flush=True)
+        return []
+
+
+def herbs_from_d1_graph(limit=200):
+    """生物计算的来源药材直接取自图谱里的真实本草节点(4 万+),不靠手写名单。"""
+    try:
+        # 列名是 node_kind 不是 kind —— 首次实测栽在这,取到 0 条还静默吞了异常
+        # 质检闸:图谱本草节点里混着 OCR 碎词/助词(实测抓到"止用至"这种非药材名)。
+        # 判据 —— ①2-6 字纯中文 ②不含常见虚词/动词残片 ③非纯数字。
+        # 宁可少取,不让脏数据进内容库(脏条目一旦生成就要人工清,代价远高于漏几个)。
+        rows = d1("SELECT label FROM sue_graph_nodes WHERE node_kind='herb' "
+                  f"ORDER BY RANDOM() LIMIT {int(limit) * 3}")
+        import re as _re
+        JUNK = ('用', '止', '至', '之', '者', '也', '而', '则', '其', '以', '于', '为', '不', '无', '有', '是')
+        out = []
+        for r in rows:
+            lb = (r.get("label") or "").strip()
+            if not (2 <= len(lb) <= 6):
+                continue
+            if not _re.fullmatch(r'[一-鿿]+', lb):
+                continue
+            if sum(1 for ch in lb if ch in JUNK) >= max(1, len(lb) // 2):
+                continue          # 半数以上是虚词 → 判定为碎词,丢弃
+            out.append((lb, ""))
+            if len(out) >= limit:
+                break
+        return out
+    except Exception as e:
+        print(f"  [图谱取材] 失败: {type(e).__name__} {str(e)[:100]}", flush=True)
+        return []
 
 
 def d1(sql, params=None):
@@ -157,7 +228,19 @@ def main():
     print(f"[内容工厂] run={run_id} target={tbl} 计划 {args.count} 条\n", flush=True)
 
     have = {r["n"] for r in d1(f"SELECT name_cn AS n FROM {tbl}")}
-    seed = HERB_SEED if args.target == "herb" else BIO_SEED
+    print(f"  库内已有 {len(have)} 条", flush=True)
+
+    # ── 三级题材源(要跑到几千几万,靠这个而不是手写名单)──────────────
+    fallback = HERB_FALLBACK if args.target == "herb" else BIO_FALLBACK
+    seed = [s for s in fallback if s[0] not in have]          # ③ 兜底种子先用未产出的
+    if args.target == "biocomp":
+        seed += [s for s in herbs_from_d1_graph(300) if s[0] not in have]   # ① D1 图谱真实药材
+    if len(seed) < args.count * 2:                            # ② 不够就让 AI 扩题
+        got = expand_topics(args.target, have | {s[0] for s in seed}, want=max(40, args.count * 3))
+        seed += [g for g in got if g[0] not in have]
+        print(f"  [扩题] AI 续列 {len(got)} 个候选", flush=True)
+    print(f"  本轮可用题材 {len(seed)} 个\n", flush=True)
+
     ins = dup = fail = rej = 0
     model_used = ""
 
