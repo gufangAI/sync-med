@@ -108,7 +108,59 @@ def observe():
     safe("policy",        lambda: d1("SELECT policy_key,scope,dimension,value,auto_managed FROM evolve_policy"), [])
     safe("memory",        lambda: d1("SELECT scope,dimension,key_name,trials,success,rejected,failed,score "
                                      "FROM evolve_memory ORDER BY score DESC"), [])
+    # 第1步「目标」+ 停止条件(2026-08-02 联网核对 Loop 行业标准后补)
+    safe("goals",         lambda: d1("SELECT goal_key,scope,metric,target_value,current_value,unit,"
+                                     "max_rounds,rounds_used,no_progress_rounds,no_progress_limit,"
+                                     "last_value,status FROM evolve_goals WHERE status='running'"), [])
     return o
+
+
+# ══ 【第1步 目标 + 停止条件】═════════════════════════════════════
+# 行业结论(2026 Loop Engineering):
+#   · 好目标必须**可判定终止** —— "Make the tests pass" 好,"improve the code" 坏。
+#   · 每个 loop 必须焊三道硬停:最大轮次 / 无进展检测 / 重试上限。
+#   我们此前一道都没有 —— cron 无脑跑,题材枯竭了还空转烧配额,这是真隐患。
+def track_goals(o, dry):
+    """回填当前值、判定达标或触发硬停。返回 (达标列表, 停摆列表, 进行中列表)。"""
+    now = o["at"]
+    reached, halted, running = [], [], []
+    cur_map = {
+        "content_biocomp": o.get("bio_total") or 0,
+        "content_herb":    o.get("herb_total") or 0,
+        "model_chat":      ((o.get("champion") or [{}])[0].get("score") or 0),
+    }
+    for g in (o.get("goals") or []):
+        cur = float(cur_map.get(g["scope"], 0) or 0)
+        tgt = float(g["target_value"])
+        last = g.get("last_value")
+        rounds = (g.get("rounds_used") or 0) + 1
+        # ② 无进展检测:这轮数值没涨 → 计数 +1
+        nop = (g.get("no_progress_rounds") or 0)
+        nop = 0 if (last is None or cur > float(last)) else nop + 1
+
+        status, reason = "running", None
+        if cur >= tgt:
+            status, reason = "reached", f"已达标 {cur}/{tgt}{g.get('unit') or ''}"
+            reached.append((g["goal_key"], reason))
+        elif g.get("max_rounds") and rounds >= int(g["max_rounds"]):
+            status, reason = "halted_max_rounds", f"到轮次上限 {rounds}/{g['max_rounds']},停"
+            halted.append((g["goal_key"], reason))
+        elif nop >= int(g.get("no_progress_limit") or 3):
+            status, reason = "halted_no_progress", f"连续 {nop} 轮无进展(停在 {cur}/{tgt}),停并报警"
+            halted.append((g["goal_key"], reason))
+        else:
+            pct = (cur / tgt * 100) if tgt else 0
+            running.append((g["goal_key"], f"{cur:g}/{tgt:g}{g.get('unit') or ''} ({pct:.0f}%)"
+                                           + (f" · 已 {nop} 轮无进展" if nop else "")))
+        if not dry:
+            try:
+                d1(f"UPDATE evolve_goals SET current_value={cur}, last_value={cur}, "
+                   f"rounds_used={rounds}, no_progress_rounds={nop}, status='{status}', "
+                   f"halt_reason={'NULL' if not reason else chr(39)+reason.replace(chr(39),'')+chr(39)}, "
+                   f"updated_at={now} WHERE goal_key='{g['goal_key']}'")
+            except Exception as e:
+                print(f"  目标回填失败 {g['goal_key']}: {str(e)[:90]}")
+    return reached, halted, running
 
 
 # ══ 【判断】按阈值出结论 ═══════════════════════════════════════
@@ -304,6 +356,18 @@ def main():
     for s in issues:
         print(f"  {s}")
 
+    # 第1步:目标追踪 + 三道硬停(Loop 五要素最后两项)
+    reached, halted, running = track_goals(o, args.dry_run)
+    print(f"\n【目标与停止条件】")
+    for k, s in running:
+        print(f"  ▶ {k:<26} {s}")
+    for k, s in reached:
+        print(f"  🎯 {k:<26} {s}")
+    for k, s in halted:
+        print(f"  🛑 {k:<26} {s}")
+    if not (running or reached or halted):
+        print("  (无进行中目标)")
+
     # 第5步:记忆与沉淀
     n = consolidate(o, args.dry_run)
     print(f"\n【记忆与沉淀】写入 {n} 条策略经验(记忆库现有 {len(o.get('memory') or [])} 条)")
@@ -339,6 +403,15 @@ def main():
     else:
         print("  维持现状:冠军仍是最优或领先不足阈值")
 
+    # 目标达标 / 硬停 都必须上报 —— 这两件事最需要人知道
+    if reached:
+        body_parts.append("### 🎯 目标已达标(请决定下一阶段目标或收工)\n\n" +
+                          "\n".join(f"- `{k}`:{s}" for k, s in reached))
+    if halted:
+        body_parts.append("### 🛑 触发硬停(loop 已停,需人工介入)\n\n" +
+                          "\n".join(f"- `{k}`:{s}" for k, s in halted) +
+                          "\n\n恢复:`UPDATE evolve_goals SET status='running', no_progress_rounds=0 "
+                          "WHERE goal_key='...'`(先查清为什么停,别直接重启)")
     if issues:
         body_parts.append("### ⚠️ 需要人工处理\n\n" + "\n".join("- " + s for s in issues))
     if body_parts:
