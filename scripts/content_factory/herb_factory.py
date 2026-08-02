@@ -41,6 +41,10 @@ WORKERS    = int(os.environ.get("CF_WORKERS", "6"))
 #   占位符 `["名称", "学名或英`。连续 4 轮返回 0 的真因就是这个,不是解析器、也不是波动。
 #   glm-4-flash(zhipu)实测直接给数组;这里点名它,它挂了仍按容错链兜。
 EXPAND_SUPPLIER = os.environ.get("CF_EXPAND_SUPPLIER", "zhipu")
+# 扩题首选 OpenCode 免密端点(创始人 2026-08-02:「你要控制 opencode 帮你干分析请求」)。
+# 实测 deepseek-v4-flash-free 与 big-pickle 都直接吐 JSON 数组,不复述任务要求。
+OPENCODE_MODEL     = os.environ.get("CF_OPENCODE_MODEL", "deepseek-v4-flash-free")
+OPENCODE_MODEL_ALT = os.environ.get("CF_OPENCODE_MODEL_ALT", "big-pickle")   # 前者进思考模式时换它
 
 # ── 合规硬闸:命中任一即整条丢弃 ─────────────────────────────────
 BANNED = [
@@ -99,16 +103,20 @@ def expand_topics(kind, existing, want=40, clean_sample=None):
         #   模型翻来覆去还是那几个常见成分,连两轮扩题都返回 0 个新的 —— 题材饱和。
         #   范例(给锚点,少而精)和排除名单(防重复,要全)用途不同,必须分开给。
         exclude = list(existing)[:200]
-        txt, _ = ask(SYS_EXPAND,
-                     f"类别:{label}\n"
-                     f"范例(这类东西长这样):{json.dumps(sample, ensure_ascii=False)}\n"
-                     f"**已产出、绝对不要重复**(共 {len(existing)} 个,以下列出其中 {len(exclude)} 个):"
-                     f"{json.dumps(exclude, ensure_ascii=False)}\n"
-                     f"请再列 {want} 个**上面没出现过**的。常见的多半已被收录,"
-                     f"请往**较少见但确有文献记载**的方向列(次级代谢产物、同类衍生物、"
-                     f"冷门药材的特征成分都可以)。\n"
-                     f"**直接以 `[` 开头输出 JSON 数组,不要写任何分析、复述或解释。**",
-                     max_tokens=3000, supplier=EXPAND_SUPPLIER)
+        prompt = (f"类别:{label}\n"
+                  f"范例(这类东西长这样):{json.dumps(sample, ensure_ascii=False)}\n"
+                  f"**已产出、绝对不要重复**(共 {len(existing)} 个,以下列出其中 {len(exclude)} 个):"
+                  f"{json.dumps(exclude, ensure_ascii=False)}\n"
+                  f"请再列 {want} 个**上面没出现过**的。常见的多半已被收录,"
+                  f"请往**较少见但确有文献记载**的方向列(次级代谢产物、同类衍生物、"
+                  f"冷门药材的特征成分都可以)。\n"
+                  f"**直接以 `[` 开头输出 JSON 数组,不要写任何分析、复述或解释。**")
+        # 先找 opencode(实测直接吐数组);它不通再回落网关,两条路都断才算失败
+        try:
+            txt, _ = ask_opencode(SYS_EXPAND, prompt)
+        except Exception as e:
+            print(f"  [扩题] opencode 不通({type(e).__name__} {str(e)[:60]}),回落网关", flush=True)
+            txt, _ = ask(SYS_EXPAND, prompt, max_tokens=3000, supplier=EXPAND_SUPPLIER)
         # 2026-08-02 血证:这里原来有**自己一套**内联解析,还在用 rfind("]") ——
         #   我上午只把对象解析器换成了 raw_decode,漏了这个数组解析器,
         #   于是扩题稳定报 "Extra data: line 1 column 17" 失败 → 降级回图谱 OCR 碎词
@@ -199,6 +207,50 @@ def ask(system, user, timeout=120, max_tokens=2600, supplier=None):
     if not txt and j.get("choices"):
         txt = (j["choices"][0].get("message") or {}).get("content", "")
     return txt, (j.get("model") or j.get("supplier") or "")
+
+
+def ask_opencode(system, user, timeout=120, max_tokens=3000):
+    """直连 OpenCode 免密端点 —— 扩题这类「列个单子」的分析活交给它。
+
+    立此因(2026-08-02 创始人):「你要控制 opencode 帮你干分析请求」。
+    为什么值得单独走一条路(而不是继续走网关):
+      · 免费池经网关轮到某些**思考型**模型时,会把整个 token 预算烧在复述任务要求上,
+        **答案根本没写出来** —— 连续多轮扩题返回 0 就是这么来的(有日志实证)。
+      · 实测 opencode 的 deepseek-v4-flash-free / big-pickle **直接吐 JSON 数组**,不废话。
+    为什么这里不经网关:`_providers.js` 已写明 —— CF Workers 出网 IP 全球共享、免费额度被打满,
+      实测固定 429;**opencode 只能从 GitHub Actions(独立 IP)或本机调**。内容工厂正好跑在 Actions。
+    成本:零。它仍属内部免费池(注册表里的 opencode_free),不是按量计费源。
+    形态注意:它是思考型模型,正文有时在 reasoning_content 而非 content,两个都要取。
+    """
+    # 实测差别很大:**带 system 消息**时 deepseek 会进思考模式(content 空、正文落在
+    #   reasoning_content 里,还是一段自然语言推理);把 system 并进单条 user 消息,
+    #   它就直接吐 JSON 数组。所以这里合并,不发 system。
+    merged = (system or "") + "\n\n" + (user or "")
+    last = ""
+    for model in (OPENCODE_MODEL, OPENCODE_MODEL_ALT):
+        body = json.dumps({
+            "model": model, "max_tokens": max_tokens, "temperature": 0.3,
+            "messages": [{"role": "user", "content": merged}],
+        }, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(
+            "https://opencode.ai/zen/v1/chat/completions", method="POST", data=body,
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                # 这五个身份头缺任一项都会 401 —— 它靠这个认人,不是靠 API key
+                "User-Agent": "opencode/1.0.0",
+                "x-opencode-client": "opencode",
+                "x-opencode-project": "default",
+                "x-opencode-session": str(uuid.uuid4()),
+                "x-opencode-request": str(uuid.uuid4()),
+            })
+        j = json.loads(urllib.request.urlopen(req, timeout=timeout).read())
+        m = (j.get("choices") or [{}])[0].get("message") or {}
+        txt = (m.get("content") or "").strip()
+        if "[" in txt:
+            return txt, model
+        # content 空或没有数组 → 换另一个模型再来一次,不拿思考文本充数
+        last = txt or (m.get("reasoning_content") or "").strip()
+    return last, OPENCODE_MODEL_ALT
 
 
 def _unfence(t):
