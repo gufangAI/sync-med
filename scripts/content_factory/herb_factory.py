@@ -89,9 +89,18 @@ def expand_topics(kind, existing, want=40, clean_sample=None):
     label = "阿育吠陀药材(印度传统医学本草)" if kind == "herb" else "中药活性成分(单体化合物)"
     sample = list(clean_sample if clean_sample else existing)[:40]
     try:
+        # 排除名单要给**全**。实测(run 30739133742):库里 118 条时只给 40 个范例,
+        #   模型翻来覆去还是那几个常见成分,连两轮扩题都返回 0 个新的 —— 题材饱和。
+        #   范例(给锚点,少而精)和排除名单(防重复,要全)用途不同,必须分开给。
+        exclude = list(existing)[:200]
         txt, _ = ask(SYS_EXPAND,
-                     f"类别:{label}\n已有(不要重复):{json.dumps(sample, ensure_ascii=False)}\n"
-                     f"请再列 {want} 个,输出 JSON 数组。", max_tokens=3000)
+                     f"类别:{label}\n"
+                     f"范例(这类东西长这样):{json.dumps(sample, ensure_ascii=False)}\n"
+                     f"**已产出、绝对不要重复**(共 {len(existing)} 个,以下列出其中 {len(exclude)} 个):"
+                     f"{json.dumps(exclude, ensure_ascii=False)}\n"
+                     f"请再列 {want} 个**上面没出现过**的。常见的多半已被收录,"
+                     f"请往**较少见但确有文献记载**的方向列(次级代谢产物、同类衍生物、"
+                     f"冷门药材的特征成分都可以)。只输出 JSON 数组。", max_tokens=3000)
         # 2026-08-02 血证:这里原来有**自己一套**内联解析,还在用 rfind("]") ——
         #   我上午只把对象解析器换成了 raw_decode,漏了这个数组解析器,
         #   于是扩题稳定报 "Extra data: line 1 column 17" 失败 → 降级回图谱 OCR 碎词
@@ -377,12 +386,13 @@ def main():
     # 本草只取已通过独立复核的。拿库里的脏名单当范例 = 把模型带偏(实测它会直接罢工)。
     try:
         if args.target == "biocomp":
+            # 随机轮换范例:固定拿最新那批当锚点,模型每轮联想到的都是同一片区域
             clean = [r["n"] for r in d1("SELECT name_cn AS n FROM biocomp_entries "
                                         "WHERE formula IS NOT NULL AND TRIM(formula)<>'' "
-                                        "ORDER BY updated_at DESC LIMIT 40")]
+                                        "ORDER BY RANDOM() LIMIT 25")]
         else:
             clean = [r["n"] for r in d1("SELECT name_cn AS n FROM herb_compare "
-                                        "WHERE status='published' ORDER BY updated_at DESC LIMIT 40")]
+                                        "WHERE status='published' ORDER BY RANDOM() LIMIT 25")]
     except Exception:
         clean = []
     if not clean:
