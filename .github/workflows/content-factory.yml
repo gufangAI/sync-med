@@ -16,9 +16,16 @@
 
 name: Content Factory
 
+# ── 产能调优(2026-08-02,依据上一轮 run 30732622418 的真实数字)────────────
+#   实测原状:49 分钟 → 入库 21 · 失败 14(失败率 40%,全是 JSONDecodeError)。
+#   三处根因已修:①解析器改 raw_decode(治 "Extra data",9/14)
+#                ②max_tokens 1400→2600 + 重试放大到 3400(治 "Unterminated string",5/14)
+#                ③串行改 6 路并发(单条网关调用 1~2 分钟,串行是产能的真瓶颈)
+#   本文件配套改:每轮 6 条 → 30 条;两条产线拆成并行 job(原来串一个 job 墙钟白白翻倍);
+#                cron 6 小时 → 3 小时。合计日产上限 6×2×4=48 → 30×2×8=480。
 on:
   schedule:
-    - cron: '20 */6 * * *'    # 每 6 小时一轮,本草与生物计算各 6 条
+    - cron: '20 */3 * * *'    # 每 3 小时一轮,本草与生物计算并行各 30 条
   workflow_dispatch:
     inputs:
       target:
@@ -27,6 +34,10 @@ on:
         default: 'both'
       count:
         description: '本轮每条产线生成条数'
+        required: false
+        default: '30'
+      workers:
+        description: '并发路数(免费池网关,6 是实测不触发限流的稳妥值)'
         required: false
         default: '6'
 
@@ -37,27 +48,25 @@ concurrency:
 jobs:
   produce:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false          # 一条产线挂了不能拖累另一条
+      matrix:
+        target: [herb, biocomp]
+    name: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: 本草对照
-        if: ${{ github.event.inputs.target != 'biocomp' }}
+      - name: 生成入库
+        # both(或 cron 无 inputs)时两条都跑;指定单条时另一条跳过
+        if: ${{ github.event.inputs.target == '' || github.event.inputs.target == 'both' || github.event.inputs.target == matrix.target }}
         env:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          CF_WORKERS:     ${{ github.event.inputs.workers || '6' }}
           PYTHONIOENCODING: utf-8
-        run: python scripts/content_factory/herb_factory.py --target herb --count ${{ github.event.inputs.count || '6' }}
-
-      - name: 生物计算
-        if: ${{ github.event.inputs.target != 'herb' }}
-        env:
-          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
-          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
-          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
-          PYTHONIOENCODING: utf-8
-        run: python scripts/content_factory/herb_factory.py --target biocomp --count ${{ github.event.inputs.count || '6' }}
+        run: python scripts/content_factory/herb_factory.py --target ${{ matrix.target }} --count ${{ github.event.inputs.count || '30' }}

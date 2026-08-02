@@ -25,12 +25,16 @@
   D1_API_TOKEN=... python scripts/content_factory/herb_factory.py --target biocomp --count 6
 """
 import os, sys, json, time, uuid, argparse, urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "b7362ed77d212bab298a9ae8736c9868")
 D1_DB      = os.environ.get("D1_DATABASE_ID", "2db89d3b-e988-4577-a9e3-fb7c563af72f")
 D1_TOKEN   = os.environ.get("D1_API_TOKEN", "")
 GATEWAY    = os.environ.get("GW_URL", "https://gufangai.com/api/gateway/chat")
 PROMPT_VER = "hf-v1-2026-08-02"
+# 并发路数:单条要调一次网关约 1~2 分钟,串行跑 49 分钟只出 21 条 —— 这是产能的真瓶颈。
+# 免费池网关本身是多供应商轮转,6 路是实测不触发限流的稳妥值;要调用 CF_WORKERS 环境变量。
+WORKERS    = int(os.environ.get("CF_WORKERS", "6"))
 
 # ── 合规硬闸:命中任一即整条丢弃 ─────────────────────────────────
 BANNED = [
@@ -140,10 +144,13 @@ def d1(sql, params=None):
     return (j.get("result") or [{}])[0].get("results") or []
 
 
-def ask(system, user, timeout=120):
+def ask(system, user, timeout=120, max_tokens=2600):
+    # max_tokens 实测教训(2026-08-02):原值 1400 对中文长字段不够,
+    # biocomp 的 mechanism(120-200字)+ tcm_link(100-180字)一起就会把 JSON 截断,
+    # 报 "Unterminated string" —— 上一轮 14 次失败里有 5 次是这个。
     body = json.dumps({
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "max_tokens": 1400, "temperature": 0.3, "json": True, "source": "content_factory",
+        "max_tokens": max_tokens, "temperature": 0.3, "json": True, "source": "content_factory",
     }, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
         GATEWAY, method="POST", data=body,
@@ -156,13 +163,33 @@ def ask(system, user, timeout=120):
     return txt, (j.get("model") or j.get("supplier") or "")
 
 
-def strip_json(t):
+def parse_json(t):
+    """从模型输出里取出**第一个完整**的 JSON 对象。
+
+    治实测第一大失败源(2026-08-02,14 次失败里 9 次):
+      模型吐完 `{"invalid": true, "why": "..."}` 之后还会跟一段解释文字或第二个对象,
+      老写法用 `rfind('}')` 把尾巴一起吞进来 → json.loads 报 "Extra data: line 1 column 33"。
+      改用 raw_decode:解析到第一个对象闭合就收手,后面的尾巴一概不要。
+    截断类失败("Unterminated string")这里救不了,由调用方加大 max_tokens 重试。
+    """
     t = (t or "").strip()
     if t.startswith("```"):
-        t = t.split("```")[1] if len(t.split("```")) > 1 else t
-        t = t.replace("json", "", 1).strip()
-    a, b = t.find("{"), t.rfind("}")
-    return t[a:b + 1] if a >= 0 and b > a else t
+        parts = t.split("```")
+        t = parts[1] if len(parts) > 1 else t
+        if t.lstrip().lower().startswith("json"):
+            t = t.lstrip()[4:]
+        t = t.strip()
+    a = t.find("{")
+    if a < 0:
+        raise ValueError("模型输出里没有 JSON 对象:" + t[:80])
+    try:
+        obj, _end = json.JSONDecoder().raw_decode(t, a)
+        return obj
+    except json.JSONDecodeError:
+        b = t.rfind("}")                      # 退一步用老办法兜一次,兜不住才真失败
+        if b > a:
+            return json.loads(t[a:b + 1])
+        raise
 
 
 def violates(obj):
@@ -199,14 +226,24 @@ SYS_BIO = (
 )
 
 
+def _gen(system, user, tries=2):
+    """生成 + 解析,失败重试一次并放大 max_tokens(第一次多半是被截断)。"""
+    last = None
+    for i in range(tries):
+        txt, model = ask(system, user, max_tokens=2600 if i == 0 else 3400)
+        try:
+            return parse_json(txt), model
+        except Exception as e:
+            last = e
+    raise last
+
+
 def gen_herb(name_en, latin):
-    txt, model = ask(SYS_HERB, f"药材:{name_en}(学名 {latin})。按要求输出 JSON。")
-    return json.loads(strip_json(txt)), model
+    return _gen(SYS_HERB, f"药材:{name_en}(学名 {latin})。按要求输出 JSON。")
 
 
 def gen_bio(cn, en):
-    txt, model = ask(SYS_BIO, f"成分:{cn}({en})。按要求输出 JSON。")
-    return json.loads(strip_json(txt)), model
+    return _gen(SYS_BIO, f"成分:{cn}({en})。按要求输出 JSON。")
 
 
 def q(v):
@@ -248,64 +285,82 @@ def main():
     ins = dup = fail = rej = invalid = 0
     model_used = ""
 
-    for item in seed:
-        if ins >= args.count:
-            break
+    def produce(it):
+        """只做「调网关 + 解析」这段慢活(单条约 1~2 分钟),放线程池并发。
+        判定与写库仍回主线程串行做 —— 计数器和 have 集合就不用加锁,也避免并发写 D1。"""
         try:
-            obj, model = (gen_herb(*item) if args.target == "herb" else gen_bio(*item))
+            return it, (gen_herb(*it) if args.target == "herb" else gen_bio(*it)), None
+        except Exception as e:
+            return it, None, e
+
+    # 超采投料:实测约四成题材是 OCR 碎词、会被 AI 验证器判否,所以按目标的 3 倍投
+    batch = seed[: max(args.count * 3, args.count + 12)]
+    print(f"  并发 {WORKERS} 路,投料 {len(batch)} 条,目标入库 {args.count} 条\n", flush=True)
+
+    with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+        futs = [ex.submit(produce, it) for it in batch]
+        for fu in as_completed(futs):
+            if ins >= args.count:
+                for f2 in futs:
+                    f2.cancel()          # 够数就撤掉还没开跑的,不白烧网关调用
+                break
+            item, got, err = fu.result()
+            if err is not None:
+                fail += 1
+                print(f"  ✗ {item[0]} 生成失败: {type(err).__name__} {str(err)[:90]}", flush=True)
+                continue
+            obj, model = got
             model_used = model or model_used
-        except Exception as e:
-            fail += 1
-            print(f"  ✗ {item[0]} 生成失败: {type(e).__name__} {str(e)[:90]}", flush=True)
-            continue
 
-        # AI 验证器判否:题材本身不是真药材/真成分(OCR 碎词),跳过且不计失败
-        if isinstance(obj, dict) and obj.get("invalid"):
-            invalid += 1
-            print(f"  ○ {item[0]} 非真实药材,AI 验证器判否({str(obj.get('why'))[:24]})", flush=True)
-            continue
+            # AI 验证器判否:题材本身不是真药材/真成分(OCR 碎词),跳过且不计失败
+            if isinstance(obj, dict) and obj.get("invalid"):
+                invalid += 1
+                print(f"  ○ {item[0]} 非真实药材,AI 验证器判否({str(obj.get('why'))[:24]})", flush=True)
+                continue
 
-        bad = violates(obj)
-        if bad:
-            rej += 1
-            print(f"  ⛔ {item[0]} 触合规红线,整条丢弃 → 命中 {bad[:3]}", flush=True)
-            continue
+            bad = violates(obj)
+            if bad:
+                rej += 1
+                print(f"  ⛔ {item[0]} 触合规红线,整条丢弃 → 命中 {bad[:3]}", flush=True)
+                continue
 
-        name_cn = (obj.get("name_cn") or item[0]).strip()
-        if name_cn in have:
-            dup += 1
-            print(f"  = {name_cn} 已存在,跳过", flush=True)
-            continue
+            name_cn = (obj.get("name_cn") or item[0]).strip()
+            if name_cn in have:
+                dup += 1
+                print(f"  = {name_cn} 已存在,跳过", flush=True)
+                continue
 
-        eid = uuid.uuid4().hex[:16]
-        if args.target == "herb":
-            sql = (f"INSERT INTO herb_compare (herb_id,tradition,name_cn,name_en,name_latin,name_native,"
-                   f"props_json,constitution,traditional_use,indications,actives,tcm_compare,tcm_refs,"
-                   f"cog_tier,status,gen_model,gen_run_id,prompt_ver,created_at,updated_at) VALUES ("
-                   f"{q(eid)},'ayurveda',{q(name_cn)},{q(item[0])},{q(item[1])},{q(obj.get('name_native'))},"
-                   f"{q(obj.get('props'))},{q(obj.get('constitution'))},{q(obj.get('traditional_use'))},"
-                   f"{q(obj.get('indications'))},{q(obj.get('actives'))},{q(obj.get('tcm_compare'))},"
-                   f"{q(obj.get('tcm_refs'))},'②法度推演','draft',{q(model_used)},{q(run_id)},{q(PROMPT_VER)},{now},{now})")
-        else:
-            sql = (f"INSERT INTO biocomp_entries (entry_id,kind,name_cn,name_en,source_herb,formula,smiles,"
-                   f"mol_weight,targets,mechanism,tcm_link,cog_tier,refs_json,status,gen_model,gen_run_id,"
-                   f"prompt_ver,created_at,updated_at) VALUES ("
-                   f"{q(eid)},'compound',{q(name_cn)},{q(obj.get('name_en'))},{q(obj.get('source_herb'))},"
-                   f"{q(obj.get('formula'))},{q(obj.get('smiles'))},{q(obj.get('mol_weight'))},"
-                   f"{q(obj.get('targets'))},{q(obj.get('mechanism'))},{q(obj.get('tcm_link'))},"
-                   f"'②法度推演',{q(obj.get('refs'))},'draft',{q(model_used)},{q(run_id)},{q(PROMPT_VER)},{now},{now})")
-        try:
-            d1(sql)
-            ins += 1
-            have.add(name_cn)
-            print(f"  ✓ {name_cn}  已入库(draft,待审)", flush=True)
-        except Exception as e:
-            fail += 1
-            print(f"  ✗ {name_cn} 写库失败: {str(e)[:110]}", flush=True)
+            eid = uuid.uuid4().hex[:16]
+            if args.target == "herb":
+                sql = (f"INSERT INTO herb_compare (herb_id,tradition,name_cn,name_en,name_latin,name_native,"
+                       f"props_json,constitution,traditional_use,indications,actives,tcm_compare,tcm_refs,"
+                       f"cog_tier,status,gen_model,gen_run_id,prompt_ver,created_at,updated_at) VALUES ("
+                       f"{q(eid)},'ayurveda',{q(name_cn)},{q(item[0])},{q(item[1])},{q(obj.get('name_native'))},"
+                       f"{q(obj.get('props'))},{q(obj.get('constitution'))},{q(obj.get('traditional_use'))},"
+                       f"{q(obj.get('indications'))},{q(obj.get('actives'))},{q(obj.get('tcm_compare'))},"
+                       f"{q(obj.get('tcm_refs'))},'②法度推演','draft',{q(model_used)},{q(run_id)},{q(PROMPT_VER)},{now},{now})")
+            else:
+                sql = (f"INSERT INTO biocomp_entries (entry_id,kind,name_cn,name_en,source_herb,formula,smiles,"
+                       f"mol_weight,targets,mechanism,tcm_link,cog_tier,refs_json,status,gen_model,gen_run_id,"
+                       f"prompt_ver,created_at,updated_at) VALUES ("
+                       f"{q(eid)},'compound',{q(name_cn)},{q(obj.get('name_en'))},{q(obj.get('source_herb'))},"
+                       f"{q(obj.get('formula'))},{q(obj.get('smiles'))},{q(obj.get('mol_weight'))},"
+                       f"{q(obj.get('targets'))},{q(obj.get('mechanism'))},{q(obj.get('tcm_link'))},"
+                       f"'②法度推演',{q(obj.get('refs'))},'draft',{q(model_used)},{q(run_id)},{q(PROMPT_VER)},{now},{now})")
+            try:
+                d1(sql)
+                ins += 1
+                have.add(name_cn)
+                print(f"  ✓ {name_cn}  已入库(draft,待审)", flush=True)
+            except Exception as e:
+                fail += 1
+                print(f"  ✗ {name_cn} 写库失败: {str(e)[:110]}", flush=True)
 
     d1(f"UPDATE content_gen_runs SET inserted={ins},skipped_dup={dup},failed={fail},"
        f"compliance_reject={rej},model={q(model_used)},finished_at={int(time.time())} WHERE run_id={q(run_id)}")
-    print(f"\n[完] 入库 {ins} · 重复跳过 {dup} · 合规拦下 {rej} · 失败 {fail}")
+    # invalid 以前只统计不打印 —— 违反自己那条「只写进日志的数字等于没人看」,补进结尾行
+    print(f"\n[完] 入库 {ins} · 重复跳过 {dup} · 合规拦下 {rej} · "
+          f"AI判否(非真药材) {invalid} · 失败 {fail}")
     print(f"     全部 status='draft',**不自动上线**,后台审核通过才 published")
     print(f"     复查:SELECT * FROM {tbl} WHERE gen_run_id='{run_id}'")
 
