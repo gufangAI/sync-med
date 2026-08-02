@@ -104,6 +104,10 @@ def observe():
     # 发现环
     safe("candidates",    lambda: scalar("SELECT COUNT(*) FROM model_candidates"))
     safe("last_discover", lambda: scalar("SELECT MAX(discovered_at) FROM model_candidates"))
+    # 第4/5步要用:当前策略 + 历史经验
+    safe("policy",        lambda: d1("SELECT policy_key,scope,dimension,value,auto_managed FROM evolve_policy"), [])
+    safe("memory",        lambda: d1("SELECT scope,dimension,key_name,trials,success,rejected,failed,score "
+                                     "FROM evolve_memory ORDER BY score DESC"), [])
     return o
 
 
@@ -143,6 +147,99 @@ def judge(o):
         oks.append(f"发现环活着:候选池 {int((now-ld)/3600)} 小时前有新货,库存 {o.get('candidates')} 个")
 
     return issues, oks
+
+
+# ══ 【第5步 记忆与沉淀】把每轮表现写进 evolve_memory ════════════
+# 立此因(2026-08-02 Loop Engineering 六步图自评):
+#   此前控制器只有「观察→判断→报警」,**没有第4步反思改进、第5步只沉淀数据没沉淀经验**。
+#   每轮内容工厂都从零开始,不知道上一轮哪个策略好用 —— 那不叫进化,叫重复。
+def consolidate(o, dry):
+    """把 24h 内各产线的表现按「策略维度」累计进记忆表。"""
+    now = o["at"]
+    wrote = 0
+    for r in (o.get("runs_24h") or []):
+        tgt = r.get("target") or ""
+        scope = "content_biocomp" if "biocomp" in tgt else ("content_herb" if "herb" in tgt else tgt)
+        req  = r.get("req") or 0
+        ins  = r.get("ins") or 0
+        rej  = r.get("rej") or 0
+        fail = r.get("fail") or 0
+        if req <= 0:
+            continue
+        # 当前策略取值 = 这段经验挂在哪个 key 上
+        pol = {p["dimension"]: p["value"] for p in (o.get("policy") or []) if p.get("scope") == scope}
+        for dim, val in pol.items():
+            if dim not in ("topic_source", "batch_size"):
+                continue
+            # 综合评分:成功率 - 违规重罚 - 失败惩罚(与赛马同一套价值观:合规零容忍)
+            score = round((ins / req) * 100 - (rej / req) * 60 - (fail / req) * 30, 2)
+            key = f"{scope}|{dim}|{val}".replace("'", "")
+            sql = (
+                "INSERT INTO evolve_memory (mem_id,scope,dimension,key_name,trials,success,rejected,"
+                "failed,score,last_used_at,updated_at) VALUES "
+                f"('{key}','{scope}','{dim}','{val}',{req},{ins},{rej},{fail},{score},{now},{now}) "
+                "ON CONFLICT(scope,dimension,key_name) DO UPDATE SET "
+                "trials=trials+excluded.trials, success=success+excluded.success, "
+                "rejected=rejected+excluded.rejected, failed=failed+excluded.failed, "
+                "score=(COALESCE(score,0)*0.7 + excluded.score*0.3), "   # 滑动平均:新样本占三成
+                "last_used_at=excluded.last_used_at, updated_at=excluded.updated_at")
+            if dry:
+                print(f"  (dry) 沉淀 {scope}.{dim}={val} → 评分 {score}")
+            else:
+                try:
+                    d1(sql); wrote += 1
+                except Exception as e:
+                    print(f"  沉淀失败 {key}: {str(e)[:90]}")
+    return wrote
+
+
+# ══ 【第4步 反思与改进】按记忆改策略(有边界的自动改)═══════════
+# 边界:只改 auto_managed=1 的策略;每轮最多改 1 项(避免多变量同时动导致归因不清);
+#       改动必须有 ≥2 次试验样本支撑;每次改都写审计并保留 prev_value 供一键回滚。
+def improve(o, dry):
+    acts = []
+    mem = o.get("memory") or []
+    pol = {p["policy_key"]: p for p in (o.get("policy") or [])}
+    if not mem:
+        return acts
+
+    # 按 (scope,dimension) 分组,挑评分最高的取值
+    best = {}
+    for m in mem:
+        k = (m["scope"], m["dimension"])
+        if m.get("trials", 0) < 2:      # 样本太少不作数,防噪声
+            continue
+        if k not in best or (m.get("score") or -999) > (best[k].get("score") or -999):
+            best[k] = m
+
+    for (scope, dim), m in best.items():
+        pk = f"{scope}.{dim}"
+        cur = pol.get(pk)
+        if not cur or not cur.get("auto_managed"):
+            continue
+        if cur["value"] == m["key_name"]:
+            continue                     # 现行策略已是最优,不动
+        # 只有明显更优才改(差 ≥8 分),避免来回抖
+        cur_mem = next((x for x in mem if x["scope"] == scope and x["dimension"] == dim
+                        and x["key_name"] == cur["value"]), None)
+        cur_score = (cur_mem or {}).get("score")
+        if cur_score is not None and (m.get("score") or 0) - cur_score < 8:
+            continue
+        act = {"policy_key": pk, "from": cur["value"], "to": m["key_name"],
+               "from_score": cur_score, "to_score": m.get("score"), "trials": m.get("trials")}
+        acts.append(act)
+        if not dry:
+            try:
+                d1(f"UPDATE evolve_policy SET prev_value=value, value='{m['key_name']}', "
+                   f"reason='控制器据 evolve_memory 自动改进(评分 {m.get('score')} vs {cur_score},样本 {m.get('trials')})', "
+                   f"changed_by='controller', updated_at={o['at']} WHERE policy_key='{pk}'")
+                d1("INSERT INTO evolve_actions (action_id,scope,action,detail,evidence,auto_applied,created_at) "
+                   f"VALUES ('{pk}-{o['at']}','{scope}','policy_change',"
+                   f"'{json.dumps(act, ensure_ascii=False)}','evolve_memory',1,{o['at']})")
+            except Exception as e:
+                print(f"  改进写库失败 {pk}: {str(e)[:90]}")
+        break        # ★ 每轮只改一项:多变量同时动会让下一轮无法归因
+    return acts
 
 
 # ══ 【修正】能自动改的改,改不了的开 Issue ═══════════════════════
@@ -207,9 +304,31 @@ def main():
     for s in issues:
         print(f"  {s}")
 
+    # 第5步:记忆与沉淀
+    n = consolidate(o, args.dry_run)
+    print(f"\n【记忆与沉淀】写入 {n} 条策略经验(记忆库现有 {len(o.get('memory') or [])} 条)")
+
+    # 第4步:反思与改进(每轮最多改 1 项,有样本与差值门槛)
+    acts = improve(o, args.dry_run)
+    print(f"\n【反思与改进】")
+    if acts:
+        for a in acts:
+            print(f"  🔧 策略调整 {a['policy_key']}:{a['from']} → {a['to']}"
+                  f"(评分 {a['from_score']} → {a['to_score']},样本 {a['trials']} 次)")
+            if args.dry_run:
+                print("     (dry-run,未写库)")
+    else:
+        print("  维持现行策略(样本不足 / 现行已最优 / 差值未达门槛)")
+
     sw = suggest_switch(o)
     print(f"\n【修正】")
     body_parts = []
+    if acts and not args.dry_run:
+        body_parts.append("### 🔧 本轮自动调整的策略\n\n" +
+                          "\n".join(f"- `{a['policy_key']}`:`{a['from']}` → `{a['to']}`"
+                                    f"(评分 {a['from_score']} → {a['to_score']},样本 {a['trials']} 次)"
+                                    for a in acts) +
+                          "\n\n回滚:`UPDATE evolve_policy SET value=prev_value, changed_by='human' WHERE policy_key='...'`")
     if sw:
         print(f"  🔔 建议换将:{sw['from']}({sw['from_score']}) → {sw['to']}({sw['to_score']}),领先 {sw['gap']} 分")
         print(f"     ★ 不自动执行 —— 人工放行闸。批准后跑:")
