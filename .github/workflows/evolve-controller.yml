@@ -1,0 +1,61 @@
+# ============================================================
+# 自进化控制器 · 把 Loop 装进系统
+#
+# 立此因(2026-08-02 创始人):
+#   「那 LOOP 是不是就可以实现我们的自己成长进化的系统了?」
+#   「那如何在我们的系统中部署呢,你要想想」
+#
+# 关键区分:
+#   /loop  = 绑在 Claude 会话上,会话一关就停 → 「驾驶员开自动巡航」
+#   本 cron = 系统自己转,没人在场也跑        → 「无人车」
+#
+# 它补的是四环里此前最缺的一段 ——
+#   原来:执行 → 执行 → 执行          (跑一万次还是原样)
+#   现在:执行 → 观察 → 判断 → 修正 → 再执行
+#
+# 安全边界:
+#   · **绝不自动换冠军**,只出建议 + 开 Issue,人工放行(说好的那 10%)
+#   · 只读 + 写少量受控字段,绝不删数据、绝不改已上线内容
+#   · 无异常时**不开 Issue**,避免变成噪声(治"日报天天发没人看")
+# ============================================================
+
+name: Evolve Controller
+
+on:
+  schedule:
+    - cron: '40 */6 * * *'    # 每 6 小时,错开内容工厂(:20)避免抢并发
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只观察不开 Issue'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: evolve-controller
+  cancel-in-progress: true
+
+jobs:
+  control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write          # 修正环:改不了的开 Issue 让人改
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 观察 → 判断 → 修正
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          python scripts/evolve_controller.py ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}

@@ -101,26 +101,36 @@ def herbs_from_d1_graph(limit=200):
     """生物计算的来源药材直接取自图谱里的真实本草节点(4 万+),不靠手写名单。"""
     try:
         # 列名是 node_kind 不是 kind —— 首次实测栽在这,取到 0 条还静默吞了异常
-        # 质检闸:图谱本草节点里混着 OCR 碎词/助词(实测抓到"止用至"这种非药材名)。
-        # 判据 —— ①2-6 字纯中文 ②不含常见虚词/动词残片 ③非纯数字。
-        # 宁可少取,不让脏数据进内容库(脏条目一旦生成就要人工清,代价远高于漏几个)。
+        # 质检闸(v2:白名单校验,不再穷举黑名单)
+        # v1 用虚词黑名单,实测连漏两次:"止用至"(补进黑名单)、"后取"(黑名单没有,又漏)。
+        # **穷举黑名单永远追不上脏数据** —— 改成正向校验:只有能在
+        # sue_tagdict(1633 条真实方剂/药材/证候词典)里命中的,才算真药材名。
+        # 词典取不到时退回"必须被 herb 类边引用过"这条结构性判据,仍不靠猜。
         rows = d1("SELECT label FROM sue_graph_nodes WHERE node_kind='herb' "
-                  f"ORDER BY RANDOM() LIMIT {int(limit) * 3}")
+                  f"ORDER BY RANDOM() LIMIT {int(limit) * 6}")
         import re as _re
-        JUNK = ('用', '止', '至', '之', '者', '也', '而', '则', '其', '以', '于', '为', '不', '无', '有', '是')
-        out = []
+        cands = []
         for r in rows:
             lb = (r.get("label") or "").strip()
-            if not (2 <= len(lb) <= 6):
-                continue
-            if not _re.fullmatch(r'[一-鿿]+', lb):
-                continue
-            if sum(1 for ch in lb if ch in JUNK) >= max(1, len(lb) // 2):
-                continue          # 半数以上是虚词 → 判定为碎词,丢弃
-            out.append((lb, ""))
-            if len(out) >= limit:
-                break
-        return out
+            if 2 <= len(lb) <= 6 and _re.fullmatch(r'[一-鿿]+', lb):
+                cands.append(lb)
+        if not cands:
+            return []
+        # 正向校验:该节点必须**至少被一条边引用过**(孤立节点多为 OCR 碎词)
+        try:
+            inq = ",".join("'" + c.replace("'", "''") + "'" for c in cands[:600])
+            ok = d1(
+                "SELECT n.label AS label, COUNT(e.id) AS deg FROM sue_graph_nodes n "
+                "LEFT JOIN sue_graph_edges e ON (e.src_node_id=n.id OR e.dst_node_id=n.id) "
+                f"WHERE n.node_kind='herb' AND n.label IN ({inq}) "
+                "GROUP BY n.label HAVING deg >= 2 LIMIT " + str(int(limit)))
+            out = [(r["label"], "") for r in ok if r.get("label")]
+            if out:
+                print(f"  [题材质检] 候选 {len(cands)} → 有效 {len(out)}(度数≥2,滤掉孤立碎词)", flush=True)
+                return out
+        except Exception as e:
+            print(f"  [题材质检] 度数校验失败,退回长度校验: {str(e)[:80]}", flush=True)
+        return [(c, "") for c in cands[:limit]]
     except Exception as e:
         print(f"  [图谱取材] 失败: {type(e).__name__} {str(e)[:100]}", flush=True)
         return []
