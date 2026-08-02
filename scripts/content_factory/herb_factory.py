@@ -101,36 +101,24 @@ def herbs_from_d1_graph(limit=200):
     """生物计算的来源药材直接取自图谱里的真实本草节点(4 万+),不靠手写名单。"""
     try:
         # 列名是 node_kind 不是 kind —— 首次实测栽在这,取到 0 条还静默吞了异常
-        # 质检闸(v2:白名单校验,不再穷举黑名单)
-        # v1 用虚词黑名单,实测连漏两次:"止用至"(补进黑名单)、"后取"(黑名单没有,又漏)。
-        # **穷举黑名单永远追不上脏数据** —— 改成正向校验:只有能在
-        # sue_tagdict(1633 条真实方剂/药材/证候词典)里命中的,才算真药材名。
-        # 词典取不到时退回"必须被 herb 类边引用过"这条结构性判据,仍不靠猜。
-        rows = d1("SELECT label FROM sue_graph_nodes WHERE node_kind='herb' "
-                  f"ORDER BY RANDOM() LIMIT {int(limit) * 6}")
+        # 质检闸 v3 —— 前两版都失败,记下为什么:
+        #   v1 虚词黑名单 → 连漏两次("止用至""后取"),**穷举永远追不上脏数据**
+        #   v2 图谱度数≥2 → 实测 41434 个 herb 节点里只有 101 个够格,**把题材源掐死了**;
+        #      而放宽到度数≥1 又等于没过滤(全部 41434 个都有边)。
+        #   根因:**脏的是语义不是结构**。抽样 15 个:真药材 5 个,
+        #      其余是「酒作」「月用」「頃復灌」「溫水調下」「大实痛加」这类 OCR 碎词。
+        #      结构性判据(长度/度数)对语义脏数据天然无效。
+        # v3 正解:**让正在读每一条的 AI 自己当验证器** ——
+        #   它本来就要读这个名字才能生成内容,顺手判一句"是不是真药材",增量成本为零。
+        #   本函数只做廉价的结构预筛(2-4 字纯中文),真正的判定交给生成阶段(见 SYS_BIO 的 invalid 约定)。
+        rows = d1("SELECT DISTINCT label FROM sue_graph_nodes WHERE node_kind='herb' "
+                  "AND LENGTH(label) BETWEEN 2 AND 4 "
+                  f"ORDER BY RANDOM() LIMIT {int(limit) * 4}")
         import re as _re
-        cands = []
-        for r in rows:
-            lb = (r.get("label") or "").strip()
-            if 2 <= len(lb) <= 6 and _re.fullmatch(r'[一-鿿]+', lb):
-                cands.append(lb)
-        if not cands:
-            return []
-        # 正向校验:该节点必须**至少被一条边引用过**(孤立节点多为 OCR 碎词)
-        try:
-            inq = ",".join("'" + c.replace("'", "''") + "'" for c in cands[:600])
-            ok = d1(
-                "SELECT n.label AS label, COUNT(e.id) AS deg FROM sue_graph_nodes n "
-                "LEFT JOIN sue_graph_edges e ON (e.src_node_id=n.id OR e.dst_node_id=n.id) "
-                f"WHERE n.node_kind='herb' AND n.label IN ({inq}) "
-                "GROUP BY n.label HAVING deg >= 2 LIMIT " + str(int(limit)))
-            out = [(r["label"], "") for r in ok if r.get("label")]
-            if out:
-                print(f"  [题材质检] 候选 {len(cands)} → 有效 {len(out)}(度数≥2,滤掉孤立碎词)", flush=True)
-                return out
-        except Exception as e:
-            print(f"  [题材质检] 度数校验失败,退回长度校验: {str(e)[:80]}", flush=True)
-        return [(c, "") for c in cands[:limit]]
+        out = [(r["label"].strip(), "") for r in rows
+               if r.get("label") and _re.fullmatch(r'[一-鿿]+', r["label"].strip())]
+        print(f"  [题材预筛] 图谱取 {len(out)} 个候选(真伪由生成阶段的 AI 验证器判)", flush=True)
+        return out[:limit]
     except Exception as e:
         print(f"  [图谱取材] 失败: {type(e).__name__} {str(e)[:100]}", flush=True)
         return []
@@ -195,7 +183,13 @@ SYS_HERB = (
     "tcm_refs(所据中医方药/文献名数组)。"
 )
 SYS_BIO = (
-    "你是「古方 AI 星图」的中药成分研讨助手。任务:就**给定的**中药活性成分,输出结构化的分子与机制信息。\n"
+    "你是「古方 AI 星图」的中药成分研讨助手。任务:就**给定的**中药活性成分或药材,输出结构化的分子与机制信息。\n"
+    "**第一步永远是验真(这是你最重要的职责)**:给定的名字来自古籍 OCR,里面混有大量碎词与非药物短语"
+    "(如「酒作」「月用」「頃復灌」「溫水調下」「大实痛加」「与巴豆」)。\n"
+    "  · 若它**不是**一个真实的中药材名或中药活性成分名(是动词短语/煎服法/残句/量词/生造词),\n"
+    "    **只输出** `{\"invalid\": true, \"why\": \"简短理由\"}`,不要勉强编内容。\n"
+    "  · 拿不准的一律判 invalid。**宁可漏,不可错** —— 编一条假的比少一条代价大得多。\n"
+    "  · 确认是真药材/真成分,才继续下面的输出。\n"
     "**硬性红线(违反则整条作废)**:①绝不写剂量/用法;②绝不做疗效承诺;③机制描述须是研讨性表述"
     "(「体外研究提示…」「文献报道…」),不得写成临床结论;④不确定的字段留空,**绝不编造** CID/UniProt 号。\n"
     "只输出 JSON,字段:name_cn、name_en、source_herb(来源药材中文名)、formula(分子式)、"
@@ -251,11 +245,11 @@ def main():
         print(f"  [扩题] AI 续列 {len(got)} 个候选", flush=True)
     print(f"  本轮可用题材 {len(seed)} 个\n", flush=True)
 
-    ins = dup = fail = rej = 0
+    ins = dup = fail = rej = invalid = 0
     model_used = ""
 
     for item in seed:
-        if ins + dup + fail + rej >= args.count:
+        if ins >= args.count:
             break
         try:
             obj, model = (gen_herb(*item) if args.target == "herb" else gen_bio(*item))
@@ -263,6 +257,12 @@ def main():
         except Exception as e:
             fail += 1
             print(f"  ✗ {item[0]} 生成失败: {type(e).__name__} {str(e)[:90]}", flush=True)
+            continue
+
+        # AI 验证器判否:题材本身不是真药材/真成分(OCR 碎词),跳过且不计失败
+        if isinstance(obj, dict) and obj.get("invalid"):
+            invalid += 1
+            print(f"  ○ {item[0]} 非真实药材,AI 验证器判否({str(obj.get('why'))[:24]})", flush=True)
             continue
 
         bad = violates(obj)
