@@ -24,8 +24,17 @@
   D1_API_TOKEN=... python scripts/content_factory/herb_factory.py --target herb --count 6
   D1_API_TOKEN=... python scripts/content_factory/herb_factory.py --target biocomp --count 6
 """
-import os, sys, json, time, uuid, argparse, urllib.request
+import os, sys, json, time, uuid, re, argparse, urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# 汉字判定走仓里的**共享区块表**,不在本文件自己写 [一-鿿] 这种区间字面量。
+# 立此因(2026-08-02):`tests/test_cjk_charset.py::test_no_new_module_writes_its_own_cjk_range`
+#   把我这份自带副本抓了出来 —— 「仓里又多出一份会独立漂移的副本」。
+#   它抓得对:自带的窄表连扩展A都不认,生僻药材名会被整条筛掉。
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+import cjk_charset
+# cjk_charset.HAN 是「一个汉字」的字符类;这里要判定**整串都是汉字**,所以包一层 +
+HAN_ONLY = re.compile("(?:%s)+$" % cjk_charset.HAN.pattern)
 
 CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "b7362ed77d212bab298a9ae8736c9868")
 D1_DB      = os.environ.get("D1_DATABASE_ID", "2db89d3b-e988-4577-a9e3-fb7c563af72f")
@@ -161,9 +170,8 @@ def herbs_from_d1_graph(limit=200):
         rows = d1("SELECT DISTINCT label FROM sue_graph_nodes WHERE node_kind='herb' "
                   "AND LENGTH(label) BETWEEN 2 AND 4 "
                   f"ORDER BY RANDOM() LIMIT {int(limit) * 4}")
-        import re as _re
         out = [(r["label"].strip(), "") for r in rows
-               if r.get("label") and _re.fullmatch(r'[一-鿿]+', r["label"].strip())]
+               if r.get("label") and HAN_ONLY.match(r["label"].strip())]
         print(f"  [题材预筛] 图谱取 {len(out)} 个候选(真伪由生成阶段的 AI 验证器判)", flush=True)
         return out[:limit]
     except Exception as e:
