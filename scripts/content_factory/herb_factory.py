@@ -272,14 +272,27 @@ def main():
     print(f"  库内已有 {len(have)} 条", flush=True)
 
     # ── 三级题材源(要跑到几千几万,靠这个而不是手写名单)──────────────
+    # 题材源顺序 —— 2026-08-02 实测教训(run 30734247058):
+    #   原来「图谱源」排在「AI 扩题」前面,结果 90 个候选里 **84 个被判否**,命中率只有 7%。
+    #   根因:图谱那批是古籍 OCR 出来的**药材名**(还混着「故曰」「亦投下」「约有」这类碎句),
+    #   而本版块要的是**分子层面的活性成分** —— 两者压根不是同一层东西,天然对不上。
+    #   改成:AI 扩题(直接产真实成分名)排第一,图谱降为兜底。
     fallback = HERB_FALLBACK if args.target == "herb" else BIO_FALLBACK
-    seed = [s for s in fallback if s[0] not in have]          # ③ 兜底种子先用未产出的
-    if args.target == "biocomp":
-        seed += [s for s in herbs_from_d1_graph(300) if s[0] not in have]   # ① D1 图谱真实药材
-    if len(seed) < args.count * 2:                            # ② 不够就让 AI 扩题
-        got = expand_topics(args.target, have | {s[0] for s in seed}, want=max(40, args.count * 3))
-        seed += [g for g in got if g[0] not in have]
-        print(f"  [扩题] AI 续列 {len(got)} 个候选", flush=True)
+    seed = [s for s in fallback if s[0] not in have]
+    need = max(args.count * 3, 40)
+
+    for _ in range(3):                       # 一次扩不够就再要一轮,最多三轮
+        if len(seed) >= need:
+            break
+        got = expand_topics(args.target, have | {s[0] for s in seed}, want=need)
+        fresh = [g for g in got if g[0] not in have and g[0] not in {s[0] for s in seed}]
+        print(f"  [扩题] AI 续列 {len(got)} 个,其中新的 {len(fresh)} 个", flush=True)
+        if not fresh:
+            break                            # 扩不出新的了,别空转
+        seed += fresh
+
+    if args.target == "biocomp" and len(seed) < need:
+        seed += [s for s in herbs_from_d1_graph(200) if s[0] not in have]   # 兜底:图谱药材名
     print(f"  本轮可用题材 {len(seed)} 个\n", flush=True)
 
     ins = dup = fail = rej = invalid = 0

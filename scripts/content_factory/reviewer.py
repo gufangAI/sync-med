@@ -122,8 +122,26 @@ SPEC = {
 }
 
 
-def review_one(row, gen_model):
+def prefilter(target, row):
+    """模型之前的**确定性硬闸**:不满足版块定义的,直接 hold,连复核调用都不用花。
+
+    立此因(2026-08-02 实测):第一批放行的 12 条里有 6 条是「另加陀僧」「制天冬」「连皮绿豆」
+      这种 —— **全部没有分子式**。「生物计算」版块收的是**分子层面的活性成分**,
+      饮片名和 OCR 碎句不属于这一层。真成分必有分子式,这是版块定义本身,不是拍脑袋的过滤。
+      两个模型都放行了它们,说明**语义判断不可能百分百可靠,该有确定性判据的地方就要有**。
+    返回 None 表示放行到模型复核,返回字符串表示直接按住的理由。
+    """
+    if target == "biocomp":
+        if not str(row.get("formula") or "").strip():
+            return "无分子式:不是分子层面的活性成分(多为饮片名或 OCR 碎词)"
+    return None
+
+
+def review_one(row, gen_model, target="biocomp"):
     """返回 (verdict, why, review_model)。复核模型必须与生成模型不同,拿不到就判 skip 保持 draft。"""
+    hard = prefilter(target, row)
+    if hard:
+        return "hold", hard, "prefilter"
     payload = json.dumps({k: v for k, v in row.items() if k not in ("id", "gen_model")},
                          ensure_ascii=False)[:3500]
     gen = (gen_model or "").strip()
@@ -167,7 +185,7 @@ def main():
 
     def job(r):
         try:
-            return r, review_one(r, r.get("gen_model") or ""), None
+            return r, review_one(r, r.get("gen_model") or "", args.target), None
         except Exception as e:
             return r, None, e
 
