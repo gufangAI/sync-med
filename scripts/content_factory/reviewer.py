@@ -26,6 +26,9 @@
 import os, sys, json, time, argparse, urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _smiles import smiles_matches_formula   # noqa: E402  确定性对账,别再靠模型自省
+
 CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
 D1_DB      = os.environ.get("D1_DATABASE_ID", "")
 D1_TOKEN   = os.environ.get("D1_API_TOKEN", "")
@@ -129,6 +132,29 @@ SPEC = {
 }
 
 
+def sanitize(target, row):
+    """模型判断之前先做**算术对账**:从 SMILES 数原子,跟它自己写的分子式比。
+
+    立此因(2026-08-03 实测):被按住的 192 条里 SMILES 造假占 19%,是第一大主因;
+      而且**已发布的 22 条带结构式条目里有 18 条是错的**,正在前台画错误的分子图。
+      我先在提示词里写过「不确信就留空」—— 完全无效(v1 带 SMILES 52%,加了这条的 v2 反升到 65%),
+      因为那是在让模型**自我评估自己的结构式对不对**,它做不到。
+    改成算给它看。对不上就**只清掉 smiles**,不否掉整条 —— 结构式是锦上添花,
+      内容本身仍有价值;而画一个错结构式是硬伤。
+    返回被清掉的理由(None = 没动)。
+    """
+    if target != "biocomp":
+        return None
+    smi = str(row.get("smiles") or "").strip()
+    if not smi:
+        return None
+    ok, why = smiles_matches_formula(smi, row.get("formula"))
+    if ok:
+        return None
+    row["smiles"] = ""
+    return why
+
+
 def prefilter(target, row):
     """模型之前的**确定性硬闸**:不满足版块定义的,直接 hold,连复核调用都不用花。
 
@@ -146,6 +172,9 @@ def prefilter(target, row):
 
 def review_one(row, gen_model, target="biocomp"):
     """返回 (verdict, why, review_model)。复核模型必须与生成模型不同,拿不到就判 skip 保持 draft。"""
+    dropped = sanitize(target, row)          # 结构式对不上先清掉,再让模型看剩下的内容
+    if dropped:
+        print(f"  ~ {row.get('name_cn') or row['id']} 结构式对不上已清空:{dropped[:46]}", flush=True)
     hard = prefilter(target, row)
     if hard:
         return "hold", hard, "prefilter"
@@ -211,8 +240,13 @@ def main():
                 continue
             new_status = "published" if verdict == "pass" else "held"
             try:
+                extra = ""
+                if args.target == "biocomp":
+                    # sanitize 可能把 smiles 清空了,必须跟着状态一起落库,
+                    # 否则前台照旧拿旧的错结构式画图
+                    extra = f", smiles={q(r.get('smiles') or '')}"
                 d1(f"UPDATE {tbl} SET status={q(new_status)}, review_model={q(rmodel)}, "
-                   f"review_note={q(why)}, reviewed_at={now}, updated_at={now} WHERE {pk}={q(r['id'])}")
+                   f"review_note={q(why)}, reviewed_at={now}, updated_at={now}{extra} WHERE {pk}={q(r['id'])}")
                 if verdict == "pass":
                     passed += 1
                     print(f"  ✓ {name} 放行 → published(复核模型 {rmodel})", flush=True)
