@@ -1,0 +1,63 @@
+# ============================================================
+# 内容工厂 · 本草 / 生物计算 持续丰富
+#
+# 立此因(2026-08-02 创始人):
+#   「生物计算、本草,不可以派个 GitHub 的任务,或者派个 AI 去一直丰富内容吗」
+#   「我们的主要价值是在丰富功能,而不是在修修补补」
+#   「不停的产出结果,丰富我们的内容,那才是价值」
+#
+# 原状:bencao.html 8KB / shengwu.html 9KB,条目全部硬编码在 HTML 里,
+#   加一条要改代码重新部署 —— 两个多月一条没长过。
+# 现在:cron 自动跑 → 免费池生成 → 合规硬闸 → 写 D1(draft) → 后台审核上线。
+#
+# 成本:全程只走内部免费池网关,零按量计费;公开仓 standard runner,Actions 分钟不计费。
+# 安全:入库一律 status='draft',**绝不自动上线**;含剂量/疗效承诺的整条丢弃并计数。
+# ============================================================
+
+name: Content Factory
+
+on:
+  schedule:
+    - cron: '20 */6 * * *'    # 每 6 小时一轮,本草与生物计算各 6 条
+  workflow_dispatch:
+    inputs:
+      target:
+        description: '产线(herb / biocomp / both)'
+        required: false
+        default: 'both'
+      count:
+        description: '本轮每条产线生成条数'
+        required: false
+        default: '6'
+
+concurrency:
+  group: content-factory
+  cancel-in-progress: false     # 内容生成不抢占,排队跑完更重要
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 本草对照
+        if: ${{ github.event.inputs.target != 'biocomp' }}
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/content_factory/herb_factory.py --target herb --count ${{ github.event.inputs.count || '6' }}
+
+      - name: 生物计算
+        if: ${{ github.event.inputs.target != 'herb' }}
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/content_factory/herb_factory.py --target biocomp --count ${{ github.event.inputs.count || '6' }}
