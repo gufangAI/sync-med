@@ -336,11 +336,115 @@ def ensure_columns(table="biocomp_entries"):
 
 
 # ── 主流程 ─────────────────────────────────────────────────────────────
+def herb_compounds(latin, limit=200):
+    """按**中药拉丁学名**反查它的已知成分(PubChem 物种-化合物关联表)。
+
+    【2026-08-04 创始人「不行就查原因,而不是死磕,别逃避」】
+      我先试 ChEMBL 天然产物目录(98,989 条),能取但**混大量西药**
+      (PRAZOSIN/NICOTINE/INDOMETHACIN 都被标了 natural_product),题材不对板。
+      再试 PubChem 物种→成分,查中药植物**返回 0 条**,我当场断言"这条路不通"并开始想绕开方案 ——
+      **错了**。把原始字节打出来才看见:返回的是**顶层数组直接就是行**,
+      我一直在找 `j[0]["rows"]` 这个不存在的键;字段名也不是 taxname 而是 **srctaxname**。
+      改对之后:黄芩 101 个成分、丹参 100 个、当归 128 个 —— **路一直是通的,是我解析错了**。
+      教训:**0 条先怀疑自己的解析,别急着宣布此路不通。**
+
+    优点:按药材反查,拿到的成分天然指得回那味药,**不会再混进西药**。
+    已知两个坑(都已兜):①个别物种返回体 JSON 非法 ②个别条目 synonym 为空,回落用 cid。
+    """
+    body = {"download": "*", "collection": "consolidatedcompoundtaxonomy",
+            "where": {"ands": [{"srctaxname": latin}]}, "limit": int(limit)}
+    url = ("https://pubchem.ncbi.nlm.nih.gov/sdq/sdqagent.cgi?infmt=json&outfmt=json&query="
+           + urllib.parse.quote(json.dumps(body)))
+    try:
+        # 与 http_json 同一套:强制直连,绕开本机代理
+        #(实测本机 HTTP_PROXY 会打断 NCBI 的 TLS,首轮全部 SSLEOFError 差点误判成"PubChem 挂了")
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        txt = opener.open(req, timeout=60).read().decode("utf-8", "ignore")
+    except Exception as e:
+        print(f"  [药材反查] {latin} 请求失败:{type(e).__name__} {str(e)[:60]}", flush=True)
+        return []
+    try:
+        rows = json.loads(txt)
+    except json.JSONDecodeError:
+        # 实测个别物种(如人参)返回体里有非法 JSON —— 逐条抢救,别整批丢
+        rows, dec, i = [], json.JSONDecoder(), txt.find("{")
+        while i >= 0 and i < len(txt):
+            try:
+                o, i = dec.raw_decode(txt, i)
+                rows.append(o)
+                i = txt.find("{", i)
+            except json.JSONDecodeError:
+                break
+        print(f"  [药材反查] {latin} JSON 非法,逐条抢救出 {len(rows)} 条", flush=True)
+    if not isinstance(rows, list):
+        return []
+    out, seen = [], set()
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        # 同一味药的返回**混了 4 个数据源,字段各不相同**(实测黄芩 300 行):
+        #   LOTUS 119 行 有 cmpdname+synonym+cid · KNApSAcK 91 行 **无名字字段**
+        #   NPASS 88 行 只有 synonym · MetaboLights 2 行 两者都有
+        # 我第一版只认 synonym,是拿首次抽样看到的 FooDB 字段以偏概全 —— 结果整批取空。
+        name = (r.get("cmpdname") or r.get("synonym") or "").strip()
+        if not name or len(name) > 80:
+            continue                      # 没名字的(KNApSAcK 那批)跳过;超长的多是 IUPAC 全名,不适合当条目名
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append((name, name, None))    # 中文名先用英文名占位,下游拿权威数据后再补
+    return out
+
+
+def chembl_natural_products(offset, limit):
+    """从 ChEMBL 的**天然产物目录**分页取题材。
+
+    【2026-08-04 创始人:「不是一分钟应该是几千几万吗」】
+      查真数字后定位:两天只生成 840 条,**不是跑得慢,是题材源枯竭** ——
+      工作清单只有约 150 个手写种子,AI 扩题反复给同一批常见成分。
+      实测 `natural_product=1` 目录里有 **98,989** 条,免密免费分页可取 —— 差 660 倍。
+    注意:ChEMBL 这个标记不严(PRAZOSIN 这类西药也被标了天然产物),
+      所以**不在这里做语义判断**,交给下游已有的确定性闸门:
+      必须能拿到分子式、必须过 SMILES 原子对账、必须能指回一味中药。
+      —— 宁可多投料被闸门筛掉,也不在取材阶段拍脑袋过滤。
+    """
+    url = (f"{CHEMBL}/molecule.json?natural_product=1&molecule_type=Small%20molecule"
+           f"&limit={int(limit)}&offset={int(offset)}")
+    j = http_json(url, "chembl") or {}
+    out = []
+    for m in (j.get("molecules") or []):
+        name = (m.get("pref_name") or "").strip()
+        if not name:
+            continue                      # 无名化合物没法做条目,跳过
+        out.append((name, name, None))    # 中文名先用英文名占位,下游拿到权威数据再补
+    return out
+
+
 def load_worklist(args):
     """待办来源:①--names 显式给 ②D1 里 name_en 有值但 source 为空的老条目(优先补真值)
        ③内置种子表(首轮冷启动)。中英文对照绝不让 AI 现编——种子表是人工核过的。"""
     if args.names:
         return [(n.strip(), None, None) for n in args.names.split(",") if n.strip()]
+    if args.source == "herb":
+        # 按中药拉丁学名反查 —— 题材天然属于中药,不会混西药
+        latins = [x.strip() for x in (args.latin or "").split(",") if x.strip()]
+        if not latins:
+            latins = [l for l, _cn in TCM_LATIN[:6]]
+        # 固定多取再截 —— 不能把"要几条结果"当成"API 取几行":
+        #   实测返回里 KNApSAcK 那批(约三成)没有名字字段会被过滤掉,
+        #   按 count=8 去取就只取 8 行,恰好全是无名行 → 整批变 0。
+        got = []
+        for l in latins:
+            got.extend(herb_compounds(l, limit=300))
+        print(f"  [待办] 按药材反查 {len(latins)} 味,得成分 {len(got)} 个", flush=True)
+        return got[:int(args.count)]
+    if args.source == "chembl":
+        # 权威库目录取材:一次要多少给多少,题材不再受手写名单限制
+        got = chembl_natural_products(int(args.offset), int(args.count))
+        print(f"  [待办] 从 ChEMBL 天然产物目录取 {len(got)} 条(offset={args.offset})", flush=True)
+        return got
     out = []
     if not args.dry_run:
         try:
@@ -354,6 +458,18 @@ def load_worklist(args):
         out = [(cn, en, hb) for cn, en, hb in SEED][:int(args.count)]
     return out
 
+
+# 常用中药拉丁学名(人工核过)—— herb 源按这些反查成分
+TCM_LATIN = [
+    ("Scutellaria baicalensis", "黄芩"), ("Salvia miltiorrhiza", "丹参"),
+    ("Angelica sinensis", "当归"), ("Panax ginseng", "人参"),
+    ("Glycyrrhiza uralensis", "甘草"), ("Astragalus membranaceus", "黄芪"),
+    ("Coptis chinensis", "黄连"), ("Ligusticum chuanxiong", "川芎"),
+    ("Paeonia lactiflora", "白芍"), ("Rehmannia glutinosa", "地黄"),
+    ("Atractylodes macrocephala", "白术"), ("Poria cocos", "茯苓"),
+    ("Bupleurum chinense", "柴胡"), ("Pueraria lobata", "葛根"),
+    ("Ephedra sinica", "麻黄"), ("Cinnamomum cassia", "肉桂"),
+]
 
 # 种子表:中文名 / 英文名 / 来源药材 —— 人工核对过的中医常用成分,**英文名不许模型现编**
 SEED = [
@@ -518,6 +634,10 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="只取数不写 D1")
     ap.add_argument("--no-ai", action="store_true", help="跳过 AI 叙述(纯取数验证用)")
     ap.add_argument("--no-uniprot", action="store_true", help="跳过 UniProt 标准化(省请求)")
+    ap.add_argument("--latin", default="", help="herb 源:逗号分隔的中药拉丁学名")
+    ap.add_argument("--source", default="auto", choices=["auto", "chembl", "herb"],
+                    help="题材源:auto=老条目/种子表;chembl=从天然产物目录批量取(98,989 条)")
+    ap.add_argument("--offset", default="0", help="chembl 源的分页偏移,配合 cron 逐页推进")
     ap.add_argument("--report", default="", help="把本轮明细写到这个 json")
     args = ap.parse_args()
     run(args)
