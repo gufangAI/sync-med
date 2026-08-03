@@ -27,6 +27,12 @@
 import os, sys, json, time, uuid, re, argparse, urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# 方案槽:提示词从 D1 读,读不到回落本文件里的默认常量。
+# 这一层是自我进化闭环的接口 —— 有了它,改进者才能从"我"换成"Claude API",产线不用改。
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _variant import load_variant, seed_variant, record_trial   # noqa: E402
+
 # 汉字判定走仓里的**共享区块表**,不在本文件自己写 [一-鿿] 这种区间字面量。
 # 立此因(2026-08-02):`tests/test_cjk_charset.py::test_no_new_module_writes_its_own_cjk_range`
 #   把我这份自带副本抓了出来 —— 「仓里又多出一份会独立漂移的副本」。
@@ -434,12 +440,12 @@ def _gen(system, user, tries=2):
     raise last
 
 
-def gen_herb(name_en, latin):
-    return _gen(SYS_HERB, f"药材:{name_en}(学名 {latin})。按要求输出 JSON。")
+def gen_herb(name_en, latin, sys_prompt=None):
+    return _gen(sys_prompt or SYS_HERB, f"药材:{name_en}(学名 {latin})。按要求输出 JSON。")
 
 
-def gen_bio(cn, en):
-    return _gen(SYS_BIO, f"成分:{cn}({en})。按要求输出 JSON。")
+def gen_bio(cn, en, sys_prompt=None):
+    return _gen(sys_prompt or SYS_BIO, f"成分:{cn}({en})。按要求输出 JSON。")
 
 
 def q(v):
@@ -457,6 +463,15 @@ def main():
     ap.add_argument("--target", choices=["herb", "biocomp"], required=True)
     ap.add_argument("--count", type=int, default=6)
     args = ap.parse_args()
+
+    # ── 方案槽:把源码默认提示词登记成第一代,然后读回当前生效的那一版 ──────
+    #   产线从此**读库拿提示词**,不再只认源码常量。库里没有/读不到 → 回落源码默认值。
+    #   合规硬闸(BANNED / 认知档 / 确定性校验)仍留在代码里,**红线不进库、不许进化**。
+    slot = "SYS_BIO" if args.target == "biocomp" else "SYS_HERB"
+    default_sys = SYS_BIO if args.target == "biocomp" else SYS_HERB
+    seed_variant(args.target, slot, default_sys, author="cto", note="源码默认提示词,登记为第一代")
+    ACTIVE_SYS, ACTIVE_VID = load_variant(args.target, slot, default_sys)
+    print(f"  [方案槽] slot={slot} variant={ACTIVE_VID or '(源码默认)'} 长度={len(ACTIVE_SYS)}", flush=True)
 
     run_id = "cf_" + uuid.uuid4().hex[:12]
     tbl = "herb_compare" if args.target == "herb" else "biocomp_entries"
@@ -533,7 +548,8 @@ def main():
         """只做「调网关 + 解析」这段慢活(单条约 1~2 分钟),放线程池并发。
         判定与写库仍回主线程串行做 —— 计数器和 have 集合就不用加锁,也避免并发写 D1。"""
         try:
-            return it, (gen_herb(*it) if args.target == "herb" else gen_bio(*it)), None
+            return it, (gen_herb(*it, sys_prompt=ACTIVE_SYS) if args.target == "herb"
+                        else gen_bio(*it, sys_prompt=ACTIVE_SYS)), None
         except Exception as e:
             return it, None, e
 
@@ -607,6 +623,15 @@ def main():
           f"AI判否(非真药材) {invalid} · 失败 {fail}")
     print(f"     全部 status='draft',**不自动上线**,后台审核通过才 published")
     print(f"     复查:SELECT * FROM {tbl} WHERE gen_run_id='{run_id}'")
+
+    # 把这一轮的成绩与**失败反馈**写回轨迹表 —— 这是 Improve/Debug 算子的燃料。
+    #   没有这一步,每轮跑完就忘,进化无从谈起(这正是我们缺的 Compile 环节)。
+    fb = f"入库{ins} 重复{dup} 合规拦下{rej} AI判否{invalid} 失败{fail}"
+    tid = record_trial(ACTIVE_VID, args.target, passed=ins, held=rej + invalid, failed=fail,
+                       sample_n=ins + dup + rej + invalid + fail, feedback=fb,
+                       run_ref=os.environ.get("GITHUB_RUN_ID", "local"))
+    if tid:
+        print(f"     [方案槽] 轨迹已记 {tid}(variant={ACTIVE_VID})")
 
 
 if __name__ == "__main__":
