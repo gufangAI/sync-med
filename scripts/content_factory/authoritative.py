@@ -30,6 +30,14 @@
 import os, sys, json, time, argparse, threading, datetime
 import urllib.request, urllib.parse, urllib.error
 
+# Windows 控制台默认 GBK,打 ✓/✗ 和中文会直接 UnicodeEncodeError 把整轮跑挂
+# (2026-08-03 实测:取数全成功,却死在 print 上)。**显示层不该杀死数据层**,这里强制 UTF-8。
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _ai import d1, q, ask_best, parse_json          # 公共底座,禁止再抄一份
 from _smiles import smiles_matches_formula           # 入库前确定性对账
@@ -282,6 +290,9 @@ def ai_tcm_narrative(name_cn, name_en, herb, targets):
 
 
 # ── 表结构:加列(只加不改,已有 AI 编造条目一条不删)────────────────
+# 【2026-08-03 实测纠正】pragma_table_info 查出来的真实列里,**已经有 pubchem_cid / uniprot_id**,
+#   只是老工厂从来没往里写过(published 37 条里 pubchem_cid 有值的 = 0 条,全表 uniprot_id = 0 条)。
+#   所以这两个字段**不能再新建同义列**,必须直接填已有的那两列 —— 这就是"先核实再动手"的意义。
 NEW_COLS = [("source", "TEXT"), ("source_id", "TEXT"),
             ("source_url", "TEXT"), ("fetched_at", "INTEGER")]
 
@@ -431,10 +442,15 @@ def run(args):
 
             now = int(time.time())
             eid = f"auth-{fact['source_id']}".lower()
+            # pubchem_cid / uniprot_id 用**表里已有的列**(老工厂一直空着),不另建同义列
+            pcid = (fact["xref"].get("pubchem") or "").replace("CID", "") or None
+            upid = next((t["uniprot"] for t in targets if t.get("uniprot")), None)
             sql = (f"INSERT INTO biocomp_entries (entry_id,kind,name_cn,name_en,source_herb,formula,smiles,"
-                   f"mol_weight,targets,mechanism,tcm_link,cog_tier,refs_json,status,gen_model,gen_run_id,"
-                   f"prompt_ver,created_at,updated_at,source,source_id,source_url,fetched_at) VALUES ("
+                   f"pubchem_cid,uniprot_id,mol_weight,targets,mechanism,tcm_link,cog_tier,refs_json,status,"
+                   f"gen_model,gen_run_id,prompt_ver,created_at,updated_at,source,source_id,source_url,fetched_at"
+                   f") VALUES ("
                    f"{q(eid)},'compound',{q(name_cn)},{q(en)},{q(herb)},{q(fact['formula'])},{q(fact['smiles'])},"
+                   f"{q(pcid)},{q(upid)},"
                    f"{q(fact['mol_weight'])},{q(targets)},{q('')},{q(tcm)},"
                    f"'①有出处',{q(refs_all)},'draft',{q(model_used)},{q(run_id)},{q(PROMPT_VER)},{now},{now},"
                    f"{q(fact['source'])},{q(fact['source_id'])},{q(fact['source_url'])},{now})")

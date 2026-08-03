@@ -1,0 +1,108 @@
+# ============================================================
+# 权威库取数 · 生物计算条目(事实来自权威库,AI 只写中医叙述)
+#
+# 立此因(2026-08-03 实测):
+#   老内容工厂让 LLM 凭空写分子式/SMILES/靶点/出处,跑了两天 published 只有 37 条;
+#   已发布的 22 条带结构式条目里 **18 条结构式是编的**(原子对账抓出);
+#   被复核按住的 192 条主因 = SMILES 造假 19% / 出处不实 15% / 体外写成临床 8% / 靶点问题 7%。
+#   **根因不是产能是路线**:编得越多拒得越多,产量永远上不去。
+#   创始人:「生物计算,本草 这么长时间才几个!你要让他接入 NVIDIA 和印度和海外的库打通!」
+#
+# 本 workflow 换路线:PubChem(NIH)+ ChEMBL(EMBL-EBI)+ UniProt 三个免密免费的权威库拉真值,
+#   事实字段一个都不让模型填;AI 只写中医视角对照那一段。
+#
+# 为什么必须在 Actions 而不是本机:
+#   ① 批量活一律云端(本机禁算力);
+#   ② 本机系统代理 HTTP_PROXY=127.0.0.1:1082 会打断 NCBI 的 TLS,看着像"PubChem 挂了",
+#      Actions 上没这个代理,直连干净。
+#
+# 成本:PubChem/ChEMBL/UniProt 全部免密免费(公开科学数据库,非 AI 推理源);
+#   AI 叙述只走内部免费池网关,零按量计费;public 仓 standard runner,Actions 分钟不计费。
+# 安全:入库一律 status='draft',**绝不自动上线**;只 ALTER TABLE 加新列,不改不删任何已有数据。
+# 许可:KEGG 已实测可访问但**官方明写非学术用途需商业授权**,我们是收费平台,**本产线不接 KEGG**。
+# ============================================================
+
+name: Authoritative Ingest
+
+on:
+  schedule:
+    - cron: '40 */4 * * *'      # 每 4 小时一轮
+  workflow_dispatch:
+    inputs:
+      count:
+        description: '本轮处理条数'
+        required: false
+        default: '40'
+      names:
+        description: '只跑指定成分(逗号分隔,留空=按待办)'
+        required: false
+        default: ''
+      dry_run:
+        description: '只取数不写 D1'
+        type: boolean
+        required: false
+        default: false
+      no_ai:
+        description: '跳过 AI 叙述(纯取数验证)'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: authoritative-ingest
+  cancel-in-progress: false     # 取数不抢占,排队跑完更重要
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 权威库取数入库
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          python scripts/content_factory/authoritative.py \
+            --count "${{ github.event.inputs.count || '40' }}" \
+            --names "${{ github.event.inputs.names || '' }}" \
+            --report authoritative_report.json \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }} \
+            ${{ github.event.inputs.no_ai == 'true' && '--no-ai' || '' }}
+
+      # 关键缺口数字必须能被看见 —— 不许只躺在 run log 里(pan-register 连喊 12 天零人响应的教训)
+      - name: 本轮数字写进 Job Summary
+        if: always()
+        run: |
+          echo "## 权威库取数 · 本轮数字" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f authoritative_report.json ]; then
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d = json.load(open("authoritative_report.json", encoding="utf-8"))
+          s = d["stat"]
+          print("| 指标 | 数字 |"); print("|---|---|")
+          for k, v in s.items():
+              print(f"| {k} | {v} |")
+          hit = s.get("任一库命中", 0)
+          if hit:
+              print(f"\n- 权威库命中率 **{round(hit / max(s.get('待办',1),1) * 100)}%**")
+              print(f"- 结构式对账通过率 **{round(s.get('结构式对账通过',0) / hit * 100)}%**(权威库拿到的结构式里)")
+          if s.get("失败", 0) > s.get("入库", 0):
+              print("\n> ⚠️ **失败数超过入库数,这轮不正常,需要人看。**")
+          PY
+          else
+            echo "> ⚠️ 没生成 report.json,这轮取数很可能整体失败了。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: authoritative-report-${{ github.run_id }}
+          path: authoritative_report.json
+          if-no-files-found: warn
