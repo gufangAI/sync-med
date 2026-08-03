@@ -1,0 +1,68 @@
+# ============================================================
+# 精确检索层 · FTS5 索引 + 术语精确表
+#
+# 立此因(2026-08-03):平台检索只有向量一条路,零 FTS 索引 —— 带确定字面的查询
+#   (「桂枝去芍药」出自哪条)只能靠向量撞。本 workflow 把索引灌库整个搬上云端:
+#   154,826 段 preview_120,本地实测 92 段/秒 ≈ 28 分钟,**不该占着本机也不该有人盯**。
+#
+# 成本:纯 D1 读写,**零 AI 调用、零 R2 访问**(只索引 D1 里的 preview_120)。
+# 安全:只写三张新表(books_fts / books_fts_state / search_terms),
+#      不改任何既有表的任何一行;要回退直接 DROP 这三张新表即可,原数据零影响。
+# 幂等:重跑只补新增(反连接状态表);中断后重跑不会重复写。
+#
+# 谁会在出问题时看见?—— 失败时本 job 直接红;末尾的「对账」步骤在
+# FTS 行数 ≠ 状态行数 时 exit 1,不让「跑绿了但索引有洞」溜过去。
+# ============================================================
+
+name: Search Index
+
+on:
+  schedule:
+    # 新书入库后补索引,一天一次够;错开其他产线的整点
+    - cron: '15 19 * * *'          # UTC 19:15 = 新加坡 03:15
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: '跑哪一相(fts / terms / all)'
+        required: false
+        default: 'all'
+      batch:
+        description: 'FTS 每批行数(D1 单 SQL 上限约 100KB)'
+        required: false
+        default: '150'
+
+concurrency:
+  group: search-index
+  cancel-in-progress: false        # 灌库中途被砍会留下半截,让它跑完
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90            # 全量实测 ≈ 28 分钟,留足退避重试的余量
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 依赖:只用标准库(urllib + json),不 pip 装任何东西
+
+      - name: 灌索引
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          python scripts/search/build_fts.py \
+            --phase ${{ github.event.inputs.phase || 'all' }} \
+            --batch ${{ github.event.inputs.batch || '150' }}
+
+      - name: 对账(不一致就红)
+        if: always()
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/search/build_fts.py --verify
