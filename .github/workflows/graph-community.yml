@@ -30,7 +30,7 @@ on:
       summary_limit:
         description: '本轮生成多少个社群摘要'
         required: false
-        default: '40'
+        default: '120'
       detect_only:
         description: '只跑检测不跑摘要(true/false)'
         required: false
