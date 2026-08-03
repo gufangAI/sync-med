@@ -1,0 +1,72 @@
+# ============================================================
+# 知识图谱 · 社群检测(GraphRAG Phase 4)+ 社群摘要(Phase 5)
+#
+# 立此因(2026-08-03 创始人):
+#   「节点这些事情要不然就派 deepseek 去干,要不然就是 GitHub 上 runner 去跑!
+#     而不是你浪费时间去盯着啊,那以后几十万几百万你准备几个月的时间啊」
+#
+#   —— 我当天先在本地跑了一次全量社群检测(525 秒)并在旁边轮询盯进度,
+#      这违反了自己写的铁律「本地禁算力,批量活一律云端 Actions」。
+#      本 workflow 就是把这件事彻底搬走:以后图谱长到几十万、几百万节点,
+#      跑多久都跟本地无关,跑完自己写库。
+#
+# 成本:纯图算法(networkx)+ D1 读写,**零 AI 调用**;摘要那步走内部免费池,零按量计费。
+# 安全:只写 community_id / community_level / community_at 三个新列与社群摘要表,
+#      不动任何既有节点/边数据;要回退一句 `UPDATE sue_graph_nodes SET community_id=NULL` 即可。
+# ============================================================
+
+name: Graph Community
+
+on:
+  schedule:
+    # 图谱结构不会小时级变化,一天一次足够;错开整点避开其他产线
+    - cron: '35 18 * * *'          # UTC 18:35 = 新加坡 02:35
+  workflow_dispatch:
+    inputs:
+      resolution:
+        description: '社群分辨率(越大社群越碎,默认 1.0)'
+        required: false
+        default: '1.0'
+      summary_limit:
+        description: '本轮生成多少个社群摘要'
+        required: false
+        default: '40'
+      detect_only:
+        description: '只跑检测不跑摘要(true/false)'
+        required: false
+        default: 'false'
+
+concurrency:
+  group: graph-community
+  cancel-in-progress: false
+
+jobs:
+  community:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 装依赖
+        run: pip install --quiet "networkx>=3.0"
+
+      - name: Phase 4 · 社群检测
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/graph/community_detect.py --resolution ${{ github.event.inputs.resolution || '1.0' }}
+
+      - name: Phase 5 · 社群摘要
+        if: ${{ github.event.inputs.detect_only != 'true' }}
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          CF_WORKERS:     '6'
+          PYTHONIOENCODING: utf-8
+        run: python scripts/graph/community_summary.py --limit ${{ github.event.inputs.summary_limit || '40' }}
