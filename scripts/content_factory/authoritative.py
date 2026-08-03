@@ -27,7 +27,7 @@
 
 【红线】AI 推理只走内部免费池网关;PubChem/ChEMBL/UniProt 是公开科学数据库,不是 AI 推理源,不受该条限制。
 """
-import os, sys, json, time, argparse, threading, datetime
+import os, re, sys, json, time, argparse, threading, datetime
 import urllib.request, urllib.parse, urllib.error
 
 # Windows 控制台默认 GBK,打 ✓/✗ 和中文会直接 UnicodeEncodeError 把整轮跑挂
@@ -209,15 +209,34 @@ def chembl_targets(chembl_id, min_pchembl=6.0, limit=25):
 
 
 def uniprot_accession(target_name):
-    """靶点名 → UniProt accession(人类,已审编)。取不到就留空,不猜。"""
+    """靶点名 → UniProt accession(人类,已审编)。取不到就留空,不猜。
+
+    【2026-08-03 线上事故修复】首轮真跑 120 条**全部失败**,报 `HTTPError: HTTP Error 400`,
+      入库 0(而取数是好的:PubChem 命中 75、ChEMBL 61)。
+      真因就在这里:ChEMBL 的靶点名常带括号/斜杠/逗号
+      (如 `Cytochrome P450 3A4 (CYP3A4)`、`Sodium/potassium-transporting ATPase`),
+      原样塞进 UniProt 的 Lucene 查询串会**打断语法 → 400**;
+      而这一步**没有自己的 try**,异常直接冒到条目级,整条作废。
+      dry-run 没暴露是因为它跑的是 `--no-ai` 且样本不同,没撞上带特殊字符的靶点名。
+    两处修:①只保留字母数字与空格再查(拿不到就留空,本来就允许空)
+           ②**自己兜异常** —— 这是"锦上添花"的字段,绝不许它拖垮整条入库。
+    """
     if not target_name:
         return None
-    qs = urllib.parse.urlencode({
-        "query": f'protein_name:"{target_name}" AND organism_id:9606 AND reviewed:true',
-        "format": "json", "size": 1, "fields": "accession,protein_name"})
-    j = http_json(f"{UNIPROT}/search?{qs}", "uniprot")
-    res = (j or {}).get("results") or []
-    return res[0].get("primaryAccession") if res else None
+    # Lucene 语法敏感字符一律洗掉;洗完为空就别查了
+    clean = re.sub(r'[^0-9A-Za-z \-]', ' ', str(target_name)).strip()
+    clean = re.sub(r'\s+', ' ', clean)[:60]
+    if len(clean) < 3:
+        return None
+    try:
+        qs = urllib.parse.urlencode({
+            "query": f'protein_name:"{clean}" AND organism_id:9606 AND reviewed:true',
+            "format": "json", "size": 1, "fields": "accession,protein_name"})
+        j = http_json(f"{UNIPROT}/search?{qs}", "uniprot")
+        res = (j or {}).get("results") or []
+        return res[0].get("primaryAccession") if res else None
+    except Exception:
+        return None    # 取不到就留空 —— 绝不让它拖垮整条入库
 
 
 # ── 合并 + 对账 ────────────────────────────────────────────────────────
