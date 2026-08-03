@@ -37,6 +37,14 @@ on:
         description: '只跑指定成分(逗号分隔,留空=按待办)'
         required: false
         default: ''
+      source:
+        description: '题材源:auto=老条目/种子表;herb=按中药拉丁学名反查(推荐,几千条起步)'
+        required: false
+        default: 'herb'
+      latin:
+        description: '中药拉丁学名(逗号分隔);留空=用内置16味常用药'
+        required: false
+        default: ''
       dry_run:
         description: '只取数不写 D1'
         type: boolean
