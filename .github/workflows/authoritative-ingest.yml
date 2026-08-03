@@ -80,6 +80,8 @@ jobs:
           python scripts/content_factory/authoritative.py \
             --count "${{ github.event.inputs.count || '40' }}" \
             --names "${{ github.event.inputs.names || '' }}" \
+            --source "${{ github.event.inputs.source || 'herb' }}" \
+            --latin "${{ github.event.inputs.latin || '' }}" \
             --report authoritative_report.json \
             ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }} \
             ${{ github.event.inputs.no_ai == 'true' && '--no-ai' || '' }}
