@@ -473,7 +473,24 @@ def run(args):
                    f"{q(fact['mol_weight'])},{q(targets)},{q('')},{q(tcm)},"
                    f"'①有出处',{q(refs_all)},'draft',{q(model_used)},{q(run_id)},{q(PROMPT_VER)},{now},{now},"
                    f"{q(fact['source'])},{q(fact['source_id'])},{q(fact['source_url'])},{now})")
-            d1(sql)
+            # UPSERT 而不是 INSERT。
+            # 【2026-08-03 事故真因】表上有 (kind, name_cn) 唯一索引,而这些成分**老 AI 产线早就写过**
+            #   (published 42 条里就有黄芩苷/丹参酮ⅡA…)。权威库拉到同名成分时 INSERT 撞唯一键 →
+            #   D1 返 400 → 整条失败,所以「失败数恰好等于待办数」。
+            #   我前两次分别猜成"SQL 写错"和"UniProt 未转义",都不对 ——
+            #   直到把 D1 的**错误响应体**打出来才看见 UNIQUE constraint。
+            # 认识纠正:权威库这条线要做的是**把已有条目升级成有出处的**,不是新建。
+            #   所以冲突时更新事实字段与出处,**保留 status/review 痕迹不动**。
+            d1(sql + """ ON CONFLICT(kind, name_cn) DO UPDATE SET
+                 name_en=excluded.name_en, source_herb=excluded.source_herb,
+                 formula=excluded.formula, smiles=excluded.smiles,
+                 pubchem_cid=excluded.pubchem_cid, uniprot_id=excluded.uniprot_id,
+                 mol_weight=excluded.mol_weight, targets=excluded.targets,
+                 tcm_link=CASE WHEN excluded.tcm_link<>'' THEN excluded.tcm_link ELSE biocomp_entries.tcm_link END,
+                 cog_tier=excluded.cog_tier, refs_json=excluded.refs_json,
+                 source=excluded.source, source_id=excluded.source_id,
+                 source_url=excluded.source_url, fetched_at=excluded.fetched_at,
+                 updated_at=excluded.updated_at""")
             done.add(fact["source_id"])
             stat["入库"] += 1
             print(f"  [{i}/{len(work)}] ✓ {name_cn} {fact['source_id']} {fact['formula']} "
