@@ -83,3 +83,42 @@ def record_trial(variant_id, scope, *, passed=0, held=0, failed=0, sample_n=0,
     except Exception as e:
         print(f"  [方案槽] 记轨迹失败:{type(e).__name__} {str(e)[:70]}", flush=True)
         return None
+
+
+def settle_trials(scope):
+    """结算适应度 —— **复核跑完之后**才调。
+
+    【2026-08-04 纠错】`record_trial` 在生成阶段就写 fitness,那一刻拿到的只有**入库率**
+      (生成出来的条目有没有成功写进库),实测是 0.83~1.00,**看不出好坏**。
+      而同一批数据的**真实复核放行率**是:hf-v1 8%(8/103)、hf-v2 16%(39/238)。
+      拿入库率当适应度,进化会朝「多产」优化而不是「更准」—— **方向正好反了**。
+    正解:生成阶段只记过程数,**适应度等复核判完再结算**。
+      fitness = 放行 / (放行 + 按住),draft(还没复核的)不计入分母。
+    """
+    tbl = "biocomp_entries" if scope == "biocomp" else "herb_compare"
+    try:
+        rows = d1(f"SELECT prompt_ver, "
+                  f"SUM(CASE WHEN status='published' THEN 1 ELSE 0 END) p, "
+                  f"SUM(CASE WHEN status='held' THEN 1 ELSE 0 END) h "
+                  f"FROM {tbl} WHERE prompt_ver IS NOT NULL GROUP BY prompt_ver")
+    except Exception as e:
+        print(f"  [结算] 取数失败:{type(e).__name__} {str(e)[:70]}", flush=True)
+        return []
+
+    out = []
+    now = int(time.time())
+    for r in rows:
+        judged = (r["p"] or 0) + (r["h"] or 0)
+        if judged < 20:          # 样本太少不许判定优劣 —— ±1 条就能翻几个百分点
+            continue
+        fit = (r["p"] or 0) / judged
+        try:
+            # 按 slot 归到当前 active 方案上(一个 prompt_ver 对应一代方案)
+            d1(f"UPDATE evolve_variants SET fitness={q(round(fit,4))}, sample_n={judged}, "
+               f"updated_at={now} WHERE scope={q(scope)} AND status='active'")
+            out.append((r["prompt_ver"], round(fit, 4), judged))
+        except Exception:
+            pass
+    for pv, f, n in out:
+        print(f"  [结算] {scope} {pv}: 复核放行率 {f:.1%}(判过 {n} 条)", flush=True)
+    return out

@@ -27,7 +27,8 @@ import os, sys, json, time, argparse, urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _smiles import smiles_matches_formula   # noqa: E402  确定性对账,别再靠模型自省
+from _smiles import smiles_matches_formula
+from _variant import settle_trials          # noqa: E402  复核跑完结算适应度   # noqa: E402  确定性对账,别再靠模型自省
 
 CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
 D1_DB      = os.environ.get("D1_DATABASE_ID", "")
@@ -258,6 +259,10 @@ def main():
                 print(f"  ! {name} 写库失败: {str(e)[:80]}", flush=True)
 
     print(f"\n[完] 放行 {passed} · 按住 {held} · 跳过(没换到模型) {skipped} · 出错 {failed}")
+    # 复核判完了,这时才拿得到真实放行率 —— 回填给方案槽当适应度。
+    # (生成阶段记的是入库率,那个看不出好坏:实测 0.83~1.00,而真实放行率只有 8~16%)
+    settle_trials(args.target)
+
     print(f"     放行的立刻在 /{'bencao' if args.target == 'herb' else 'shengwu'} 前台可见;"
           f"held 的留给人工,不会再自动复核。")
 
