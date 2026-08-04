@@ -120,12 +120,24 @@ def _prefilter(r):
 
 
 def load_repo_candidates(limit=400):
-    """两条采集路线合流:缺口驱动(优先)+ GitHub 热门(兜底)。
+    """三条采集路线合流:**月榜全量库**(主)+ 缺口驱动 + 热门榜快照。
 
-    合流之后能直接对比两条路的采纳率 —— 哪条标准更好不靠嘴说,靠下一轮数字。
+    创始人 2026-08-04:「不如直接看月榜,**把所有的搜集到我们的后台**,按照那来内部消化」。
+      月榜是 trending.py 全量灌进 `gh_repo_pool` 的,采集端一个都不筛;
+      筛在这里做 —— 这样判据改了可以**重新消化历史全量**,不用重新采集。
+    合流之后三条路的采纳率可以直接对比,哪条标准更好不靠嘴说,靠数字。
     """
     rows = []
-    for p, tag in ((GAP_JSON, "缺口驱动"), (CAND_JSON, "热门榜")):
+    try:
+        pool = d1("SELECT repo, url, description, stars, lang, topics, found_by "
+                  "FROM gh_repo_pool ORDER BY stars DESC LIMIT 2000")
+        for r in pool:
+            r["topics"] = [t for t in str(r.get("topics") or "").split(",") if t]
+        print(f"  [采集] 月榜全量库:{len(pool)} 个", flush=True)
+        rows += pool
+    except Exception as e:
+        print(f"  [采集] 读月榜库失败({str(e)[:70]}),走文件兜底", flush=True)
+    for p, tag in ((GAP_JSON, "缺口驱动"), (CAND_JSON, "热门榜快照")):
         if not os.path.exists(p):
             print(f"  [采集] 缺 {os.path.basename(p)}({tag}),跳过", flush=True)
             continue
