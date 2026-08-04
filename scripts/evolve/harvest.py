@@ -77,6 +77,14 @@ def measure_gaps():
         {"module": "自进化闭环", "metric": "换代成功率", "now": "两代 0 次成功换冠军",
          "pain": "机制转通了但还没证明能让质量真变好", "weight": 0.7},
     ]
+    # 没有实测缺口的模块也要扫 —— 鹰眼不能只盯着已知的痛处。
+    #   创始人:「情报分析鹰眼的强大,决定了后端成长的优秀与否」+「要多采集」。
+    #   低权重排在后面,但**每一轮都会覆盖到**,不至于某个模块永远进不了视野。
+    covered = {g["module"] for g in gaps}
+    for mod in FALLBACK_Q:
+        if mod not in covered:
+            gaps.append({"module": mod, "metric": "常规扫描", "now": "无实测缺口指标",
+                         "pain": f"{mod} 目前没有量化短板,做常规技术面扫描", "weight": 0.3})
     gaps.sort(key=lambda g: -g["weight"])
     return gaps
 
@@ -85,12 +93,56 @@ SYS_QUERY = (
     "你是开源技术侦察员。给你一个**具体的工程短板**,你要写出 5 条 GitHub 仓库搜索式,"
     "用来找可能解决它的开源项目。\n"
     "规则:\n"
-    "  · 用**英文技术术语**(GitHub 上的项目主要用英文描述),不要用中文词;\n"
-    "  · 每条聚焦一个具体技术手段,不要写宽泛的大词(如 \"AI\" \"LLM\" \"framework\");\n"
-    "  · 可以带限定词如 stars:>50、language:Python;\n"
-    "  · 三条要**互相不同的角度**,不要同义改写。\n"
-    "只输出 JSON:{\"queries\":[\"...\",\"...\",\"...\"]}"
+    "\n"
+    "**先记住 GitHub 仓库搜索的真实行为**(这是首轮失败的根因):\n"
+    "  它是**关键词 AND 匹配,不做语义理解**。写成自然语言长句 = 要求所有词全命中 = 几乎零结果。\n"
+    "  实测:28 条长句检索式只捞回 13 个仓,还多是无关项目。\n"
+    "规则(照做,不要发挥):\n"
+    "  · **每条 2~4 个英文技术词**,绝不写句子。\n"
+    "     ❌ \"content generation quality validation tool stars:>100\"(6 个词,几乎搜不到)\n"
+    "     ✅ \"fact checking pipeline stars:>100\"\n"
+    "  · 多用 `topic:` 限定,比关键词准得多:`topic:rag topic:evaluation stars:>200`\n"
+    "  · 可加 `language:Python`、`stars:>100`、`pushed:>2025-01-01`(找还活着的项目)\n"
+    "  · 5 条覆盖**不同技术路线**(不同算法/不同层次/不同生态),不是同义改写。\n"
+    "  · 不要大词:AI / LLM / framework / tool / system 单独用等于没写。\n"
+    "示例(短板=\"大规模知识图谱在浏览器里画不动\"):\n"
+    '  {"queries":["topic:graph-visualization webgl stars:>300","force directed layout gpu stars:>200",'
+    '"edge bundling stars:>100","graph level-of-detail rendering stars:>80",'
+    '"topic:network-visualization large-scale stars:>150"]}\n'
+    "只输出 JSON:{\"queries\":[\"...\",\"...\",\"...\",\"...\",\"...\"]}"
 )
+
+# 确定性兜底检索式 —— **不依赖模型**。
+#   创始人 2026-08-04:「情报分析鹰眼的强大,决定了后端成长的优秀与否」。
+#   那就不能把视野押在"模型这次写得好不好"上:模型写砸一次,这一轮鹰眼就瞎一次。
+#   每个模块焊一组人工校准过的短检索式打底,模型生成的是**增量**,不是全部。
+FALLBACK_Q = {
+    "内容工厂": ["topic:fact-checking stars:>100", "claim verification stars:>200",
+                 "structured output validation stars:>150", "topic:data-quality stars:>200",
+                 "llm output validation stars:>100"],
+    "知识图谱星图": ["topic:graph-visualization webgl stars:>300", "force directed layout stars:>500",
+                     "edge bundling stars:>50", "topic:network-visualization stars:>300",
+                     "graph sampling large stars:>100"],
+    "RAG向量检索": ["topic:rag evaluation stars:>300", "retrieval benchmark stars:>200",
+                    "topic:embeddings evaluation stars:>150", "reranker stars:>300",
+                    "hybrid search bm25 stars:>200"],
+    "AI寻脉": ["hallucination detection stars:>300", "groundedness stars:>50",
+               "topic:nli entailment stars:>200", "citation attribution llm stars:>100",
+               "self-rag stars:>100"],
+    "自进化闭环": ["topic:prompt-optimization stars:>300", "dspy stars:>200",
+                   "evolutionary prompt stars:>100", "topic:automl stars:>500",
+                   "llm-as-judge stars:>200"],
+    "导读生成": ["document outline extraction stars:>100", "hierarchical summarization stars:>100",
+                 "topic:document-understanding stars:>300"],
+    "OCR产线": ["topic:ocr chinese stars:>300", "document layout analysis stars:>300",
+                "handwritten ocr stars:>200"],
+    "免费模型池": ["llm gateway stars:>500", "topic:llm-proxy stars:>300",
+                   "model router fallback stars:>200"],
+    "检索路由": ["query intent classification stars:>100", "topic:query-understanding stars:>100",
+                 "adaptive retrieval routing stars:>100"],
+    "采集下载线": ["topic:iiif stars:>50", "digital library harvester stars:>50"],
+    "前台阅读器": ["topic:ebook-reader stars:>300", "paginated reader web stars:>100"],
+}
 
 
 def gh_search(q, per_page=12):
@@ -112,7 +164,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--top-gaps", type=int, default=99, help="本轮针对前几个缺口找(默认全部)")
     ap.add_argument("--per-query", type=int, default=30)
-    ap.add_argument("--n-queries", type=int, default=5, help="每个缺口生成几条检索式")
+    ap.add_argument("--n-queries", type=int, default=8, help="每个缺口最多跑几条检索式(兜底+模型)")
     ap.add_argument("--report", default="")
     a = ap.parse_args()
 
@@ -127,9 +179,17 @@ def main():
         try:
             qs = (parse_json(ask(SYS_QUERY, user, max_tokens=400)[0]) or {}).get("queries") or []
         except Exception as e:
-            print(f"  [{g['module']}] 检索式生成失败:{type(e).__name__}", flush=True)
-            continue
-        print(f"\n  [{g['module']}] 检索式:{qs}", flush=True)
+            print(f"  [{g['module']}] 检索式生成失败:{type(e).__name__},走兜底", flush=True)
+            qs = []
+        # 兜底先行:人工校准过的短检索式**总是**跑,模型生成的是增量。
+        #   鹰眼的视野不能取决于模型这一次发挥得怎么样。
+        base = FALLBACK_Q.get(g["module"], [])
+        # 模型写的长句(>5 个词)直接丢 —— GitHub 是 AND 匹配,长句必然搜不到
+        good = [x for x in qs if 0 < len(str(x).split()) <= 5]
+        if len(good) < len(qs):
+            print(f"  [{g['module']}] 丢掉 {len(qs)-len(good)} 条过长检索式(GitHub 是 AND 匹配)", flush=True)
+        qs = list(dict.fromkeys(base + good))
+        print(f"\n  [{g['module']}] 检索式({len(base)} 兜底 + {len(good)} 模型):{qs}", flush=True)
         for qq in qs[:a.n_queries]:
             for it in gh_search(str(qq), a.per_query):
                 name = it.get("full_name") or ""
