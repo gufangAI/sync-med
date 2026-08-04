@@ -235,7 +235,13 @@ def improve_one(scope, improver="freepool", dry=False):
             f"{(1-(fit or 0)):.0%} 的产出被按住了。\n\n"
             f"【被按住的真实原因分布】\n{reasons}\n\n"
             f"【真实失败样例】\n" + "\n".join("  " + s for s in samples) +
-            "\n\n请针对上面这些**真实**的失败原因改写提示词。")
+            "\n\n请针对上面这些**真实**的失败原因改写提示词。\n"
+            # 【2026-08-04 实测】不给数字,免费池模型会把它当"写一本规则书"——
+            #   biocomp 连着三次吐回 5601~6221 字(父代才 1032),全被闸拦下。
+            #   写抽象要求(「长度相当」)它完全不当回事,**给具体字数区间它才照做**。
+            f"【硬性字数】原提示词 {len(par['body'])} 字,你的产出必须在 "
+            f"{int(len(par['body'])*0.8)}~{int(len(par['body'])*1.6)} 字之间。"
+            f"超出即不合格会被自动丢弃。宁可把话说紧,不要展开成规则手册。")
 
     def _gen(extra=""):
         if improver == "claude-api":
@@ -254,8 +260,9 @@ def improve_one(scope, improver="freepool", dry=False):
         #   给一次带反馈的重试(把它自己的毛病告诉它),仍不合格才丢弃。
         print(f"  [{scope}] ⚠ 首轮被闸拦下({bad}),带反馈重试一次", flush=True)
         child, model = _gen(f"\n\n【上一次你的产出被自动闸拦下了】原因:{bad}。"
+                            f"你上次写了 {len(child)} 字,而**上限是 {int(len(par['body'])*1.6)} 字**。"
                             f"请**只输出提示词全文本身**,不要任何说明、理由、前后缀,"
-                            f"长度与原提示词相当。")
+                            f"必须压到 {int(len(par['body'])*1.6)} 字以内 —— 删掉举例和展开,只留规则。")
         bad = guard(par["body"], child)
     if bad:
         print(f"  [{scope}] ✗ 红线闸拦下这次改进(重试后仍不合格):{bad}", flush=True)

@@ -95,9 +95,15 @@ def record_trial(variant_id, scope, *, passed=0, held=0, failed=0, sample_n=0,
            f"passed,held,failed,feedback,run_ref,created_at) VALUES ("
            f"{q(tid)},{q(variant_id)},{q(scope)},{q(rate)},{q(rate)},{n},"
            f"{int(passed)},{int(held)},{int(failed)},{q(feedback[:1500])},{q(run_ref)},{now})")
-        if rate is not None:
-            d1(f"UPDATE evolve_variants SET fitness={q(rate)}, sample_n={n}, updated_at={now} "
-               f"WHERE variant_id={q(variant_id)}")
+        # 【2026-08-04 当场抓到·会毁掉闭环的 bug】这里原来还有一句
+        #     UPDATE evolve_variants SET fitness=入库率 ...
+        #   —— 把**生成阶段的入库率**写进了变体的 fitness。
+        #   实测后果:挑战者 v_5024541a2dea 显示 fitness=54.8%(n=31),
+        #   而它名下真实数据是 17 条、复核只放行 1 条(**5.9%**);在位冠军的 3.3%
+        #   却是货真价实的放行率。裁决拿**入库率**去比**放行率**,
+        #   下一轮就会把一个更差的方案当冠军提拔上去 —— 进化方向直接反了。
+        #   现在:record_trial 只记过程数(留痕、给 Improve 算子当燃料),
+        #   **variants.fitness 只许 settle_trials 写**(唯一真源 = 复核放行率)。
         return tid
     except Exception as e:
         print(f"  [方案槽] 记轨迹失败:{type(e).__name__} {str(e)[:70]}", flush=True)
@@ -200,15 +206,20 @@ def arbitrate(scope, slot, min_n=None, margin=None):
             print(f"  [裁决] ⏪ 回滚 {champ['variant_id']}({cf:.1%})→ 父代 {champ['parent_id']}({pf:.1%})", flush=True)
             return acts
 
+    # 防呆:两边的 fitness 必须**同源**(都来自 settle_trials 的复核放行率)。
+    #   在位冠军还没被结算过就不许裁决 —— 拿一个空值或旧口径去比,
+    #   等于让裁决在瞎猜(今天已经被入库率骗过一次,这道防呆不能省)。
+    if cf is None:
+        print("  [裁决] 在位冠军尚无结算过的放行率,本轮不裁决(避免拿不同口径的数字比)", flush=True)
+        return acts
     for ch in sorted(chals, key=lambda r: -(r["fitness"] or 0)):
         f, n = ch["fitness"], ch["sample_n"]
-        if cf is None or f >= cf + mg:                      # ② 显著赢 → 换冠军
+        if f >= cf + mg:                                    # ② 显著赢 → 换冠军
             d1(f"UPDATE evolve_variants SET status='retired', updated_at={now} "
                f"WHERE variant_id={q(champ['variant_id'])}")
             d1(f"UPDATE evolve_variants SET status='active', updated_at={now} "
                f"WHERE variant_id={q(ch['variant_id'])}")
-            acts.append(("换冠军", ch["variant_id"],
-                         f"{f:.1%}(n={n})胜过在位 {cf if cf is None else format(cf,'.1%')}"))
+            acts.append(("换冠军", ch["variant_id"], f"{f:.1%}(n={n})胜过在位 {cf:.1%}"))
             print(f"  [裁决] 🏆 换冠军 {ch['variant_id']} {f:.1%}(n={n})← 原 {champ['variant_id']}", flush=True)
             break
         if f + mg < cf:                                     # 显著输 → 杀掉,别再吃流量
