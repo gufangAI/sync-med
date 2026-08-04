@@ -36,6 +36,10 @@ on:
         description: '本轮每条产线生成条数'
         required: false
         default: '30'
+      explore:
+        description: '挑战者分流比例(留空=默认 30%;设 1 = 本轮全给挑战者,用于把样本一次攒够)'
+        required: false
+        default: ''
       workers:
         description: '并发路数(免费池网关,6 是实测不触发限流的稳妥值)'
         required: false
@@ -68,6 +72,9 @@ jobs:
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
           CF_WORKERS:     ${{ github.event.inputs.workers || '6' }}
+          # 留空时脚本用默认 0.30。A/B 分流比例可临时调 —— 挑战者卡在样本闸时
+          #   设 1 让这一轮全给它,当轮就凑够 25 条交给裁决判,不用等好几轮随机。
+          EVOLVE_EXPLORE: ${{ github.event.inputs.explore }}
           PYTHONIOENCODING: utf-8
         run: python scripts/content_factory/herb_factory.py --target ${{ matrix.target }} --count ${{ github.event.inputs.count || '30' }}
 
