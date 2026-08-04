@@ -65,6 +65,14 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: 回归集离线评测(固定卷子给分,不碰生产数据)
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/evolve/evaluate.py --scope all --items 12 --report evolve_eval.json
+
       - name: 诊断 → 生成下一代 → 裁决
         env:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}

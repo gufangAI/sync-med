@@ -204,6 +204,58 @@ def sync_candidates(limit=40):
     return n_in
 
 
+# 提示词能吸收的模块 = 上面 SCOPE_MODULES 覆盖的那些。**其余模块改不动提示词**,
+#   只能变成给人的工单 —— 这就是创始人要的「推送给你修改」那一环。
+PROMPT_ABSORBABLE = {m for ms in SCOPE_MODULES.values() for m in ms}
+
+
+def make_tickets(dry=False, limit=12):
+    """把**提示词吸收不了**的采纳项转成系统改进工单。
+
+    立此因(2026-08-04 创始人):「要让他真的可以抓到新的,**推送给你修改**,
+      优化了系统,这个闭环必须要通」。
+    此前的断点:雷达采到 → 判定可采纳 → **然后就没了**。40 条 adopt 里绝大多数落在
+      OCR产线/采集下载线/知识图谱星图这些模块上,它们**不是提示词能改的**,
+      于是永远躺在库里。躺着 = 没接上 = info4AI 这层白建。
+
+    工单只出**提案**,不改任何代码 —— 代码级改动永远走 PR + CI + 人 merge。
+    出过工单的标 status='ticketed',不重复刷屏(治"日报天天发没人看")。
+    """
+    try:
+        rows = d1("SELECT title,url,score,verdict_note FROM evolve_candidates "
+                  "WHERE kind='repo' AND status='adopt' ORDER BY score DESC LIMIT 80")
+    except Exception as e:
+        print(f"  [工单] 取候选失败:{str(e)[:70]}", flush=True)
+        return []
+    tickets = []
+    for r in rows:
+        try:
+            n = json.loads(r.get("verdict_note") or "{}")
+        except Exception:
+            continue
+        mod = n.get("module")
+        if not mod or mod in PROMPT_ABSORBABLE or not n.get("how"):
+            continue
+        tickets.append({"repo": r["title"], "url": r.get("url"), "stars": r.get("score"),
+                        "module": mod, "metric": n.get("metric"),
+                        "how": n["how"], "effort": n.get("effort")})
+        if len(tickets) >= limit:
+            break
+    if tickets and not dry:
+        ids = ",".join(q(t["repo"]) for t in tickets)
+        try:
+            d1(f"UPDATE evolve_candidates SET status='ticketed', updated_at={int(time.time())} "
+               f"WHERE title IN ({ids})")
+        except Exception as e:
+            print(f"  [工单] 标记失败:{str(e)[:70]}", flush=True)
+    # 按模块归堆 —— 同一个模块的几条一起看才好排期
+    by_mod = {}
+    for t in tickets:
+        by_mod.setdefault(t["module"], []).append(t)
+    print(f"  [工单] 生成 {len(tickets)} 张,覆盖 {len(by_mod)} 个模块:{list(by_mod)}", flush=True)
+    return tickets
+
+
 def improve_one(scope, improver="freepool", dry=False):
     slot, tbl, _, _ = SCOPES[scope]
     cur = d1(f"SELECT variant_id,body,fitness,sample_n FROM evolve_variants "
@@ -230,11 +282,22 @@ def improve_one(scope, improver="freepool", dry=False):
         print(f"  [{scope}] 没有可用的失败反馈,不瞎改", flush=True)
         return None
 
+    # 【2026-08-04 补·断链】此前 improve 算子**只往候选池写,从来不读** ——
+    #   雷达/月榜采回来 4076 个仓、判出 40 个可采纳,全躺在库里没人用。
+    #   创始人:「要让他真的可以抓到新的,推送给你修改,优化了系统,这个闭环必须要通」。
+    #   现在把与本产线相关的外部做法喂进改进提示词:外面的新技术要能真的作用到方案上,
+    #   否则 info4AI 那一层就只是个书签收藏夹。
+    ext = fetch_external_ideas(scope)
+
     user = (f"【当前提示词】\n{par['body']}\n\n"
             f"【这一代的真实成绩】复核放行率 {fit:.1%}(判过 {n} 条)—— 也就是说约 "
             f"{(1-(fit or 0)):.0%} 的产出被按住了。\n\n"
             f"【被按住的真实原因分布】\n{reasons}\n\n"
             f"【真实失败样例】\n" + "\n".join("  " + s for s in samples) +
+            ("\n\n【外部可借鉴的做法(情报雷达采到并已判定可用)】\n"
+             + "\n".join(f"  · {x['repo']} → {x['module']}/{x['metric']}:{x['how']}" for x in ext)
+             + "\n参考其中**思路**改进提示词;不适用就忽略,不要硬套、不要在提示词里提项目名。"
+             if ext else "") +
             "\n\n请针对上面这些**真实**的失败原因改写提示词。\n"
             # 【2026-08-04 实测】不给数字,免费池模型会把它当"写一本规则书"——
             #   biocomp 连着三次吐回 5601~6221 字(父代才 1032),全被闸拦下。
@@ -293,8 +356,10 @@ def main():
     scopes = list(SCOPES) if a.scope == "all" else [a.scope]
     print(f"=== Improve 算子 · 改进者={a.improver} · 产线={','.join(scopes)} ===", flush=True)
 
-    out = {"improver": a.improver, "born": [], "arbitrate": [], "candidates": 0}
+    out = {"improver": a.improver, "born": [], "arbitrate": [], "candidates": 0, "tickets": []}
     out["candidates"] = sync_candidates()
+    # 提示词吸收不了的采纳项 → 工单推给人(创始人:「抓到新的,推送给你修改」)
+    out["tickets"] = make_tickets(dry=a.dry_run)
 
     for s in scopes:
         print(f"\n--- {s} ---", flush=True)
@@ -310,6 +375,10 @@ def main():
     print(f"  情报灌入候选池:{out['candidates']} 条", flush=True)
     print(f"  裁决动作:{len(out['arbitrate'])} 次 {out['arbitrate']}", flush=True)
     print(f"  新生挑战者:{len(out['born'])} 个 {out['born']}", flush=True)
+    print(f"  系统改进工单:{len(out['tickets'])} 张", flush=True)
+    for t in out["tickets"][:8]:
+        print(f"    · [{t['module']}] {t['repo']}({t['stars']}★){t['effort'] or ''} "
+              f"→ {t['metric']}:{t['how']}", flush=True)
     if a.report:
         with open(a.report, "w", encoding="utf-8") as f:
             json.dump(out, f, ensure_ascii=False, indent=2)
