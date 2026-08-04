@@ -228,6 +228,18 @@ def arbitrate(scope, slot, min_n=None, margin=None):
                f"WHERE variant_id={q(ch['variant_id'])}")
             acts.append(("淘汰", ch["variant_id"], f"{f:.1%}(n={n})显著输给在位 {cf:.1%}"))
             print(f"  [裁决] ✗ 淘汰 {ch['variant_id']} {f:.1%}(n={n})", flush=True)
+        elif n >= mn * 2:
+            # ④ **让位闸(2026-08-04 实测补)** —— 打平的挑战者必须退场,否则闭环卡死。
+            #   当场撞上:本草挑战者 1.8%(n=57)vs 冠军 2.4%,既不够格上位、也没差到该杀,
+            #   于是它永远挂在 trial 上;而 improve_one 看到"已有挑战者在跑"就不肯生下一代
+            #   —— **循环停在这里,再也不会有第三代**。
+            #   规则:样本给到两倍闸值还没赢,就算它这一代的机会用完了,退场让下一代上。
+            #   保留成绩不删数据,status='lost' 仍可回溯这一支为什么没成。
+            d1(f"UPDATE evolve_variants SET status='lost', updated_at={now} "
+               f"WHERE variant_id={q(ch['variant_id'])}")
+            acts.append(("让位", ch["variant_id"],
+                         f"{f:.1%}(n={n})与在位 {cf:.1%} 打平,机会用完退场,让下一代上"))
+            print(f"  [裁决] ↩ 让位 {ch['variant_id']} {f:.1%}(n={n})打平在位 {cf:.1%},退场", flush=True)
     if not acts:
         print(f"  [裁决] {scope}/{slot} 本轮无动作(挑战者 {len(chals)} 个够样本)", flush=True)
     return acts
