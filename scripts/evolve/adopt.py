@@ -70,6 +70,17 @@ SYS_ADOPT = (
     "  · 只是「很有启发」「值得关注」而没有具体接法 → verdict=\"skip\";\n"
     "  · 通用基础设施(语言、框架、教程仓、awesome 列表)一律 skip;\n"
     "  · **绝不因为星多就采纳** —— 星数不是判据,能不能接进我们的模块才是。\n"
+    # 【2026-08-04 首轮月榜实测】写「绝不因为星多就采纳」完全没用:
+    #   redis(75876★)被判成「RAG向量检索/检索响应延迟」、caddy(74627★)被判成
+    #   「前台阅读器/阅读体验流畅度」—— 明星光环压过了判据。
+    #   抽象劝告没用,**必须把我们的部署形态作为硬约束写进去**,让它有具体的东西可判。
+    "  · **我们的运行形态是 Cloudflare Serverless(Workers/Pages/D1/R2/Vectorize)+ "
+    "GitHub Actions,零常驻主机、零月费**。任何需要**常驻服务进程**的项目 —— "
+    "数据库服务器(Redis/Postgres/MySQL)、搜索集群(Elasticsearch/OpenSearch/Meilisearch)、"
+    "图数据库(Neo4j)、反向代理/Web 服务器(Nginx/Caddy)、消息队列、K8s —— "
+    "**一律 skip**,不管它多少星、多么优秀。我们没有机器跑它。\n"
+    "  · 判 adopt 前先自问:**这东西是纯库/纯脚本/纯算法(能直接 import 或在 Actions 里跑),"
+    "还是要开一台机器常驻?** 后者一律 skip。\n"
     "verdict 三档:adopt(该接,给出接法) / watch(方向对但现在不动) / skip(不相关)。\n"
     "只输出 JSON:{\"module\":\"清单里的模块名或空\",\"verdict\":\"adopt|watch|skip\","
     "\"metric\":\"预计改善的指标,如「检索召回率」「导读生成耗时」\",\"how\":\"40字以内具体接法\","
