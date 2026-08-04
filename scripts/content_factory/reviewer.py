@@ -129,7 +129,8 @@ SPEC = {
              "name_cn,name_en,name_latin,props_json,constitution,traditional_use,"
              "indications,actives,tcm_compare,tcm_refs"),
     "biocomp": ("biocomp_entries", "entry_id",
-                "name_cn,name_en,source_herb,formula,smiles,mol_weight,targets,mechanism,tcm_link,refs_json"),
+                "name_cn,name_en,source_herb,formula,smiles,mol_weight,targets,mechanism,tcm_link,refs_json,"
+                "source,pubchem_cid"),
 }
 
 
@@ -181,11 +182,32 @@ def review_one(row, gen_model, target="biocomp"):
         return "hold", hard, "prefilter"
     payload = json.dumps({k: v for k, v in row.items() if k not in ("id", "gen_model")},
                          ensure_ascii=False)[:3500]
+
+    # 权威来源的条目:事实字段**不许模型再判**。
+    #
+    # 【2026-08-04 实测】按药材反查入库 173 条后,被按住的里 30% 理由是「分子式与SMILES不符」
+    #   「靶点涉嫌编造」「Tenaxin I 非真实中药成分」—— 而这些字段全部来自 PubChem/ChEMBL,
+    #   有 CID 可点回原页。拿我们自己的确定性对账复验这 12 条:**12/12 全部一致**。
+    #   也就是说复核模型在**对着权威真值乱拦** —— 它不知道数据哪来的,当成 AI 编的在审。
+    # 判据不变、只是分工变了:事实由**确定性对账 + 权威库出处**保证(已在 sanitize/prefilter 做过),
+    #   模型只审它真正擅长的那部分:叙述措辞与合规红线。
+    src = str(row.get("source") or "").strip().lower()
+    authoritative = src in ("pubchem", "chembl") and str(row.get("pubchem_cid") or "").strip()
+    sys_prompt = SYS_REVIEW
+    if authoritative:
+        sys_prompt = SYS_REVIEW + (
+            "\n\n**本条的事实字段来自权威数据库(PubChem/ChEMBL),带可回溯的 CID,"
+            "并已通过分子式↔结构式的原子级对账。**\n"
+            "因此:`formula` / `smiles` / `mol_weight` / `targets` / `pubchem_cid` / `refs_json` "
+            "这些字段**一律不许判为错、不许判为编造** —— 你没有比权威库更可靠的依据。\n"
+            "你只审两件事:①`tcm_link` 等**叙述文字**的措辞(是否写成临床结论、是否有疗效承诺/剂量);"
+            "②合规红线。叙述没问题就判 pass。")
+
     gen = (gen_model or "").strip()
     last_model = ""
     for sup in REVIEW_SUPPLIERS:
         try:
-            txt, model = ask(SYS_REVIEW, "待复核内容:\n" + payload, supplier=sup)
+            txt, model = ask(sys_prompt, "待复核内容:\n" + payload, supplier=sup)
         except Exception:
             continue                       # 这家挂了,换下一家
         last_model = model or last_model
