@@ -74,55 +74,65 @@ def seed_evalset(scope, n=12):
 
 
 def run_one(scope, item, body):
-    """跑一道题:生成 → 复核。**全在内存,不落任何生产表。**"""
+    """跑一道题:生成 → **确定性判分**。全在内存,不落任何生产表。
+
+    【2026-08-04 换判据】原来这里调 reviewer.review_one() —— 那是**模型判**,
+      于是分数 = f(考生模型, 考生随机, **考官模型**, **考官随机**, 题目),
+      而我只想量提示词。实测同一方案两轮 25.0% → 8.3%,摆幅 16.7 点。
+    现在换成 gate.score():**零调用、零随机、同一份输出永远得同一个分**。
+      而且它给**连续分**不是过/不过 —— 治的是第二个病(四个候选并列 0.0%,
+      就算噪声全消也永远排不出序)。
+    """
     try:
         if scope == "herb":
             obj, model = HF.gen_herb(item[0], item[1], sys_prompt=body)
         else:
             obj, model = HF.gen_bio(item[0], item[1], sys_prompt=body)
     except Exception as e:
-        return ("fail", f"生成失败 {type(e).__name__}", None)
+        return {"qualified": False, "score": 0.0, "reasons": [f"生成失败 {type(e).__name__}"],
+                "model": None, "gen_fail": True}
     if HF.violates(obj):
-        return ("hold", "命中合规词表", model)
-    try:
-        row = dict(obj)
-        row["id"] = "eval"
-        verdict, why, _ = RV.review_one(row, model, target=scope)
-        return (verdict, why, model)
-    except Exception as e:
-        return ("fail", f"复核失败 {type(e).__name__}", model)
+        return {"qualified": False, "score": 0.0, "reasons": ["命中合规词表"], "model": model}
+    r = gate_score(scope, obj)
+    r["model"] = model
+    return r
 
 
 def evaluate(variant, scope, eval_id, items):
+    """跑完整张卷子。**分数 = 过闸条目的连续分均值**,不是放行率。"""
     body = variant["body"]
-    res = {"pass": 0, "hold": 0, "fail": 0, "why": []}
+    scores, quals, fails, reasons = [], 0, 0, []
     with ThreadPoolExecutor(max_workers=WORKERS) as ex:
-        futs = {ex.submit(run_one, scope, it, body): it for it in items}
+        futs = [ex.submit(run_one, scope, it, body) for it in items]
         for f in as_completed(futs):
-            v, why, _ = f.result()
-            if v == "pass":
-                res["pass"] += 1
-            elif v == "hold":
-                res["hold"] += 1
-                res["why"].append(why[:60])
+            r = f.result()
+            if r.get("gen_fail"):
+                fails += 1
+            if r.get("qualified"):
+                quals += 1
+                scores.append(r["score"])
             else:
-                res["fail"] += 1
-                res["why"].append(why[:60])
-    judged = res["pass"] + res["hold"]
-    score = (res["pass"] / judged) if judged else None
+                scores.append(0.0)          # 失格计 0 分,但**仍进均值** —— 失格率也是水平的一部分
+                reasons.extend(r.get("reasons") or [])
+    n = len(items)
+    mean = (sum(scores) / n) if n else None
     tid = "t_" + uuid.uuid4().hex[:12]
     now = int(time.time())
+    # raw_score = 过闸率(旧口径,留痕可对比);fitness = 连续分均值(新主判据)
+    qual_rate = (quals / n) if n else None
     d1(f"INSERT INTO evolve_trials (trial_id,variant_id,scope,raw_score,fitness,sample_n,"
        f"passed,held,failed,feedback,run_ref,created_at,evaluation_dataset,mode) VALUES ("
-       f"{q(tid)},{q(variant['variant_id'])},{q(scope)},{q(score)},{q(score)},{judged},"
-       f"{res['pass']},{res['hold']},{res['fail']},{q(' | '.join(res['why'][:8]))},"
-       f"{q(os.environ.get('GITHUB_RUN_ID',''))},{now},{q(eval_id)},'offline_eval')")
-    # variants.fitness 只由回归集分数写 —— 生产流量不再参与裁决
-    if score is not None:
-        d1(f"UPDATE evolve_variants SET fitness={q(round(score,4))}, sample_n={judged}, "
-           f"evaluation_dataset={q(eval_id)}, updated_at={now} "
+       f"{q(tid)},{q(variant['variant_id'])},{q(scope)},{q(qual_rate)},{q(mean)},{n},"
+       f"{quals},{n - quals - fails},{fails},"
+       f"{q(' | '.join(dict.fromkeys(reasons))[:1400])},"
+       f"{q(os.environ.get('GITHUB_RUN_ID',''))},{now},{q(eval_id + '#' + SCORER_VERSION)},"
+       f"'offline_deterministic')")
+    if mean is not None:
+        d1(f"UPDATE evolve_variants SET fitness={q(round(mean,4))}, sample_n={n}, "
+           f"evaluation_dataset={q(eval_id + '#' + SCORER_VERSION)}, updated_at={now} "
            f"WHERE variant_id={q(variant['variant_id'])}")
-    return score, res
+    return mean, {"qual": quals, "n": n, "fail": fails,
+                  "why": list(dict.fromkeys(reasons))[:6]}
 
 
 def main():
@@ -146,14 +156,14 @@ def main():
         out[scope] = {"eval_id": eval_id, "n_items": len(items), "variants": []}
         for v in rows:
             score, res = evaluate(v, scope, eval_id, items)
-            s = "—" if score is None else f"{score:.1%}"
-            print(f"  [{v['status']:6s}] {v['variant_id']} 得分 {s} "
-                  f"(过{res['pass']} 按{res['hold']} 废{res['fail']})", flush=True)
-            if res["why"]:
-                print(f"          扣分:{res['why'][0]}", flush=True)
+            s = "—" if score is None else f"{score:.4f}"
+            print(f"  [{v['status']:6s}] {v['variant_id']} 连续分 {s} "
+                  f"(过闸 {res['qual']}/{res['n']} 生成废 {res['fail']})", flush=True)
+            for w in res["why"][:2]:
+                print(f"          失格:{w}", flush=True)
             out[scope]["variants"].append({
                 "variant_id": v["variant_id"], "status": v["status"],
-                "score": score, **{k: res[k] for k in ("pass", "hold", "fail")},
+                "score": score, "qualified": res["qual"], "n": res["n"], "fail": res["fail"],
             })
 
     if a.report:
