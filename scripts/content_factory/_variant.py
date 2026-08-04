@@ -28,7 +28,12 @@ from _ai import d1, q          # noqa: E402  公共底座,不再抄一份
 MIN_N  = int(os.environ.get("EVOLVE_MIN_N", "25"))     # 样本不够一律不判优劣(±1 条就能翻几个点)
 MARGIN = float(os.environ.get("EVOLVE_MARGIN", "0.03"))  # 必须**显著**赢才换,防噪声换冠军
 # 空字符串要当成"没设"(Actions 里未填的 input 传进来就是空串,float("") 会崩)
-EXPLORE = float(os.environ.get("EVOLVE_EXPLORE", "").strip() or "0.30")  # 挑战者分到的流量比例
+# 【2026-08-04 两位大佬评审后改为 0】原来默认 0.30,即挑战者直接吃 30% **生产流量**。
+#   GPT:「绝不能让线上引擎边运行边自由修改自己」;Claude:「没有固定基准的 A/B 是掷骰子」。
+#   实测也证明了:挑战者一度显示领先 3.5 个点,样本涨到 57 后变成落后 —— 因为两边
+#   **跑的根本不是同一批题材**。现在裁决改由固定回归集(scripts/evolve/evaluate.py)供分,
+#   生产线只跑已批准的冠军。要临时灰度就显式传 EVOLVE_EXPLORE,默认零。
+EXPLORE = float(os.environ.get("EVOLVE_EXPLORE", "").strip() or "0")  # 运行面默认只跑冠军
 
 
 def load_variant(scope, slot, default_body, explore=None):
@@ -177,6 +182,14 @@ def arbitrate(scope, slot, min_n=None, margin=None):
     """
     mn = MIN_N if min_n is None else min_n
     mg = MARGIN if margin is None else margin
+    # 【2026-08-04 改回归集之后必须配套改闸】固定回归集只有一二十道题,
+    #   写死 MIN_N=25 的话裁决**永远不会触发**;而题少时 1 道题就能翻好几个点。
+    #   所以两个闸都随题量自适应:
+    #     样本闸 = min(MIN_N, 半张卷子) —— 至少答了一半才算数
+    #     显著闸 = max(MARGIN, 1.5 题的分值) —— 必须赢过"一道半题",不是赢在噪声上
+    def _gates(n):
+        n = max(int(n or 0), 1)
+        return min(mn, max(6, n // 2)), max(mg, 1.5 / n)
     acts, now = [], int(time.time())
     try:
         rows = d1(f"SELECT variant_id,status,fitness,sample_n,parent_id,note FROM evolve_variants "
@@ -186,8 +199,10 @@ def arbitrate(scope, slot, min_n=None, margin=None):
         return acts
 
     champ = next((r for r in rows if r["status"] == "active"), None)
+    # 闸值按在位冠军答的题量算(两边同卷,题量一致)
+    _mn, _mg = _gates((next((r for r in rows if r["status"] == "active"), {}) or {}).get("sample_n"))
     chals = [r for r in rows if r["status"] == "trial"
-             and r.get("fitness") is not None and (r.get("sample_n") or 0) >= mn]
+             and r.get("fitness") is not None and (r.get("sample_n") or 0) >= _mn]
     if not champ:
         print("  [裁决] 无在位冠军,跳过", flush=True)
         return acts
@@ -197,7 +212,7 @@ def arbitrate(scope, slot, min_n=None, margin=None):
     if champ.get("parent_id") and cf is not None and (champ.get("sample_n") or 0) >= mn:
         par = d1(f"SELECT variant_id,fitness FROM evolve_variants WHERE variant_id={q(champ['parent_id'])}")
         pf = par[0].get("fitness") if par else None
-        if pf is not None and cf + mg < pf:
+        if pf is not None and cf + _mg < pf:
             d1(f"UPDATE evolve_variants SET status='rolled_back', updated_at={now} "
                f"WHERE variant_id={q(champ['variant_id'])}")
             d1(f"UPDATE evolve_variants SET status='active', updated_at={now} "
@@ -207,7 +222,15 @@ def arbitrate(scope, slot, min_n=None, margin=None):
             print(f"  [裁决] ⏪ 回滚 {champ['variant_id']}({cf:.1%})→ 父代 {champ['parent_id']}({pf:.1%})", flush=True)
             return acts
 
-    # 防呆:两边的 fitness 必须**同源**(都来自 settle_trials 的复核放行率)。
+    # 防呆一:两边分数必须来自**同一张回归集卷子**。
+    #   拿不同卷子的分数比高下 = 掷骰子(2026-08-04 实测翻车过一次:挑战者"领先"3.5 个点,
+    #   换成同一批题材后其实是落后)。评测集不同 → 不裁决。
+    ch_ev = {r.get("evaluation_dataset") for r in rows if r.get("evaluation_dataset")}
+    if len(ch_ev) > 1:
+        print(f"  [裁决] 各方案的回归集不一致 {ch_ev},本轮不裁决(不许跨卷比分)", flush=True)
+        return acts
+
+    # 防呆二:两边的 fitness 必须**同源**。
     #   在位冠军还没被结算过就不许裁决 —— 拿一个空值或旧口径去比,
     #   等于让裁决在瞎猜(今天已经被入库率骗过一次,这道防呆不能省)。
     if cf is None:
@@ -215,7 +238,7 @@ def arbitrate(scope, slot, min_n=None, margin=None):
         return acts
     for ch in sorted(chals, key=lambda r: -(r["fitness"] or 0)):
         f, n = ch["fitness"], ch["sample_n"]
-        if f >= cf + mg:                                    # ② 显著赢 → 换冠军
+        if f >= cf + _mg:                                   # ② 显著赢 → 换冠军
             d1(f"UPDATE evolve_variants SET status='retired', updated_at={now} "
                f"WHERE variant_id={q(champ['variant_id'])}")
             d1(f"UPDATE evolve_variants SET status='active', updated_at={now} "
@@ -223,12 +246,12 @@ def arbitrate(scope, slot, min_n=None, margin=None):
             acts.append(("换冠军", ch["variant_id"], f"{f:.1%}(n={n})胜过在位 {cf:.1%}"))
             print(f"  [裁决] 🏆 换冠军 {ch['variant_id']} {f:.1%}(n={n})← 原 {champ['variant_id']}", flush=True)
             break
-        if f + mg < cf:                                     # 显著输 → 杀掉,别再吃流量
+        if f + _mg < cf:                                    # 显著输 → 杀掉,别再吃流量
             d1(f"UPDATE evolve_variants SET status='killed', updated_at={now} "
                f"WHERE variant_id={q(ch['variant_id'])}")
             acts.append(("淘汰", ch["variant_id"], f"{f:.1%}(n={n})显著输给在位 {cf:.1%}"))
             print(f"  [裁决] ✗ 淘汰 {ch['variant_id']} {f:.1%}(n={n})", flush=True)
-        elif n >= mn * 2:
+        elif n >= _mn * 2:
             # ④ **让位闸(2026-08-04 实测补)** —— 打平的挑战者必须退场,否则闭环卡死。
             #   当场撞上:本草挑战者 1.8%(n=57)vs 冠军 2.4%,既不够格上位、也没差到该杀,
             #   于是它永远挂在 trial 上;而 improve_one 看到"已有挑战者在跑"就不肯生下一代
@@ -241,5 +264,6 @@ def arbitrate(scope, slot, min_n=None, margin=None):
                          f"{f:.1%}(n={n})与在位 {cf:.1%} 打平,机会用完退场,让下一代上"))
             print(f"  [裁决] ↩ 让位 {ch['variant_id']} {f:.1%}(n={n})打平在位 {cf:.1%},退场", flush=True)
     if not acts:
-        print(f"  [裁决] {scope}/{slot} 本轮无动作(挑战者 {len(chals)} 个够样本)", flush=True)
+        print(f"  [裁决] {scope}/{slot} 本轮无动作(挑战者 {len(chals)} 个够样本,"
+              f"闸值 样本>={_mn} 显著>={_mg:.1%})", flush=True)
     return acts
