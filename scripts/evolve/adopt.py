@@ -77,13 +77,69 @@ SYS_ADOPT = (
 )
 
 
-def load_repo_candidates(limit=60):
-    if not os.path.exists(CAND_JSON):
-        print(f"  [采纳] 找不到 {CAND_JSON},先让 arsenal_radar 跑一轮", flush=True)
-        return []
-    d = json.load(open(CAND_JSON, encoding="utf-8"))
-    rows = d if isinstance(d, list) else (d.get("rows") or d.get("candidates") or [])
-    return rows[:limit]
+GAP_JSON = os.path.join(REPO_ROOT, "reports", "arsenal", "gap_candidates.json")
+
+# ── 确定性预筛词表 ──────────────────────────────────────────────
+# 创始人 2026-08-04:「要多采集,然后筛选自己需要的」。
+#   广采的前提是**筛得起**:每个仓一次模型调用,几百个候选就是几百次调用。
+#   所以先用零成本的确定性预筛砍掉明显无关的,模型只判剩下的。
+#   实测第一轮 30 个里 20 个是 freeCodeCamp / TypeScript 这类 —— 这些根本不该花模型调用。
+NOISE = ("awesome-", "tutorial", "curriculum", "interview", "roadmap", "cheatsheet",
+         "bootcamp", "learn-", "-course", "study-", "examples", "boilerplate",
+         "starter", "template", "demo", "playground", "hello-world", "free-programming")
+# 命中任一即进入模型精判 —— 覆盖我们 11 个模块真正吃的技术面
+SIGNAL = ("rag", "retriev", "embed", "vector", "rerank", "hybrid search", "bm25",
+          "knowledge graph", "graphrag", "graph visual", "force-directed", "force graph",
+          "edge bundl", "louvain", "community detect", "layout",
+          "ocr", "document parsing", "pdf extract", "layout analysis", "handwrit",
+          "hallucinat", "groundedness", "citation", "attribution", "fact check", "self-rag",
+          "eval", "benchmark", "gold set", "llm-as-judge", "prompt optim", "dspy",
+          "agent", "workflow orchestr", "self-improv", "evolutionary", "genetic",
+          "tcm", "traditional chinese medicine", "herb", "chinese medic", "classical chinese",
+          "ancient text", "cjk", "chemistry", "molecul", "smiles", "pubchem", "bioinformatic",
+          "llm gateway", "proxy", "load balanc", "free api", "model router", "fallback",
+          "crawler", "scraper", "iiif", "digital librar", "archive")
+
+
+def _prefilter(r):
+    """零成本预筛。返回 (是否进模型精判, 原因)。"""
+    name = str(r.get("repo") or r.get("full_name") or "").lower()
+    blob = " ".join([name, str(r.get("description") or ""),
+                     " ".join(r.get("topics") or [])]).lower()
+    if any(k in name for k in NOISE):
+        return False, "教程/模板/awesome 类"
+    # 缺口驱动的必须**先于**信号词检查放行 —— 它是拿我们自己的短板去定向搜回来的,
+    #   相关性由检索式保证,不该再要求它的英文描述里出现我们的词表。
+    #   (自测抓到:这句原来写在信号词检查之后,等于把最该留的一路当噪声砍掉。)
+    if str(r.get("found_by") or "").startswith("gap:"):
+        return True, "缺口定向"
+    hits = [k for k in SIGNAL if k in blob]
+    if not hits:
+        return False, "描述里没有任何我们吃得上的技术面"
+    return True, "命中:" + "/".join(hits[:3])
+
+
+def load_repo_candidates(limit=400):
+    """两条采集路线合流:缺口驱动(优先)+ GitHub 热门(兜底)。
+
+    合流之后能直接对比两条路的采纳率 —— 哪条标准更好不靠嘴说,靠下一轮数字。
+    """
+    rows = []
+    for p, tag in ((GAP_JSON, "缺口驱动"), (CAND_JSON, "热门榜")):
+        if not os.path.exists(p):
+            print(f"  [采集] 缺 {os.path.basename(p)}({tag}),跳过", flush=True)
+            continue
+        d = json.load(open(p, encoding="utf-8"))
+        rs = d if isinstance(d, list) else (d.get("rows") or d.get("candidates") or [])
+        print(f"  [采集] {tag}:{len(rs)} 个", flush=True)
+        rows += rs
+    seen, out = set(), []
+    for r in rows:
+        n = str(r.get("repo") or r.get("full_name") or "")
+        if n and n not in seen:
+            seen.add(n)
+            out.append(r)
+    return out[:limit]
 
 
 def already_judged():
@@ -103,8 +159,14 @@ def judge(r):
     txt, model = ask(SYS_ADOPT, user, max_tokens=500)
     try:
         o = parse_json(txt)
-    except Exception as e:
-        return None, f"解析失败 {type(e).__name__}"
+    except Exception:
+        # 首轮实测 30 个里 3 个解析失败(10%)—— 模型没吐 JSON。重试一次再放弃。
+        txt, model = ask(SYS_ADOPT, user + "\n\n【必须只输出 JSON,不要任何别的字】",
+                         max_tokens=500)
+        try:
+            o = parse_json(txt)
+        except Exception as e:
+            return None, f"解析失败 {type(e).__name__}(重试后仍失败)"
     v = str(o.get("verdict") or "skip").lower()
     if v not in ("adopt", "watch", "skip"):
         v = "skip"
@@ -127,10 +189,23 @@ def main():
 
     rows = load_repo_candidates()
     done = already_judged()
-    todo = [r for r in rows if str(r.get("repo") or "") not in done][:a.limit]
-    print(f"=== Adopt 算子 · 候选 {len(rows)} 个,已判 {len(done)} 个,本轮评审 {len(todo)} 个 ===", flush=True)
+    fresh = [r for r in rows if str(r.get("repo") or r.get("full_name") or "") not in done]
 
-    out, now = {"adopt": [], "watch": [], "skip": 0, "fail": 0}, int(time.time())
+    # 两级筛:① 零成本确定性预筛 → ② 模型精判(只花在过了预筛的身上)
+    kept, dropped = [], 0
+    for r in fresh:
+        ok, why = _prefilter(r)
+        if ok:
+            r["_pre"] = why
+            kept.append(r)
+        else:
+            dropped += 1
+    todo = kept[:a.limit]
+    print(f"=== Adopt 算子 · 采到 {len(rows)} · 已判 {len(done)} · "
+          f"预筛砍掉 {dropped}(零成本)· 本轮精判 {len(todo)} ===", flush=True)
+
+    out, now = {"adopt": [], "watch": [], "skip": 0, "fail": 0,
+                "prefilter_dropped": dropped, "harvested": len(rows)}, int(time.time())
     for r in todo:
         name = str(r.get("repo") or "")
         o, err = judge(r)

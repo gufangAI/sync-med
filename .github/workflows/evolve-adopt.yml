@@ -52,6 +52,15 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: 缺口驱动采集(从我们的短板出发定向抓,不捡热门)
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/evolve/harvest.py --report evolve_harvest.json || echo '采集失败不致命,下一步用热门榜兜底'
+
       - name: 评审 GitHub 候选 → 落到我们的模块
         env:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
