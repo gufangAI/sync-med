@@ -1,0 +1,115 @@
+# ============================================================
+# 自进化闭环 · Adopt 环:GitHub 热门应用 → 进化我们的技术
+#
+# 立此因(2026-08-04 创始人):
+#   「你先实现 GitHub 热门应用推送进化我们的技术,这个就已经是成功了第一步」
+#
+# 补的断点:`arsenal_radar` 每天扫 GitHub 高星仓,candidates.json 里躺着 60 个现成候选,
+#   而它自己写着「不做采不采用的判断,判断在 SueAI 议事会」——**那个议事会从来没建**。
+#   情报采回来了,没有任何东西把它变成动作。本 workflow 就是那个议事会。
+#
+# 判定必须落到**我们的真实模块**上(检索路由/RAG/星图/寻脉/导读/内容工厂/OCR/…),
+#   说不出"改哪个模块、动哪个指标"的一律 skip —— 这条判据本身就是过滤器,
+#   防止又产出一份"很有启发"但没人能动手的情报日报。
+#
+# **谁审核**(创始人直接问的):高分提案自动开 Issue,采纳由创始人/CTO 在 Issue 上点。
+#   系统**只出提案,不改任何代码** —— 代码级改动永远走 PR + CI + 人 merge。
+#
+# 成本:GitHub 候选来自已有 candidates.json(零额外 API);判定走内部免费池网关,零计费。
+# ============================================================
+
+name: Evolve Adopt
+
+on:
+  schedule:
+    - cron: '50 2 * * *'        # 每天一轮,错开雷达与内容工厂
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: '本轮评审几个候选'
+        required: false
+        default: '30'
+      dry_run:
+        description: '只评审不写库'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: evolve-adopt
+  cancel-in-progress: false
+
+jobs:
+  adopt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write             # 高分提案要能被看见,不许只躺在表里
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 评审 GitHub 候选 → 落到我们的模块
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          python scripts/evolve/adopt.py \
+            --limit "${{ github.event.inputs.limit || '30' }}" \
+            --report evolve_adopt.json \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      # 关键动作必须能被看见 —— pan-register 连喊 12 天零人响应的教训
+      - name: 高分提案开 Issue(采纳入口)
+        if: ${{ success() && github.event.inputs.dry_run != 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY' > issue_body.md
+          import json, os
+          d = json.load(open("evolve_adopt.json", encoding="utf-8"))
+          ad, wa = d.get("adopt") or [], d.get("watch") or []
+          if not ad and not wa:
+              open("skip.flag", "w").write("1")
+          print("> GitHub 热门项目已按**我们的真实模块**评审完毕。")
+          print("> 系统只出提案,**不改任何代码**;要采纳请在本 Issue 回复,")
+          print("> 代码级改动一律走 PR + CI + 人 merge。\n")
+          if ad:
+              print("## 🎯 建议采纳\n")
+              print("| 项目 | 星 | 接到哪个模块 | 预计改善 | 怎么接 | 工作量 |")
+              print("|---|---|---|---|---|---|")
+              for r in ad:
+                  print(f"| [{r['repo']}]({r.get('url')}) | {r.get('stars')} | **{r.get('module')}** "
+                        f"| {r.get('metric')} | {r.get('how')} | {r.get('effort')} |")
+          if wa:
+              print("\n## 👀 方向对但现在不动\n")
+              for r in wa:
+                  print(f"- **{r['repo']}**({r.get('stars')}★)→ {r.get('module')}:{r.get('why')}")
+          print(f"\n---\n本轮:采纳 {len(ad)} · 观望 {len(wa)} · 不相关 {d.get('skip',0)} · 失败 {d.get('fail',0)}")
+          PY
+          if [ -f skip.flag ]; then
+            echo "本轮无可采纳提案,不开 Issue(避免变成噪声)"
+          else
+            gh issue create -R "$GITHUB_REPOSITORY" \
+              --title "🎯 技术进化提案 · $(date -u +%Y-%m-%d)" \
+              --body-file issue_body.md || echo "开 Issue 失败(不致命)"
+          fi
+
+      - name: 写进 Job Summary
+        if: always()
+        run: |
+          echo "## GitHub 热门 → 技术进化提案" >> "$GITHUB_STEP_SUMMARY"
+          [ -f evolve_adopt.json ] && cat issue_body.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || \
+            echo "> ⚠️ 本轮没有产出,需要人看。" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evolve-adopt-${{ github.run_id }}
+          path: evolve_adopt.json
+          if-no-files-found: warn
