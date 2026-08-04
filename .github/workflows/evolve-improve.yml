@@ -1,0 +1,114 @@
+# ============================================================
+# 自进化闭环 · Improve 环(真正闭上口的那一环)
+#
+# 立此因(2026-08-04 创始人):
+#   「要抓紧完成这个闭环,这是最值钱的部分,我们就真的要开始融钱了」
+#   「不可以只是说,必须实现!」
+#
+# 与已有 evolve-controller.yml 的分工(别混):
+#   · evolve-controller = **观察者**:看指标、开 Issue、给人看。它不改任何东西。
+#   · 本 workflow       = **改进者**:诊断真实失败 → 生成下一代方案 → 裁决换冠军。
+#                          它是唯一会**真的动系统**的那个环。
+#
+# 一圈完整的能量路径(跑完这个 workflow 就转一格):
+#   雷达 intel_items ──灌──▶ evolve_candidates        (info4AI:进化的来源)
+#   产线 held/published ──诊断──▶ 失败原因分布 + 真实样例
+#            └──改进者──▶ 新方案 status='trial'        (sueAI:进化的动作)
+#   产线 load_variant 按 30% 探索流量喂给挑战者
+#            └──复核判 ──▶ settle_trials 按 variant_id 归位 fitness
+#                    └──arbitrate──▶ 换冠军 / 淘汰 / 回滚  (QA-Evolution:进化的度量)
+#
+# 安全边界(自动换冠军**不是**裸奔):
+#   · 红线闸:父代有的合规约束子代必须一条不少,少一条直接丢弃不写库(代码里硬判)
+#   · 样本闸:judged < EVOLVE_MIN_N 一律不判优劣
+#   · 显著闸:必须赢过在位 EVOLVE_MARGIN 才换,平手不换
+#   · 回滚闸:换上去之后掉下来自动退回父代 —— 这条是敢自动的底气
+#   · 只写 evolve_* 表与提示词,**绝不改已上线内容、绝不删数据、绝不碰产线代码**
+#
+# 成本:改进者默认走内部免费池网关,零按量计费。
+#   Claude API 改进者接口已焊好(--improver claude-api),但**必须**创始人显式提供
+#   ANTHROPIC_API_KEY secret 才会启用 —— 脚本自己不会偷偷走计费源。
+# ============================================================
+
+name: Evolve Improve
+
+on:
+  schedule:
+    - cron: '10 */3 * * *'      # 每 3 小时;错开内容工厂(:20)与复核(:00)
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: '产线:biocomp / herb / all'
+        required: false
+        default: 'all'
+      improver:
+        description: '改进者:freepool(免费池·默认) / claude-api(按量计费·需创始人开 secret)'
+        required: false
+        default: 'freepool'
+      dry_run:
+        description: '只诊断不写库'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: evolve-improve
+  cancel-in-progress: false     # 裁决过程别被打断
+
+jobs:
+  improve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 诊断 → 生成下一代 → 裁决
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          # 没配这个 secret 时为空 → Claude 改进者不会启用,自动留在免费池
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          python scripts/evolve/improve.py \
+            --scope "${{ github.event.inputs.scope || 'all' }}" \
+            --improver "${{ github.event.inputs.improver || 'freepool' }}" \
+            --report evolve_improve.json \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      # 闭环的动作必须能被看见 —— 不许只躺在 run log 里(pan-register 连喊 12 天零人响应的教训)
+      - name: 本轮闭环动作写进 Job Summary
+        if: always()
+        run: |
+          echo "## 自进化闭环 · 本轮动作" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f evolve_improve.json ]; then
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d = json.load(open("evolve_improve.json", encoding="utf-8"))
+          print(f"- 改进者:**{d.get('improver')}**")
+          print(f"- 情报灌入候选池:**{d.get('candidates',0)}** 条")
+          arb = d.get("arbitrate") or []
+          print(f"- 裁决动作:**{len(arb)}** 次")
+          for a in arb:
+              print(f"  - `{a['scope']}` **{a['action']}** {a['variant']} —— {a['why']}")
+          born = d.get("born") or []
+          print(f"- 新生挑战者:**{len(born)}** 个")
+          for b in born:
+              print(f"  - `{b['scope']}` {b['variant']}")
+          if not arb and not born:
+              print("\n> 本轮没有换代动作(样本没攒够 / 已有挑战者在跑),这是正常的。")
+          PY
+          else
+            echo "> ⚠️ 没生成 report.json,这轮改进环很可能整体失败了。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evolve-improve-${{ github.run_id }}
+          path: evolve_improve.json
+          if-no-files-found: warn

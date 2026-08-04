@@ -471,6 +471,12 @@ def main():
     default_sys = SYS_BIO if args.target == "biocomp" else SYS_HERB
     seed_variant(args.target, slot, default_sys, author="cto", note="源码默认提示词,登记为第一代")
     ACTIVE_SYS, ACTIVE_VID = load_variant(args.target, slot, default_sys)
+    # 成绩必须归到**本轮真正用的那个方案**头上。写死 PROMPT_VER 常量的话,
+    #   A/B 两组数字会挂在同一个版本号下互相覆盖,裁决永远看不出谁更好 ——
+    #   闭环就断在这一行(2026-08-04 修)。
+    global PROMPT_VER
+    if ACTIVE_VID:
+        PROMPT_VER = ACTIVE_VID
     print(f"  [方案槽] slot={slot} variant={ACTIVE_VID or '(源码默认)'} 长度={len(ACTIVE_SYS)}", flush=True)
 
     run_id = "cf_" + uuid.uuid4().hex[:12]
