@@ -32,7 +32,7 @@ on:
       count:
         description: '本轮处理条数'
         required: false
-        default: '40'
+        default: '200'
       names:
         description: '只跑指定成分(逗号分隔,留空=按待办)'
         required: false

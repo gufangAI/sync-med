@@ -1,0 +1,75 @@
+# ============================================================
+# 复核清仓 · 专职把 draft 积压吃干净
+#
+# 立此因(2026-08-04 创始人:「又停!你的唤醒机制完全失效了啊」):
+#   会话级的 ScheduleWakeup 一停就没了,不可靠。而 GitHub cron 这一夜实测扛住了
+#   (我睡着的 8 小时里舰队自己跑出 +102 条权威 ID、+6 条自进化轨迹)。
+#   所以正解不是修唤醒,是**让产线不需要我醒着**。
+#
+# 卡点实测:内容工厂每轮生成 30 条、复核只吃 60 条,而积压已到 188 条 ——
+#   生成快过复核,积压只会越滚越大。本 workflow 专职清仓,每小时一轮、每轮 120 条。
+#
+# 成本:只走内部免费池;复核默认路径是确定性判据 + 点名换模型,零按量计费。
+# ============================================================
+
+name: Review Drain
+
+on:
+  schedule:
+    - cron: '10 * * * *'          # 每小时一轮
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: '本轮复核多少条'
+        required: false
+        default: '120'
+      target:
+        description: 'biocomp / herb / both'
+        required: false
+        default: 'both'
+
+concurrency:
+  group: review-drain
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [biocomp, herb]
+    name: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 复核清仓
+        if: ${{ github.event.inputs.target == '' || github.event.inputs.target == 'both' || github.event.inputs.target == matrix.target }}
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          CF_WORKERS:     '8'
+          PYTHONIOENCODING: utf-8
+        run: python scripts/content_factory/reviewer.py --target ${{ matrix.target }} --limit ${{ github.event.inputs.limit || '120' }}
+
+      # 积压数字必须能被看见 —— 不许只躺在 run log 里
+      - name: 积压写进 Job Summary
+        if: always()
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import sys; sys.path.insert(0,"scripts/content_factory")
+          from _ai import d1
+          print("## 复核清仓 · ${{ matrix.target }}")
+          t = "biocomp_entries" if "${{ matrix.target }}" == "biocomp" else "herb_compare"
+          for r in d1(f"SELECT status, COUNT(*) n FROM {t} GROUP BY status"):
+              print(f"- {r['status']}: {r['n']}")
+          PY
