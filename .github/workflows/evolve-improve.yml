@@ -65,6 +65,10 @@ jobs:
         with:
           python-version: '3.11'
 
+      # py_compile 查不出 NameError —— 2026-08-04 就是这么白跑一轮的。几百毫秒换一轮 Actions。
+      - name: 冒烟 import(真执行模块级代码)
+        run: python scripts/evolve/_smoke_import.py
+
       - name: 回归集离线评测(固定卷子给分,不碰生产数据)
         env:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}

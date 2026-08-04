@@ -206,6 +206,41 @@ def sync_candidates(limit=40):
 
 # 提示词能吸收的模块 = 上面 SCOPE_MODULES 覆盖的那些。**其余模块改不动提示词**,
 #   只能变成给人的工单 —— 这就是创始人要的「推送给你修改」那一环。
+# 模块 → 产线 的映射。候选池里的判定落在"模块"上,改进算子按产线取用。
+SCOPE_MODULES = {"biocomp": ("内容工厂", "自进化闭环"), "herb": ("内容工厂", "自进化闭环")}
+
+
+def fetch_external_ideas(scope, limit=5):
+    """从候选池取**已判可采纳**且与本产线相关的外部做法。
+
+    这是 info4AI → sueAI 的那根线。没有它,雷达采回来的东西永远只是收藏夹。
+    只取 adopt(watch 的方向对但没具体接法,喂进去只会稀释提示词)。
+    """
+    mods = SCOPE_MODULES.get(scope, ())
+    if not mods:
+        return []
+    try:
+        rows = d1("SELECT title,url,verdict_note FROM evolve_candidates "
+                  "WHERE kind='repo' AND status='adopt' ORDER BY score DESC LIMIT 60")
+    except Exception as e:
+        print(f"  [外部] 取候选失败:{str(e)[:70]}", flush=True)
+        return []
+    out = []
+    for r in rows:
+        try:
+            n = json.loads(r.get("verdict_note") or "{}")
+        except Exception:
+            continue
+        if n.get("module") in mods and n.get("how"):
+            out.append({"repo": r["title"], "module": n["module"],
+                        "metric": n.get("metric"), "how": n["how"]})
+        if len(out) >= limit:
+            break
+    if out:
+        print(f"  [外部] 取到 {len(out)} 条可借鉴做法喂给改进者", flush=True)
+    return out
+
+
 PROMPT_ABSORBABLE = {m for ms in SCOPE_MODULES.values() for m in ms}
 
 
