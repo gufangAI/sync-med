@@ -27,7 +27,8 @@ from _ai import d1, q          # noqa: E402  公共底座,不再抄一份
 # 裁决阈值 —— 三个数决定"什么时候敢换冠军",写在一处别散落。
 MIN_N  = int(os.environ.get("EVOLVE_MIN_N", "25"))     # 样本不够一律不判优劣(±1 条就能翻几个点)
 MARGIN = float(os.environ.get("EVOLVE_MARGIN", "0.03"))  # 必须**显著**赢才换,防噪声换冠军
-EXPLORE = float(os.environ.get("EVOLVE_EXPLORE", "0.30"))  # 挑战者分到的流量比例
+# 空字符串要当成"没设"(Actions 里未填的 input 传进来就是空串,float("") 会崩)
+EXPLORE = float(os.environ.get("EVOLVE_EXPLORE", "").strip() or "0.30")  # 挑战者分到的流量比例
 
 
 def load_variant(scope, slot, default_body, explore=None):
