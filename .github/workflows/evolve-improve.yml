@@ -69,6 +69,10 @@ jobs:
       - name: 冒烟 import(真执行模块级代码)
         run: python scripts/evolve/_smoke_import.py
 
+      # import 通过 ≠ 函数能跑 —— 判据类代码必须有真调用的用例(2026-08-04 白跑两轮的教训)
+      - name: 离线单元测试(真调用判分函数)
+        run: python scripts/evolve/_offline_test.py
+
       - name: 回归集离线评测(固定卷子给分,不碰生产数据)
         env:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}

@@ -29,7 +29,9 @@ CF = os.path.join(HERE, "..", "content_factory")
 sys.path.insert(0, CF)
 from _ai import d1, q                                          # noqa: E402
 import herb_factory as HF                                      # noqa: E402
-import reviewer as RV                                          # noqa: E402
+sys.path.insert(0, HERE)
+from gate import score as gate_score, SCORER_VERSION           # noqa: E402
+# 判分不再走 reviewer(那是模型判,带考官随机)—— 换成 gate 的确定性连续分。
 
 WORKERS = int(os.environ.get("EVAL_WORKERS", "4"))
 
