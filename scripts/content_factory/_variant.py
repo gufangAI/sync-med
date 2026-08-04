@@ -180,6 +180,15 @@ def arbitrate(scope, slot, min_n=None, margin=None):
     合规红线不在这条链上(红线在代码里,提示词进化不到那儿),所以自动换是安全的。
     返回本次动作列表 [(动作, variant_id, 说明)]。
     """
+    # ══ 晋升通道暂停牌(2026-08-04 15:5x·Claude 大哥当场纠正,不等 v2 评审) ══
+    #   我原话:「保持现状继续跑不会出事,显著闸 13.6% 挡着」—— **这句只对一半**。
+    #   实测单轮摆幅高达 **16.7 个点**(biocomp 冠军 25.0% → 8.3%),**大于 13.6% 的闸**。
+    #   也就是说:一个走运的挑战者完全可能**踩着噪声越闸上位**。
+    #   在新判据(资格闸 + 配对排名)上线前,控制面**只观察不动手**:
+    #   照常算出"本轮会做什么"并打印出来,但一个字节都不写库。
+    #   运行面不受影响(生产照跑冠军)。解除:显式设 EVOLVE_PROMOTION_PAUSED=0。
+    paused = os.environ.get("EVOLVE_PROMOTION_PAUSED", "1") != "0"
+
     mn = MIN_N if min_n is None else min_n
     mg = MARGIN if margin is None else margin
     # 【2026-08-04 改回归集之后必须配套改闸】固定回归集只有一二十道题,
@@ -191,6 +200,9 @@ def arbitrate(scope, slot, min_n=None, margin=None):
         n = max(int(n or 0), 1)
         return min(mn, max(6, n // 2)), max(mg, 1.5 / n)
     acts, now = [], int(time.time())
+    if paused:
+        print("  [裁决] ⏸ **晋升通道暂停中**(EVOLVE_PROMOTION_PAUSED=1)"
+              "—— 只观察不写库,原因见 docs/new/进化度量不可复现_诊断与方案_v2", flush=True)
     try:
         rows = d1(f"SELECT variant_id,status,fitness,sample_n,parent_id,note FROM evolve_variants "
                   f"WHERE scope={q(scope)} AND slot={q(slot)} AND status IN ('active','trial')")
@@ -213,6 +225,10 @@ def arbitrate(scope, slot, min_n=None, margin=None):
         par = d1(f"SELECT variant_id,fitness FROM evolve_variants WHERE variant_id={q(champ['parent_id'])}")
         pf = par[0].get("fitness") if par else None
         if pf is not None and cf + _mg < pf:
+            if paused:
+                print(f"  [裁决·暂停] 本应回滚 {champ['variant_id']}({cf:.1%})→ 父代 {pf:.1%},"
+                      f"**因晋升暂停未执行**", flush=True)
+                return acts
             d1(f"UPDATE evolve_variants SET status='rolled_back', updated_at={now} "
                f"WHERE variant_id={q(champ['variant_id'])}")
             d1(f"UPDATE evolve_variants SET status='active', updated_at={now} "
@@ -239,6 +255,10 @@ def arbitrate(scope, slot, min_n=None, margin=None):
     for ch in sorted(chals, key=lambda r: -(r["fitness"] or 0)):
         f, n = ch["fitness"], ch["sample_n"]
         if f >= cf + _mg:                                   # ② 显著赢 → 换冠军
+            if paused:
+                print(f"  [裁决·暂停] 本应换冠军 {ch['variant_id']} {f:.1%}(n={n})← 原 "
+                      f"{champ['variant_id']} {cf:.1%},**因晋升暂停未执行**", flush=True)
+                break
             d1(f"UPDATE evolve_variants SET status='retired', updated_at={now} "
                f"WHERE variant_id={q(champ['variant_id'])}")
             d1(f"UPDATE evolve_variants SET status='active', updated_at={now} "
@@ -247,6 +267,9 @@ def arbitrate(scope, slot, min_n=None, margin=None):
             print(f"  [裁决] 🏆 换冠军 {ch['variant_id']} {f:.1%}(n={n})← 原 {champ['variant_id']}", flush=True)
             break
         if f + _mg < cf:                                    # 显著输 → 杀掉,别再吃流量
+            if paused:
+                print(f"  [裁决·暂停] 本应淘汰 {ch['variant_id']} {f:.1%},**未执行**", flush=True)
+                continue
             d1(f"UPDATE evolve_variants SET status='killed', updated_at={now} "
                f"WHERE variant_id={q(ch['variant_id'])}")
             acts.append(("淘汰", ch["variant_id"], f"{f:.1%}(n={n})显著输给在位 {cf:.1%}"))
@@ -258,6 +281,9 @@ def arbitrate(scope, slot, min_n=None, margin=None):
             #   —— **循环停在这里,再也不会有第三代**。
             #   规则:样本给到两倍闸值还没赢,就算它这一代的机会用完了,退场让下一代上。
             #   保留成绩不删数据,status='lost' 仍可回溯这一支为什么没成。
+            if paused:
+                print(f"  [裁决·暂停] 本应让位 {ch['variant_id']} {f:.1%},**未执行**", flush=True)
+                continue
             d1(f"UPDATE evolve_variants SET status='lost', updated_at={now} "
                f"WHERE variant_id={q(ch['variant_id'])}")
             acts.append(("让位", ch["variant_id"],
