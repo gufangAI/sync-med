@@ -207,16 +207,28 @@ def improve_one(scope, improver="freepool", dry=False):
             f"【真实失败样例】\n" + "\n".join("  " + s for s in samples) +
             "\n\n请针对上面这些**真实**的失败原因改写提示词。")
 
-    if improver == "claude-api":
-        print("  [改进者] Claude API(**按量计费源** —— 由创始人显式开启)", flush=True)
-        txt, model = ask_claude_api(SYS_IMPROVER, user)
-    else:
-        txt, model = ask(SYS_IMPROVER, user, max_tokens=3000)
-    child = _unfence(txt or "").strip()
+    def _gen(extra=""):
+        if improver == "claude-api":
+            print("  [改进者] Claude API(**按量计费源** —— 由创始人显式开启)", flush=True)
+            t, m = ask_claude_api(SYS_IMPROVER, user + extra)
+        else:
+            t, m = ask(SYS_IMPROVER, user + extra, max_tokens=3000)
+        return _unfence(t or "").strip(), m
 
+    child, model = _gen()
     bad = guard(par["body"], child)
     if bad:
-        print(f"  [{scope}] ✗ 红线闸拦下这次改进:{bad}", flush=True)
+        # 【2026-08-04 首轮实测】biocomp 这一路被拦在「比父代长太多」——
+        #   模型把改写理由也一并吐了出来。一次都不重试的话,**这条产线永远进化不了**,
+        #   红线闸从"防出事"变成"永久堵死",那不是我们要的。
+        #   给一次带反馈的重试(把它自己的毛病告诉它),仍不合格才丢弃。
+        print(f"  [{scope}] ⚠ 首轮被闸拦下({bad}),带反馈重试一次", flush=True)
+        child, model = _gen(f"\n\n【上一次你的产出被自动闸拦下了】原因:{bad}。"
+                            f"请**只输出提示词全文本身**,不要任何说明、理由、前后缀,"
+                            f"长度与原提示词相当。")
+        bad = guard(par["body"], child)
+    if bad:
+        print(f"  [{scope}] ✗ 红线闸拦下这次改进(重试后仍不合格):{bad}", flush=True)
         return None
     if dry:
         print(f"  [{scope}] (dry-run)将写入子代,长度 {len(child)},改进者 {model}", flush=True)
