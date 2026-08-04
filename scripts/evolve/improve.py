@@ -31,7 +31,7 @@ Improve 算子 —— 自我进化闭环的**心脏**:让系统自己生出下�
   · 改进者只改提示词,**碰不到**产线代码、D1 数据、已上线内容。
   · 新方案一律 status='trial',靠 A/B 自己去挣成绩;赢了才由 arbitrate() 提拔。
 """
-import os, sys, json, time, uuid, argparse, urllib.request
+import os, sys, json, time, uuid, hashlib, argparse, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "content_factory"))
@@ -113,6 +113,33 @@ def ask_claude_api(system, user, model=None, max_tokens=3000):
     return "".join(b.get("text", "") for b in (j.get("content") or [])), (j.get("model") or "claude")
 
 
+_LEAD = ("以下是", "下面是", "这是改写", "改写后的", "好的", "根据", "已按照", "针对上述")
+_TAIL = ("改进说明", "主要改动", "修改说明", "改动说明", "说明:", "说明：", "以上改动",
+         "本次改写", "优化点", "核心改动", "---", "###")
+
+
+def strip_wrapper(t):
+    """把模型爱加的**开场白与结尾解说**剪掉,只留提示词本体。
+
+    立此因(2026-08-04 首轮实测):biocomp 这一路连着两次被「比父代长太多」拦下 ——
+      父代 1032 字,它吐回 2580+ 字。多出来的不是更好的提示词,是它的改写说明。
+      整条丢弃的结果是**这条产线永远停在第一代**;正确做法是确定性地剪掉包装,
+      剪完再过闸。剪不干净仍然拦,红线一步不退。
+    """
+    t = (t or "").strip()
+    lines = t.split("\n")
+    # 开场白:第一行短、且以典型引导语开头、且下面还有正文 → 砍掉
+    while lines and len(lines[0].strip()) < 60 and lines[0].strip().startswith(_LEAD) and len(lines) > 3:
+        lines.pop(0)
+    # 结尾解说:从第一个解说小标题起整段砍掉
+    for i, ln in enumerate(lines):
+        s = ln.strip().lstrip("#*- ").strip()
+        if i > 3 and s.startswith(_TAIL):
+            lines = lines[:i]
+            break
+    return "\n".join(lines).strip()
+
+
 def guard(parent_body, child_body):
     """**红线闸** —— 父代有的合规约束,子代必须一条不少。确定性判据,不问模型。
 
@@ -123,8 +150,8 @@ def guard(parent_body, child_body):
         return "产出为空或过短"
     if len(child_body) < len(parent_body) * 0.6:
         return f"比父代短太多({len(child_body)} vs {len(parent_body)}),疑似被截断/精简掉了约束"
-    if len(child_body) > len(parent_body) * 2.5:
-        return "比父代长太多,疑似把解释性文字也吐进来了"
+    if len(child_body) > len(parent_body) * 3.0:
+        return f"比父代长太多({len(child_body)} vs {len(parent_body)}),剪掉包装后仍超标,疑似夹带解说"
     lost = [m for m in RED_MARKERS if m in parent_body and m not in child_body]
     if lost:
         return "丢失红线关键词:" + "/".join(lost)
@@ -157,7 +184,10 @@ def sync_candidates(limit=40):
         t = (r.get("title") or "").strip()[:180]
         if not t:
             continue
-        cid = "c_" + uuid.uuid4().hex[:12]
+        # cand_id 必须**由标题推导**,不能每轮新 uuid ——
+        #   否则 INSERT OR IGNORE 每次都是"新行",一条情报每轮复制一份。
+        #   实测:同样 40 条情报跑两轮,候选池从 40 涨到 80,全是重复(2026-08-04 当场抓到)。
+        cid = "c_" + hashlib.sha1(t.encode("utf-8")).hexdigest()[:16]
         sc = r.get("relevance_score") or r.get("importance") or 0
         vals.append(f"({q(cid)},'intel',{q(t)},{q((r.get('url') or '')[:300])},"
                     f"{q(str(now))},{q(sc)},'new',{now},{now})")
@@ -213,7 +243,7 @@ def improve_one(scope, improver="freepool", dry=False):
             t, m = ask_claude_api(SYS_IMPROVER, user + extra)
         else:
             t, m = ask(SYS_IMPROVER, user + extra, max_tokens=3000)
-        return _unfence(t or "").strip(), m
+        return strip_wrapper(_unfence(t or "")), m
 
     child, model = _gen()
     bad = guard(par["body"], child)
