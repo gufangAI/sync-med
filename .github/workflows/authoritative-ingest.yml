@@ -78,7 +78,7 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: |
           python scripts/content_factory/authoritative.py \
-            --count "${{ github.event.inputs.count || '40' }}" \
+            --count "${{ github.event.inputs.count || '200' }}" \
             --names "${{ github.event.inputs.names || '' }}" \
             --source "${{ github.event.inputs.source || 'herb' }}" \
             --latin "${{ github.event.inputs.latin || '' }}" \
