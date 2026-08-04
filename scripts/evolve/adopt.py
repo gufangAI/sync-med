@@ -38,6 +38,8 @@ import os, sys, json, time, hashlib, argparse, urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "content_factory"))
 from _ai import d1, q, ask, parse_json                      # noqa: E402
+sys.path.insert(0, HERE)
+from _stack import scan_stack, already_have                 # noqa: E402
 
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 CAND_JSON = os.path.join(REPO_ROOT, "reports", "arsenal", "candidates.json")
@@ -82,10 +84,27 @@ SYS_ADOPT = (
     "  · 判 adopt 前先自问:**这东西是纯库/纯脚本/纯算法(能直接 import 或在 Actions 里跑),"
     "还是要开一台机器常驻?** 后者一律 skip。\n"
     "verdict 三档:adopt(该接,给出接法) / watch(方向对但现在不动) / skip(不相关)。\n"
+    # 【2026-08-04 创始人当场骂:「是头猪都知道 PaddleOCR 这好用」】
+    #   判定器把 PaddleOCR/tesseract/MinerU 全判成「改进 OCR 产线」——
+    #   而 `pip install paddlepaddle paddleocr` 就在我们自己的 ocr_race.yml 里,
+    #   我们早跑过 OCR 引擎对赛、手上有它的实测数据;RapidOCR 更是已落地的主力。
+    #   同一轮还把 firecrawl/browser-use/crawl4ai/Scrapling 四个爬虫全堆到采集线上。
+    #   **这不是判断,是「这个领域最有名的工具是什么」的同义词联想。**
+    #   根因:判定器不知道自家家底,而候选又按星数喂进去 → 高星 + 无知 = 常识复读机。
+    #   两处焊死:① 已有的零成本硬跳过(见 already_have) ② 必须说出「我们现在用什么、它强在哪」。
+    "  · **不许推荐我们已经在用的东西**。下面会给出我们的真实家底,凡是已在其中的一律 skip。\n"
+    "  · 判 adopt 必须答出两件事,答不出就 skip:"
+    "**① 这个模块我们现在用的是什么;② 候选在哪个可量化指标上胜过它。**\n"
+    "  · 「集成 X 提高准确率」这种话**不算答案** —— 那是同义词复读,不是判断。\n"
     "只输出 JSON:{\"module\":\"清单里的模块名或空\",\"verdict\":\"adopt|watch|skip\","
     "\"metric\":\"预计改善的指标,如「检索召回率」「导读生成耗时」\",\"how\":\"40字以内具体接法\","
-    "\"effort\":\"小|中|大\",\"why\":\"30字以内理由\"}"
+    "\"effort\":\"小|中|大\","
+    "\"current\":\"我们该模块现在用的是什么\",\"beats\":\"在哪个可量化指标上胜过它\","
+    "\"why\":\"30字以内理由\"}"
 )
+
+# 全局家底(main 里扫一次填上)—— 判定前先拿它零成本筛掉我们已经有的
+STACK_NAMES, STACK_LINES = set(), []
 
 
 GAP_JSON = os.path.join(REPO_ROOT, "reports", "arsenal", "gap_candidates.json")
@@ -199,6 +218,10 @@ def judge(r):
     if v in ("adopt", "watch") and (mod not in MODULE_NAMES or not str(o.get("metric") or "").strip()):
         v = "skip"
         o["why"] = f"(自动降级)模块「{mod}」不在清单或未给出指标 · 原判 {o.get('verdict')}"
+    # 说不出「我们现在用什么 / 它强在哪」= 没做判断,只是联想 → 降级。确定性判据,不问模型。
+    if v == "adopt" and not (str(o.get("current") or "").strip() and str(o.get("beats") or "").strip()):
+        v = "watch"
+        o["why"] = "(自动降级 adopt→watch)说不出我们现在用什么 / 它强在哪 · " + str(o.get("why") or "")[:40]
     o["verdict"], o["module"], o["_model"] = v, mod, model
     return o, None
 
@@ -210,6 +233,9 @@ def main():
     ap.add_argument("--report", default="")
     a = ap.parse_args()
 
+    global STACK_NAMES, STACK_LINES
+    STACK_NAMES, STACK_LINES = scan_stack()
+    print(f"  [家底] 扫出 {len(STACK_NAMES)} 个已有技术名,判定前先拿它筛", flush=True)
     rows = load_repo_candidates()
     done = already_judged()
     fresh = [r for r in rows if str(r.get("repo") or r.get("full_name") or "") not in done]
@@ -240,6 +266,12 @@ def main():
         line = {"repo": name, "stars": r.get("stars"), "url": r.get("url"),
                 "module": o.get("module"), "metric": o.get("metric"),
                 "how": o.get("how"), "effort": o.get("effort"), "why": o.get("why")}
+        if v == "adopt":
+            k = o.get("module")
+            per_module[k] = per_module.get(k, 0) + 1
+            if per_module[k] > 2:
+                v = "watch"
+                o["why"] = f"(自动降级)模块「{k}」本轮已采纳 2 条,同类堆叠没有意义"
         if v == "skip":
             out["skip"] += 1
         else:
