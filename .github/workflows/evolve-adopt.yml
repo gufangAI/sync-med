@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: read
+      contents: write        # 要把收件箱提交回仓
       issues: write             # 高分提案要能被看见,不许只躺在表里
     steps:
       - uses: actions/checkout@v4
@@ -81,6 +81,22 @@ jobs:
             --limit "${{ github.event.inputs.limit || '30' }}" \
             --report evolve_adopt.json \
             ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      # 闭环的中间环是**本地审核人**(创始人 2026-08-05 定架构:没有服务器,绕本地的你审核)。
+      # 所以产出必须落成仓里一个固定文件,审核人 git pull 就看见 —— 不能只开 Issue。
+      - name: 生成审核收件箱并提交
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          python scripts/evolve/inbox.py
+          git config user.name  'evolve-bot'
+          git config user.email 'evolve-bot@users.noreply.github.com'
+          git add reports/evolve/待审核.md
+          git diff --cached --quiet || git commit -m "收件箱刷新 $(date -u +%Y-%m-%d) [skip ci]"
+          git push || echo '推送失败(不致命,下轮重来)'
 
       # 关键动作必须能被看见 —— pan-register 连喊 12 天零人响应的教训
       - name: 高分提案开 Issue(采纳入口)
