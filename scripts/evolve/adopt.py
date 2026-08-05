@@ -159,8 +159,16 @@ def load_repo_candidates(limit=400):
     """
     rows = []
     try:
+        # 【2026-08-05 实测修·鹰眼断在这】原来是 `ORDER BY stars DESC LIMIT 2000`,
+        #   等于**每天从同一批高星头部捞**。那批已经判过 222 个,剩下的被预筛砍光,
+        #   于是本轮只精判 7 个、采纳 0 —— 不是判得不好,是**没有新东西可判**。
+        #   而当天新入库的 72 个是「星速高、总星低」的新项目,按总星排永远在 2000 名之后,
+        #   **永远轮不到**。星速(star_delta)正是月榜独有的信号,采回来了却没用在排序上。
+        # 改:未判过的优先,按**星速**排;星速相同再看总星。
         pool = d1("SELECT repo, url, description, stars, lang, topics, found_by "
-                  "FROM gh_repo_pool ORDER BY stars DESC LIMIT 2000")
+                  "FROM gh_repo_pool "
+                  "WHERE repo NOT IN (SELECT title FROM evolve_candidates WHERE kind='repo') "
+                  "ORDER BY COALESCE(star_delta,0) DESC, COALESCE(stars,0) DESC LIMIT 2000")
         for r in pool:
             r["topics"] = [t for t in str(r.get("topics") or "").split(",") if t]
         print(f"  [采集] 月榜全量库:{len(pool)} 个", flush=True)
