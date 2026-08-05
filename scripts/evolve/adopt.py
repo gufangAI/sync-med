@@ -165,10 +165,18 @@ def load_repo_candidates(limit=400):
         #   而当天新入库的 72 个是「星速高、总星低」的新项目,按总星排永远在 2000 名之后,
         #   **永远轮不到**。星速(star_delta)正是月榜独有的信号,采回来了却没用在排序上。
         # 改:未判过的优先,按**星速**排;星速相同再看总星。
-        pool = d1("SELECT repo, url, description, stars, lang, topics, found_by "
-                  "FROM gh_repo_pool "
-                  "WHERE repo NOT IN (SELECT title FROM evolve_candidates WHERE kind='repo') "
-                  "ORDER BY COALESCE(star_delta,0) DESC, COALESCE(stars,0) DESC LIMIT 2000")
+        # 【2026-08-05 二修】上一版直接用 star_delta 排序,D1 报 400 ——
+        #   那列是 ranks.py 用 ALTER 加的,**不保证真加上了**(我又猜了列名)。
+        #   改成:先试带星速的,报错就退回不带的,并打印实际走了哪条 —— 不静默降级。
+        base = ("SELECT repo, url, description, stars, lang, topics, found_by "
+                "FROM gh_repo_pool "
+                "WHERE repo NOT IN (SELECT title FROM evolve_candidates WHERE kind='repo') ")
+        try:
+            pool = d1(base + "ORDER BY COALESCE(star_delta,0) DESC, COALESCE(stars,0) DESC LIMIT 2000")
+            print("  [采集] 排序=星速优先(star_delta)", flush=True)
+        except Exception as e1:
+            print(f"  [采集] 星速列不可用({str(e1)[:50]}),退回总星排序", flush=True)
+            pool = d1(base + "ORDER BY COALESCE(stars,0) DESC LIMIT 2000")
         for r in pool:
             r["topics"] = [t for t in str(r.get("topics") or "").split(",") if t]
         print(f"  [采集] 月榜全量库:{len(pool)} 个", flush=True)
