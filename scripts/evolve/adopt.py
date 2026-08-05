@@ -271,6 +271,10 @@ def main():
 
     out, now = {"adopt": [], "watch": [], "skip": 0, "fail": 0,
                 "prefilter_dropped": dropped, "harvested": len(rows)}, int(time.time())
+    # 同一模块每轮最多 2 条 adopt —— 防四个爬虫全堆在采集线上。
+    # 【2026-08-05】上一轮 run 30968296973 就挂在这:我加了用它的地方,**漏了定义**,
+    #   `NameError: per_module is not defined` 整条产线挂掉 —— 又一次"只改一半"。
+    per_module = {}
     for r in todo:
         name = str(r.get("repo") or "")
         o, err = judge(r)
