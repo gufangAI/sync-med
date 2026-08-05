@@ -87,9 +87,9 @@ def run_one(scope, item, body):
     """
     try:
         if scope == "herb":
-            obj, model = HF.gen_herb(item[0], item[1], sys_prompt=body)
+            obj, model = HF.gen_herb(item[0], item[1], sys_prompt=body, eval_mode=True)
         else:
-            obj, model = HF.gen_bio(item[0], item[1], sys_prompt=body)
+            obj, model = HF.gen_bio(item[0], item[1], sys_prompt=body, eval_mode=True)
     except Exception as e:
         return {"qualified": False, "score": 0.0, "reasons": [f"生成失败 {type(e).__name__}"],
                 "model": None, "gen_fail": True}

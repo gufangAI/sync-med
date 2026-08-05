@@ -428,11 +428,18 @@ SYS_BIO = (
 )
 
 
-def _gen(system, user, tries=2):
-    """生成 + 解析,失败重试一次并放大 max_tokens(第一次多半是被截断)。"""
+def _gen(system, user, tries=2, eval_mode=False):
+    """生成 + 解析,失败重试一次并放大 max_tokens(第一次多半是被截断)。
+
+    eval_mode=True 走**评测态**(Phase 0 · A 锁随机):温度锁 0、禁容错链切换、
+      点名单一供应商。目的是让同一份提示词每次考出同一个分 —— 尺子不许抖。
+      产线不传这个参数,行为完全不变。
+    """
     last = None
     for i in range(tries):
-        txt, model = ask(system, user, max_tokens=2600 if i == 0 else 3400)
+        kw = {"temperature": 0, "no_fallback": True,
+              "supplier": EVAL_SUPPLIER} if eval_mode else {}
+        txt, model = ask(system, user, max_tokens=2600 if i == 0 else 3400, **kw)
         try:
             return parse_json(txt), model
         except Exception as e:
@@ -440,12 +447,18 @@ def _gen(system, user, tries=2):
     raise last
 
 
-def gen_herb(name_en, latin, sys_prompt=None):
-    return _gen(sys_prompt or SYS_HERB, f"药材:{name_en}(学名 {latin})。按要求输出 JSON。")
+# 评测态点名的考生 —— **一个赛季内钉死**,换它等于换赛季,历史分数作废。
+EVAL_SUPPLIER = os.environ.get("EVAL_SUPPLIER", "dashscope")
 
 
-def gen_bio(cn, en, sys_prompt=None):
-    return _gen(sys_prompt or SYS_BIO, f"成分:{cn}({en})。按要求输出 JSON。")
+def gen_herb(name_en, latin, sys_prompt=None, eval_mode=False):
+    return _gen(sys_prompt or SYS_HERB, f"药材:{name_en}(学名 {latin})。按要求输出 JSON。",
+                eval_mode=eval_mode)
+
+
+def gen_bio(cn, en, sys_prompt=None, eval_mode=False):
+    return _gen(sys_prompt or SYS_BIO, f"成分:{cn}({en})。按要求输出 JSON。",
+                eval_mode=eval_mode)
 
 
 def q(v):

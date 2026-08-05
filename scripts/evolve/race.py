@@ -106,8 +106,8 @@ def run_exam(scope, body, items):
     """跑同一张卷子,用同一个确定性判分。返回 (均分, 过闸数, 逐题分)。"""
     def one(it):
         try:
-            obj, _ = (HF.gen_herb(it[0], it[1], sys_prompt=body) if scope == "herb"
-                      else HF.gen_bio(it[0], it[1], sys_prompt=body))
+            obj, _ = (HF.gen_herb(it[0], it[1], sys_prompt=body, eval_mode=True) if scope == "herb"
+                      else HF.gen_bio(it[0], it[1], sys_prompt=body, eval_mode=True))
         except Exception:
             return 0.0, False
         if HF.violates(obj):

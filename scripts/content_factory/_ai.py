@@ -58,7 +58,7 @@ def q(v):
 
 
 def ask(system, user, timeout=120, max_tokens=2600, supplier=None,
-        source="content_factory", json_mode=True):
+        source="content_factory", json_mode=True, temperature=None, no_fallback=False):
     """走内部免费池网关。supplier 可点名某家(失败仍按容错链兜)。
 
     【2026-08-05 实测抓到的大 bug】`json` 此前是**写死 True** 的,而网关看到它就注入
@@ -72,8 +72,17 @@ def ask(system, user, timeout=120, max_tokens=2600, supplier=None,
     """
     payload = {
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "max_tokens": max_tokens, "temperature": 0.3, "json": bool(json_mode), "source": source,
+        "max_tokens": max_tokens,
+        # 【Phase 0 · A 锁随机】温度此前写死 0.3 —— 判分是确定性的,生成却是随机的,
+        #   同一份提示词两轮考出 0.5198 / 0.5158。**尺子没坏,是被考生的随机性晃的。**
+        #   评测态一律传 temperature=0;产线不传,保持原样 0.3。
+        "temperature": 0.3 if temperature is None else float(temperature),
+        "json": bool(json_mode), "source": source,
     }
+    if no_fallback:
+        # 评测期间禁止容错链切换 —— 换了供应商就等于换了考生,分数不可比。
+        # 容错链在生产是优点,在评测是污染源(同 GPT 对评测路径的判决)。
+        payload["fallback"] = False
     if supplier:
         payload["supplier"] = supplier
     req = urllib.request.Request(
