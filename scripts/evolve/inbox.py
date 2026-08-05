@@ -38,6 +38,44 @@ MODULE_ORDER = ["自进化闭环", "免费模型池", "检索路由", "RAG向量
                 "AI寻脉", "OCR产线", "采集下载线", "前台阅读器"]
 
 
+def purge_stale_modules():
+    """把落在**已删模块**上的候选标成 skip —— 清单删了,存量也得清。
+
+    【2026-08-05】判定模块清单删掉「内容工厂」「导读生成」(创始人:禁止再去做药方)后,
+      库里仍有 4 条药方线候选(data-diff / paperbanana / ClaimeAI / newsflow-oss),
+      收件箱照样推给审核人。**清单删了存量没清 = 等于没删。**
+    做法:凡 verdict_note 里的 module 不在当前 MODULE_ORDER 里的,一律降为 skip。
+      不删数据(留痕可回溯),只改状态。
+    """
+    try:
+        rows = d1("SELECT title, verdict_note FROM evolve_candidates "
+                  "WHERE kind='repo' AND status IN ('adopt','watch','ticketed')")
+    except Exception as e:
+        print(f"  [清理] 取数失败:{str(e)[:70]}", flush=True)
+        return 0
+    stale = []
+    for r in rows:
+        try:
+            m = (json.loads(r.get("verdict_note") or "{}") or {}).get("module")
+        except Exception:
+            continue
+        if m and m not in MODULE_ORDER:
+            stale.append((r["title"], m))
+    if not stale:
+        return 0
+    ids = ",".join(q(t) for t, _ in stale)
+    try:
+        d1(f"UPDATE evolve_candidates SET status='skip', "
+           f"verdict_note=COALESCE(verdict_note,'') || ' | 模块已从清单移除,降为 skip' "
+           f"WHERE title IN ({ids})")
+    except Exception as e:
+        print(f"  [清理] 写库失败:{str(e)[:70]}", flush=True)
+        return 0
+    print(f"  [清理] {len(stale)} 条落在已删模块上的候选已降为 skip:"
+          f"{', '.join(f'{t}({m})' for t, m in stale[:5])}", flush=True)
+    return len(stale)
+
+
 def fetch(status, limit=40):
     try:
         return d1(f"SELECT title, url, score, verdict_note, updated_at FROM evolve_candidates "
@@ -95,6 +133,7 @@ def main():
     ap.add_argument("--out", default=OUT)
     a = ap.parse_args()
 
+    purged = purge_stale_modules()      # 先清过期模块,再出收件箱
     adopt = [parse(r) for r in fetch("adopt")]
     watch = [parse(r) for r in fetch("watch", 15)]
     gaps = system_state()
@@ -144,6 +183,13 @@ def main():
             L.append(f"- {x['repo']}({x['stars']}★)→ {x['module']}:{x['metric']}")
         L.append("")
 
+    L.append("## ✅ 处理完怎么回写(闭环的最后一个箭头)\n")
+    L.append("处理完一条,在仓里跑一行,环就闭上了:\n")
+    L.append("```bash")
+    L.append('python scripts/evolve/land.py --repo <owner/name> --module <模块> \\')
+    L.append('       --note "真跑过并产出了什么 / 接进了哪里 / 数字是多少"')
+    L.append("```")
+    L.append("它会写进 `scripts/intel_radar/adoption.txt`,下一轮判定的家底闸自动把它筛掉。\n")
     L.append("---\n")
     L.append(f"本文件由 `scripts/evolve/inbox.py` 自动生成于 {time.strftime('%Y-%m-%d %H:%M')} UTC,")
     L.append("每次 Evolve Adopt 跑完自动刷新并提交。**人工改动会被下一轮覆盖** ——")
