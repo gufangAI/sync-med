@@ -51,7 +51,8 @@ def _ask_any(system, user, supplier, max_tokens=3000):
     if supplier == "opencode":
         # need="" 是因为我们要的是提示词全文,不是 JSON,不能拿 "[" 当起始符判据
         return ask_opencode(system, user, max_tokens=max_tokens, need="")
-    return ask(system, user, max_tokens=max_tokens, supplier=supplier)
+    # **关键**:改进者要的是提示词全文,不是 JSON。json_mode=False 才不会被逼着吐 {}
+    return ask(system, user, max_tokens=max_tokens, supplier=supplier, json_mode=False)
 EVAL_WORKERS = int(os.environ.get("EVAL_WORKERS", "4"))
 
 

@@ -346,7 +346,8 @@ def improve_one(scope, improver="freepool", dry=False):
             print("  [改进者] Claude API(**按量计费源** —— 由创始人显式开启)", flush=True)
             t, m = ask_claude_api(SYS_IMPROVER, user + extra)
         else:
-            t, m = ask(SYS_IMPROVER, user + extra, max_tokens=3000)
+            # 改进者要提示词全文 —— 不关 json_mode 会被逼着吐 JSON,产出必空(2026-08-05 实测)
+            t, m = ask(SYS_IMPROVER, user + extra, max_tokens=3000, json_mode=False)
         return strip_wrapper(_unfence(t or "")), m
 
     child, model = _gen()

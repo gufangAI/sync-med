@@ -57,11 +57,22 @@ def q(v):
     return "'" + str(v).replace("'", "''") + "'"
 
 
-def ask(system, user, timeout=120, max_tokens=2600, supplier=None, source="content_factory"):
-    """走内部免费池网关。supplier 可点名某家(失败仍按容错链兜)。"""
+def ask(system, user, timeout=120, max_tokens=2600, supplier=None,
+        source="content_factory", json_mode=True):
+    """走内部免费池网关。supplier 可点名某家(失败仍按容错链兜)。
+
+    【2026-08-05 实测抓到的大 bug】`json` 此前是**写死 True** 的,而网关看到它就注入
+      `response_format: {type: json_object}` —— **强制模型只能输出 JSON**。
+      内容工厂要 JSON,没问题;但**改进者要的是提示词全文(纯文本)**,
+      被强制成 JSON 模式后只能吐空 —— 赛马实测:nvidia / dashscope / openrouter
+      三家全是「产出为空或过短」,而 zhipu 吐了 5613 字(它没严格遵守 json 约束)。
+      **不是模型写不出来,是我把它的嘴堵上了。**
+      这很可能就是两个多月来「挑战者永远 0 分」的真因之一。
+    所以加 json_mode 参数:默认 True 保持产线原样,要纯文本的显式传 False。
+    """
     payload = {
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "max_tokens": max_tokens, "temperature": 0.3, "json": True, "source": source,
+        "max_tokens": max_tokens, "temperature": 0.3, "json": bool(json_mode), "source": source,
     }
     if supplier:
         payload["supplier"] = supplier
