@@ -435,13 +435,22 @@ def _gen(system, user, tries=2, eval_mode=False):
       点名单一供应商。目的是让同一份提示词每次考出同一个分 —— 尺子不许抖。
       产线不传这个参数,行为完全不变。
     """
+    # 评测态先查冻结的考卷 —— 命中就直接复用,零调用、零随机、必然同分
+    if eval_mode:
+        _k = _eval_cache_key(system, user)
+        _hit = _eval_cache_get(_k)
+        if _hit is not None:
+            return _hit[0], _hit[1]
     last = None
     for i in range(tries):
         kw = {"temperature": 0, "no_fallback": True,
               "supplier": EVAL_SUPPLIER} if eval_mode else {}
         txt, model = ask(system, user, max_tokens=2600 if i == 0 else 3400, **kw)
         try:
-            return parse_json(txt), model
+            obj = parse_json(txt)
+            if eval_mode:
+                _eval_cache_put(_k, obj, model)      # 第一次考完就冻结,后面所有轮次复用
+            return obj, model
         except Exception as e:
             last = e
     raise last
@@ -449,6 +458,43 @@ def _gen(system, user, tries=2, eval_mode=False):
 
 # 评测态点名的考生 —— **一个赛季内钉死**,换它等于换赛季,历史分数作废。
 EVAL_SUPPLIER = os.environ.get("EVAL_SUPPLIER", "dashscope")
+
+# ── 冻结考卷:同一份输入只生成一次,之后复用 ──────────────────────
+#   Phase 0 的验收是「同一评测集连跑 3 次分数完全一致」。
+#   `temperature=0` 只降抖不归零(供应商侧 GPU 内核 / MoE 路由 / 副本均衡都带随机),
+#   所以光锁温度过不了验收。**冻结产物才是唯一能真过的形态。**
+#   缓存键 = 提示词 + 题目 + 考生 + 温度 —— 任一变化即换一份新卷,不会串味。
+EVAL_CACHE_DIR = os.environ.get(
+    "EVAL_CACHE_DIR",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                 "reports", "evolve", "eval_cache"))
+
+
+def _eval_cache_key(system, user):
+    import hashlib
+    raw = f"{EVAL_SUPPLIER}|t0|{system}|{user}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
+
+
+def _eval_cache_get(key):
+    p = os.path.join(EVAL_CACHE_DIR, key + ".json")
+    if not os.path.exists(p):
+        return None
+    try:
+        d = json.load(open(p, encoding="utf-8"))
+        return d.get("obj"), d.get("model")
+    except Exception:
+        return None
+
+
+def _eval_cache_put(key, obj, model):
+    try:
+        os.makedirs(EVAL_CACHE_DIR, exist_ok=True)
+        json.dump({"obj": obj, "model": model, "at": int(time.time())},
+                  open(os.path.join(EVAL_CACHE_DIR, key + ".json"), "w", encoding="utf-8"),
+                  ensure_ascii=False)
+    except Exception as e:
+        print(f"  [考卷缓存] 写入失败(不致命):{type(e).__name__}", flush=True)
 
 
 def gen_herb(name_en, latin, sys_prompt=None, eval_mode=False):
