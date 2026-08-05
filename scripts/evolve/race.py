@@ -108,7 +108,12 @@ def run_exam(scope, body, items):
         try:
             obj, _ = (HF.gen_herb(it[0], it[1], sys_prompt=body, eval_mode=True) if scope == "herb"
                       else HF.gen_bio(it[0], it[1], sys_prompt=body, eval_mode=True))
-        except Exception:
+        except Exception as e:
+            # 【2026-08-05 血证】这里原来是 `except Exception: return 0.0, False`,
+            #   把 TypeError 静默吞了 —— 云端只看到"全线 0 分",看不到真因是
+            #   `ask() got an unexpected keyword argument 'temperature'`。
+            #   **吞异常比出错更贵**:出错能修,吞掉的错要重跑一轮才发现。
+            print(f"    [生成失败] {type(e).__name__}: {str(e)[:90]}", flush=True)
             return 0.0, False
         if HF.violates(obj):
             return 0.0, False

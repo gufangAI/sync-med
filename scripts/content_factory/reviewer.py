@@ -81,10 +81,13 @@ def d1(sql):
 REVIEW_SUPPLIERS = ["nvidia", "dashscope", "openrouter", "zhipu"]
 
 
-def ask(system, user, timeout=120, max_tokens=400, supplier=None):
+def ask(system, user, timeout=120, max_tokens=400, supplier=None,
+        temperature=None, no_fallback=False, json_mode=True):
     payload = {
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "max_tokens": max_tokens, "temperature": 0.1, "json": True, "source": "content_review",
+        "max_tokens": max_tokens,
+        "temperature": 0.1 if temperature is None else float(temperature),
+        "json": bool(json_mode), "source": "content_review",
     }
     if supplier:
         payload["supplier"] = supplier      # 点名供应商;失败仍按容错链兜(fallback 默认 true)

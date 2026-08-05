@@ -201,16 +201,23 @@ def d1(sql, params=None):
     return (j.get("result") or [{}])[0].get("results") or []
 
 
-def ask(system, user, timeout=120, max_tokens=2600, supplier=None):
+def ask(system, user, timeout=120, max_tokens=2600, supplier=None,
+        temperature=None, no_fallback=False, json_mode=True):
     # max_tokens 实测教训(2026-08-02):原值 1400 对中文长字段不够,
     # biocomp 的 mechanism(120-200字)+ tcm_link(100-180字)一起就会把 JSON 截断,
     # 报 "Unterminated string" —— 上一轮 14 次失败里有 5 次是这个。
     payload = {
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "max_tokens": max_tokens, "temperature": 0.3, "json": True, "source": "content_factory",
+        "max_tokens": max_tokens,
+        # 【Phase 0 · A 锁随机】评测态传 temperature=0;产线不传,保持 0.3
+        "temperature": 0.3 if temperature is None else float(temperature),
+        "json": bool(json_mode), "source": "content_factory",
     }
     if supplier:
         payload["supplier"] = supplier      # 点名供应商;这家挂了仍按容错链兜(fallback 默认 true)
+    if no_fallback:
+        # 评测期间禁容错链 —— 换供应商 = 换考生,分数不可比
+        payload["fallback"] = False
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
         GATEWAY, method="POST", data=body,
