@@ -1,0 +1,103 @@
+# ============================================================
+# 改进者赛马 —— 验证闭环的命门:免费模型能不能写出更好的提示词
+#
+# 立此因(2026-08-05 创始人):「说了1个多月的闭环,你都没完成就去做没用的细节」
+#   「你不会就找 claude 大哥和 GPT 兄弟,opencode 的 deepseek 兄弟帮忙」
+#   「opencode 的 deepseek4flash 模型还是不错的」
+#
+# 整套自进化系统只压在一句假设上:**改进者能写出更好的提示词**。
+#   这句话从来没验证过,而上面已经建了方案槽/A-B/裁决四闸/回归集/资格闸/连续分。
+#   假设不成立,上面全是围着死掉的中心转的脚手架。
+#
+# 此前的失败方式很蠢:improve.py 调 ask() **没指定 supplier**,一直落在链头最弱那家,
+#   池子里的 nemotron / DeepSeek / qwen-plus 一个没试,然后据此说「免费池不行要买 Claude API」。
+#   本 workflow 就是把这个结论推翻或坐实 —— 用真数字,不用嘴。
+#
+# 只出结果表,**不自动换冠军、不改生产 improve.py、不碰进化闭环**。晋升由人拍板。
+# 成本:全部走免费池(网关 + OpenCode 免密端点),零付费 API。
+# ============================================================
+
+name: Evolve Race
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: '产线:biocomp / herb'
+        required: false
+        default: 'biocomp'
+      items:
+        description: '卷子题量'
+        required: false
+        default: '12'
+
+concurrency:
+  group: evolve-race
+  cancel-in-progress: false
+
+jobs:
+  race:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 冒烟 import
+        run: python scripts/evolve/_smoke_import.py
+
+      - name: 改进者赛马(同一份反馈 · 同一张卷 · 同一个判分)
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          python scripts/evolve/race.py \
+            --scope "${{ github.event.inputs.scope || 'biocomp' }}" \
+            --items "${{ github.event.inputs.items || '12' }}" \
+            --out race_result.json \
+            --save-candidates race_candidates
+
+      - name: 结果表写进 Job Summary
+        if: always()
+        run: |
+          echo "## 改进者赛马 · 真实结果表" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f race_result.json ]; then
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d = json.load(open("race_result.json", encoding="utf-8"))
+          print(f"卷子 `{d['eval_id']}` · 判分函数 `{d['scorer']}` · 冠军基准 **{d['baseline']}**\n")
+          print("| 改进者 | 调用成功 | 候选合规 | 连续分 | 相对冠军 | 过闸 | 耗时 | 备注 |")
+          print("|---|---|---|---|---|---|---|---|")
+          for r in d["rows"]:
+              ok = "✅" if r["ok"] else "❌"
+              sc = "—" if r["score"] is None else f"**{r['score']}**"
+              dl = "—" if r["delta"] is None else (f"**{r['delta']:+}**" if r["delta"] else "基准")
+              qa = "—" if r["qualified"] is None else f"{r['qualified']}/{r['n']}"
+              print(f"| {r['who']} | {ok} | {ok} | {sc} | {dl} | {qa} | {r['secs']}s | {str(r['note'])[:60]} |")
+          win = [r for r in d["rows"] if r["ok"] and r["delta"] and r["delta"] > 0]
+          print()
+          if win:
+              b = max(win, key=lambda r: r["delta"])
+              print(f"> ✅ **有免费模型胜过冠军**:`{b['supplier']}` {b['score']} vs 冠军 {d['baseline']}")
+              print("> → 免费改进者可行,下一步接赛马机制,由人拍板晋升。")
+          else:
+              print("> ❌ **没有一家胜过冠军**。")
+              print("> 注意:能产出合规候选 ≠ 不可行 —— 若合规率高而分数不高,问题在改进提示词与评测方法;")
+              print("> 若连合规候选都产不出,才谈更强模型。")
+          PY
+          else
+            echo "> ⚠️ 没生成结果表,这轮整体失败了。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: race-${{ github.run_id }}
+          path: |
+            race_result.json
+            race_candidates/
+          if-no-files-found: warn
