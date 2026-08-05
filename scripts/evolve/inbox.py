@@ -33,8 +33,9 @@ from _ai import d1, q                                        # noqa: E402
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 OUT = os.path.join(REPO_ROOT, "reports", "evolve", "待审核.md")
 
-MODULE_ORDER = ["免费模型池", "AI寻脉", "知识图谱星图", "RAG向量检索", "检索路由",
-                "OCR产线", "采集下载线", "内容工厂", "导读生成", "自进化闭环", "前台阅读器"]
+# 只列系统侧模块 —— 创始人 2026-08-05:「禁止再去做药方」
+MODULE_ORDER = ["自进化闭环", "免费模型池", "检索路由", "RAG向量检索", "知识图谱星图",
+                "AI寻脉", "OCR产线", "采集下载线", "前台阅读器"]
 
 
 def fetch(status, limit=40):

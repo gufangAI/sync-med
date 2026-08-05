@@ -143,7 +143,28 @@ def _flush(vals, now):
         return 0
 
 
+def _ensure_delta_cols():
+    """确保 gh_repo_pool 上有星速相关列 —— **三次报 400 说明它压根没建上**。
+
+    后果不是"少个字段":adopt.py 想按 star_delta 排序拿新料,列不存在就退回总星排序,
+      于是**每天从同一批高星头部捞**,新入库的高星速项目永远轮不到 ——
+      本轮精判只剩 3 个、采纳 0,收件箱没新料。这是采集端最后一个堵点。
+    ALTER 失败分两种:列已存在(正常,忽略) / 其它错(要明说,不许静默)。
+    """
+    for col, typ in (("star_delta", "INTEGER"), ("rank_best", "INTEGER"),
+                     ("rank_hits", "INTEGER")):
+        try:
+            d1(f"ALTER TABLE gh_repo_pool ADD COLUMN {col} {typ}")
+            print(f"  [表] gh_repo_pool 建列 {col}", flush=True)
+        except Exception as e:
+            msg = str(e)
+            if "duplicate column" in msg.lower():
+                continue
+            print(f"  [表] 建列 {col} 失败:{msg[:90]}", flush=True)
+
+
 def main():
+    _ensure_delta_cols()
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, default=30, help="回看几天(30=月榜)")
     ap.add_argument("--max-pages", type=int, default=10)
