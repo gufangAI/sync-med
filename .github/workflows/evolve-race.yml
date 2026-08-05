@@ -38,6 +38,8 @@ concurrency:
 jobs:
   race:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +62,25 @@ jobs:
             --items "${{ github.event.inputs.items || '12' }}" \
             --out race_result.json \
             --save-candidates race_candidates
+
+      # 冻结的考卷必须**跨 runner 存活** —— 缓存落在 runner 上,下一轮是新机器就没了,
+      # 那「冻结」在云端等于没冻,Phase 0 的「连跑 3 次一致」永远验不出来。
+      # 跟收件箱同一套:提交回仓,下一轮 checkout 自动带着上一轮的卷子。
+      - name: 冻结的考卷提交回仓(跨 runner 存活)
+        if: always()
+        run: |
+          if [ -d reports/evolve/eval_cache ] && [ "$(ls -A reports/evolve/eval_cache 2>/dev/null)" ]; then
+            n=$(ls reports/evolve/eval_cache | wc -l)
+            git config user.name  'evolve-bot'
+            git config user.email 'evolve-bot@users.noreply.github.com'
+            git add reports/evolve/eval_cache
+            git diff --cached --quiet || git commit -m "冻结考卷 +$n 份 $(date -u +%Y-%m-%dT%H:%M) [skip ci]"
+            git pull --rebase -q origin main || true
+            git push || echo '推送失败(不致命,下轮重来)'
+            echo "已提交 $n 份冻结考卷"
+          else
+            echo "本轮没有产生新考卷"
+          fi
 
       - name: 结果表写进 Job Summary
         if: always()
