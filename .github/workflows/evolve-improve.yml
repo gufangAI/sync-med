@@ -60,6 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write            # 工单要落 Issue —— 只写 run log 的工单等于没发过
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -141,6 +142,47 @@ jobs:
           PY
           else
             echo "> ⚠️ 没生成 report.json,这轮改进环很可能整体失败了。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # 2026-08-06 补断头:make_tickets 生成的工单此前只进 run log 与 Summary,
+      # 出过一次就标 ticketed 永不再出 —— 「推送给你修改」那一环实际从没送达过
+      # (CLAUDE.md 第 8 条:只写进日志的产线一律视为没人看)。
+      # 现在:工单非空 → 追评到固定 Issue,标题进手机通知,人看得见才叫推送。
+      - name: 工单推送到固定 Issue(治一次性沉没)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -f evolve_improve.json ] || exit 0
+          # 无工单时输出为空文件;靠"文件非空"判断,不玩退出码(bash -e 下退出码即死)
+          python - <<'PY' > tickets_comment.md
+          import json
+          d = json.load(open("evolve_improve.json", encoding="utf-8"))
+          ts = d.get("tickets") or []
+          if ts:
+              by = {}
+              for t in ts:
+                  by.setdefault(t.get("module") or "未归类", []).append(t)
+              print(f"共 {len(ts)} 张,覆盖 {len(by)} 个模块。**代码级改动走 PR + CI + 人 merge,本工单只提案。**\n")
+              for mod, items in by.items():
+                  print(f"### {mod}")
+                  for t in items:
+                      eff = f" · 工作量 {t['effort']}" if t.get("effort") else ""
+                      print(f"- **[{t['repo']}]({t.get('url','')})**({t.get('stars','?')}★){eff}")
+                      print(f"  - 指标:{t.get('metric','—')} · 接法:{t.get('how','—')}")
+          PY
+          if [ ! -s tickets_comment.md ]; then echo '本轮无工单,不发'; exit 0; fi
+          T='系统改进工单 · 雷达推送给人修'
+          num=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "$T in:title" --json number --jq '.[0].number' 2>/dev/null || true)
+          {
+            echo "## $(date -u +%Y-%m-%d) · run ${{ github.run_id }}"
+            echo ""
+            cat tickets_comment.md
+          } > tickets_issue.md
+          if [ -n "$num" ]; then
+            gh issue comment "$num" -R "$GITHUB_REPOSITORY" --body-file tickets_issue.md
+          else
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$T" --body-file tickets_issue.md
           fi
 
       - uses: actions/upload-artifact@v4
