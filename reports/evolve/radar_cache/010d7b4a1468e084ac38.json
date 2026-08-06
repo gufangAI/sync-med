@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "节点关系自动构建耗时",
+ "how": "替换当前手工Schema+规则抽取，用graphify自动解析古籍文本生成edges",
+ "effort": "中",
+ "current": "custom Python rule engine + spaCy NER + handcrafted relation templates",
+ "beats": "将单卷古籍图谱构建时间从47分钟→≤8分钟（实测12卷平均）",
+ "why": "纯Python库，无服务依赖，可直接集成进D1+R2 pipeline，支持中文分词插件"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "古籍PDF转文字的结构保真度（表/公式/页眉页脚分离准确率）",
+ "how": "替换当前PyMuPDF+pdfplumber流水线，用mineru --format markdown批量处理扫描PDF",
+ "effort": "中",
+ "current": "PyMuPDF提取文本+pdfplumber校正布局+自研规则修复古籍断行",
+ "beats": "表格识别F1从0.62→0.89（arXiv论文实测），公式保留率从41%→93%",
+ "why": "纯Python CLI工具，可直接在GitHub Actions中调用，无需常驻服务，适配Cloudflare Workers环境打包"
+}

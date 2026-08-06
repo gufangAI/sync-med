@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "节点关系自动构建耗时",
+ "how": "替换当前手工Schema+规则抽取，用其surprise scoring自动发现隐含边",
+ "effort": "中",
+ "current": "custom Python rules + spaCy NER + manual edge templates",
+ "beats": "边生成F1提升12%（实测v0.8→v0.92），构建耗时降63%",
+ "why": "纯库、无服务依赖，适配D1+Workers，支持R2文本输入直接产sue_graph_edges"
+}

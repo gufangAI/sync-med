@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR识别准确率",
+ "how": "已在当前OCR产线中使用tesseract",
+ "effort": "小",
+ "current": "pip install paddleocr + tesseract",
+ "beats": "无新指标优势",
+ "why": "项目即我们当前已用组件，不构成技术升级"
+}

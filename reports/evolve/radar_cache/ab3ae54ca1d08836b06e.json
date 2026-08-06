@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "大",
+ "current": "",
+ "beats": "",
+ "why": "Elasticsearch 是常驻服务进程，需部署服务器集群，违反 Cloudflare Serverless 零常驻主机架构"
+}

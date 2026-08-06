@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "大",
+ "current": "",
+ "beats": "",
+ "why": "Elasticsearch 是常驻 JVM 进程+集群服务，需持久化存储与端口绑定，违反零常驻、零月费、无状态函数铁律"
+}

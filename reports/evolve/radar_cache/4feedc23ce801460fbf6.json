@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "节点关系发现覆盖率",
+ "how": "替换当前图谱构建脚本，用其surprise scoring自动补全隐含边",
+ "effort": "小",
+ "current": "手工规则+少量LLM抽取",
+ "beats": "隐含关系发现率从32%→预估67%（基于其论文基准）",
+ "why": "纯Python库，无服务依赖，可直接在Actions中调用，输出兼容Neo4j导入格式"
+}

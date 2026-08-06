@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "古籍PDF转Markdown结构化准确率",
+ "how": "替换当前PyMuPDF+pdfplumber流水线，用MinerU统一处理古籍扫描PDF",
+ "effort": "中",
+ "current": "PyMuPDF + pdfplumber + 自研版面校正规则",
+ "beats": "表格/公式/多栏识别F1提升12.3%（官方benchmark）",
+ "why": "纯Python库，无常驻服务，可直接集成进GitHub Actions OCR workflow"
+}

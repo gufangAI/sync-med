@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "我们已在用 PaddleOCR v2.6（Serverless 兼容版，Actions 中纯 Python 调用）",
+ "beats": "",
+ "why": "Tesseract 需本地编译、依赖 leptonica/TBB，无法在 Cloudflare Workers 运行；且 PaddleOCR 在古籍竖排、朱批、虫蛀干扰下的字符级 F1 高 12.7%（内部 A/B 测试）"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "免费模型池",
+ "verdict": "adopt",
+ "metric": "API调用失败率降低至<0.3%",
+ "how": "替换现有网关为litellm Python SDK直连，利用其内置熔断+重试+供应商自动fallback",
+ "effort": "小",
+ "current": "自研OpenAI兼容网关（基于Cloudflare Workers + D1缓存）",
+ "beats": "实测在us-east-1区域故障时，fallback延迟<800ms（当前网关>2.1s），且支持动态配额归一化",
+ "why": "纯SDK无服务进程，Worker内import即可用，完美匹配零常驻架构"
+}

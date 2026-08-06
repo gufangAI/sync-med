@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "PaddleOCR v2.6 Serverless 封装版（D1+R2+Workers）",
+ "beats": "",
+ "why": "已用 PaddleOCR，RapidOCR 同属 ONNXRuntime OCR 工具链，无指标优势声明，且需额外模型/预处理适配"
+}
