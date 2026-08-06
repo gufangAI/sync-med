@@ -1,0 +1,152 @@
+# ============================================================
+# 雷达赛马 —— 判定大脑的每日自进化(符合红线的那条赛道)
+#
+# 立此因(2026-08-06 创始人):「这个自我进化的系统,一直无法实现,看看卡在哪里」
+#   卡点之一就是:radar_race.py 建好后一直躺在本地,云端零调度 ——
+#   新方向没上云,旧方向(内容提示词)反而每 3h 在跑。本 workflow 把
+#   符合「进化对象是系统,不是内容」红线的赛道真正接上云端调度。
+#
+# 进化对象 = 雷达判定大脑 adopt.py::SYS_ADOPT(全系统唯一一段
+#   「是提示词 + 有标准答案 + 有事故留痕」的东西)。
+# 赛制 = radar_race.py:同卷(14 真题)/ 同判分(零调用零随机宏平均)/
+#   冻结考卷(跨轮可复现)/ 晋升双闸(总分涨 + adopt 类不许退步)。
+# **只出结果表,不自动换冠军 —— 晋升由人拍板。**
+#
+# 「它出问题时,谁会在哪里看见?」(CLAUDE.md 第 8 条,建 workflow 必答):
+#   每轮结果追评到固定 Issue「雷达赛马 · 判定大脑自进化日报」;
+#   卷子自检失败 = run 直接红,workflow-sentry 会抓到。
+#
+# 成本:全部走免费池(网关 + OpenCode 免密端点),零按量计费源。
+# ============================================================
+
+name: Radar Race
+
+on:
+  schedule:
+    - cron: '40 1 * * *'        # 每日 UTC 01:40(北京 09:40);错开 intel-radar(03:42)/improve(:10)/content-factory(:20)
+  workflow_dispatch:
+    inputs:
+      baseline_only:
+        description: '只跑现任大脑验可复现,不派改进者'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: radar-race
+  cancel-in-progress: false
+
+jobs:
+  race:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 卷子坏了先修卷子再谈进化 —— 退出码非 0 = 整轮红,绝不带病赛马
+      - name: 卷子自检(判分确定性 + 傻瓜基线仪表)
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python scripts/evolve/radar_set.py
+
+      - name: 赛马(五家改写判定大脑 · 同卷同判分 · 冻结考卷)
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          python scripts/evolve/radar_race.py \
+            --out radar_race_result.json \
+            ${{ (github.event.inputs.baseline_only == 'true') && '--baseline-only' || '' }}
+
+      # 冻结的考卷必须跨 runner 存活 —— 不提交回仓,下一轮新机器上「冻结」等于没冻,
+      # 「连跑 3 次同分」永远验不出来。与 evolve-improve / evolve-race 同一套。
+      - name: 冻结考卷 + 结果表提交回仓
+        if: always()
+        run: |
+          git config user.name  'evolve-bot'
+          git config user.email 'evolve-bot@users.noreply.github.com'
+          git add reports/evolve/radar_cache radar_race_result.json 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            n=$(ls reports/evolve/radar_cache 2>/dev/null | wc -l)
+            git commit -m "雷达赛马:冻结考卷累计 $n 份 + 结果表 $(date -u +%Y-%m-%dT%H:%M) [skip ci]"
+            git pull --rebase -q origin main || true
+            git push || echo '推送失败(不致命,下轮重来)'
+          else
+            echo '本轮无新考卷、结果表无变化'
+          fi
+
+      - name: 结果表渲染(Summary 与 Issue 共用一份)
+        if: always()
+        run: |
+          if [ -f radar_race_result.json ]; then
+            python - <<'PY' > radar_race_report.md
+          import json
+          d = json.load(open("radar_race_result.json", encoding="utf-8"))
+          rows = d["rows"]
+          base = rows[0]
+          base_adopt = (base.get("cls") or {}).get("adopt", 0)
+          print(f"卷子 `{d['scorer']}` · 考生 `{d['supplier']}` · 现任大脑 **{base['score']:.4f}**"
+                f"(skip {(base.get('cls') or {}).get('skip',0):.4f} / adopt {base_adopt:.4f})\n")
+          print("| 改写者 | 总分 | 相对现任 | skip 类 | adopt 类 | 晋升闸 | 备注 |")
+          print("|---|---|---|---|---|---|---|")
+          for r in rows[1:]:
+              if r.get("score") is None:
+                  print(f"| {r['who']} | — | — | — | — | — | {str(r.get('note'))[:50]} |")
+                  continue
+              cls = r.get("cls") or {}
+              a = cls.get("adopt", 0)
+              if r["score"] <= base["score"]:
+                  gate = "没涨"
+              elif a < base_adopt:
+                  gate = "⛔ adopt 退步"
+              elif a == base_adopt:
+                  gate = "⚠️ 只是更会拒绝"
+              else:
+                  gate = "✅ 真的更会认机会"
+              print(f"| {r['who']} | {r['score']:.4f} | {r['delta']:+.4f} | "
+                    f"{cls.get('skip',0):.4f} | {a:.4f} | {gate} | {str(r.get('note'))[:40]} |")
+          models = [str(r.get("note","")).split(" · ")[0] for r in rows[1:] if r.get("score") is not None]
+          if len(models) > 1 and len(set(models)) == 1:
+              print(f"\n> ⚠️ **这不是多家赛马**:点名的 {len(models)} 家全落到同一模型 `{models[0]}`"
+                    f" —— 网关 fallback 把点名吃掉了。")
+          print("\n> 晋升由人拍板,本 workflow 绝不自动换冠军。"
+                "adopt 类是瓶颈:拒绝的价值有上限,认出机会的价值没有上限。")
+          PY
+            cat radar_race_report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "> ⚠️ 没生成结果表,这轮整体失败了。" | tee -a "$GITHUB_STEP_SUMMARY" > radar_race_report.md
+          fi
+
+      # 治「只写进日志 = 没人看」:结果追评到固定 Issue,标题进手机通知
+      - name: 结果追评到固定 Issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          T='雷达赛马 · 判定大脑自进化日报'
+          num=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "$T in:title" --json number --jq '.[0].number' 2>/dev/null || true)
+          {
+            echo "## $(date -u +%Y-%m-%d) · run ${{ github.run_id }}"
+            echo ""
+            cat radar_race_report.md 2>/dev/null || echo "(结果表缺失)"
+          } > issue_comment.md
+          if [ -n "$num" ]; then
+            gh issue comment "$num" -R "$GITHUB_REPOSITORY" --body-file issue_comment.md
+          else
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$T" --body-file issue_comment.md
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: radar-race-${{ github.run_id }}
+          path: radar_race_result.json
+          if-no-files-found: warn

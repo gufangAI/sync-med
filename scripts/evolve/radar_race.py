@@ -141,9 +141,21 @@ def exam_one(body, supplier, judge_system):
 
 def failure_feedback(lines, total, per_cls):
     bad = [l for l in lines if "判错" in l or "踩中" in l or "答不出" in l]
-    return (f"现任判定提示词总分 {total:.4f}(skip 类 {per_cls.get('skip', 0):.4f} / "
-            f"adopt 类 {per_cls.get('adopt', 0):.4f})。\n"
-            f"失分明细(共 {len(bad)} 题):\n" + "\n".join(bad[:12]))
+    # 【2026-08-06 落「下一刀」】此前失分明细按题号顺序原样喂 —— 而 skip 类失分
+    #   最好修(拒绝比识别容易),改进者自然全往那边跑:首轮实测涨分 100% 来自
+    #   skip 类,adopt 类纹丝不动。要它啃真瓶颈,反馈必须自己指方向:
+    #   adopt 类失分排最前(sort 稳定,类内保持原序,截断也截不掉它们)+ 明写价值排序。
+    bad.sort(key=lambda l: 0 if "应adopt" in l else 1)
+    n_adopt = sum(1 for l in bad if "应adopt" in l)
+    sk, ad = per_cls.get("skip", 0), per_cls.get("adopt", 0)
+    return (f"现任判定提示词总分 {total:.4f}(skip 类 {sk:.4f} / adopt 类 {ad:.4f})。\n"
+            f"【修哪类最值钱 · 按这个顺序啃】\n"
+            f"  · adopt 类(认出真机会){ad:.4f} 是瓶颈:拒绝的价值有上限,认出机会的"
+            f"价值没有上限 —— 漏报一个真机会 = 整个自进化闭环少一份燃料。"
+            f"下面 {n_adopt} 道 adopt 类失分题排在最前,优先修它们。\n"
+            f"  · skip 类(拒绝陷阱){sk:.4f}:已有的拒绝能力一分都不能丢,"
+            f"但在它上面继续加码几乎不涨总分。\n"
+            f"失分明细(共 {len(bad)} 题,adopt 类在前):\n" + "\n".join(bad[:12]))
 
 
 def main():
