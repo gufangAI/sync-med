@@ -2563,8 +2563,14 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
     stall_prefix = ""
     if adoption and adoption.get("stall"):
         d = adoption.get("days_since")
-        stall_prefix = (f"\ud83d\udea8\u5438\u6536\u505c\u6446{d}\u5929 " if isinstance(d, int)
-                        else "\ud83d\udea8\u4ece\u672a\u843d\u5730 ")
+        # \U0001F6A8, never the \ud83d + \udea8 pair spelling: that is JSON's,
+        # not Python's -- Python keeps the two halves unpaired and the title
+        # then kills subprocess/print with UnicodeEncodeError, i.e. the stall
+        # alarm crashed the very run that tried to raise it (2026-08-05 run
+        # 30973033360). Only this alarm path had it, so it never failed in
+        # normal runs.
+        stall_prefix = (f"\U0001F6A8\u5438\u6536\u505c\u6446{d}\u5929 " if isinstance(d, int)
+                        else "\U0001F6A8\u4ece\u672a\u843d\u5730 ")
     title = (
         f"{stall_prefix}[\u60c5\u62a5\u96f7\u8fbe v3] {today} | "
         f"\u6293\u53d6 {total_raw} | \u7cbe\u534e {top_n} | {rate} | {model_short}"
@@ -2675,7 +2681,14 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
 
     body = "\n".join(body_lines)
 
-    
+    # Outbound scrub: unpaired surrogates (bad escapes upstream, mangled API
+    # text) must degrade to '?', not take down the whole report at the encode
+    # step -- the 2026-08-05 failure was the alarm title itself doing exactly
+    # that. UTF-8 can't encode a lone surrogate, so errors='replace' is the
+    # only line of defense that catches every future source at once.
+    title = title.encode("utf-8", "replace").decode("utf-8")
+    body = body.encode("utf-8", "replace").decode("utf-8")
+
     tmp_body = Path("/tmp/intel_radar_issue_body.md")
     tmp_body.write_text(body, encoding="utf-8")
 

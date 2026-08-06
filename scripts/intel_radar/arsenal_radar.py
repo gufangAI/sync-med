@@ -752,7 +752,19 @@ def distill(rows, batch=10):
     print("[arsenal] free bench wired: %s" % [s["id"] for s in seats], flush=True)
 
     stats = {"seat": None, "calls": 0, "ok": 0}
+    # 2026-08-05 run 30973033360: sensenova failed identically on every batch,
+    # burning 3 of the 12-call budget on retries that could never succeed, and
+    # once the budget ran out the loop kept polling every seat twice more --
+    # each poll another BudgetExhausted print. Two rules from that:
+    #   * a seat that fails twice is benched for the rest of this distill;
+    #   * BudgetExhausted is GLOBAL, not the seat's -- stop the whole distill
+    #     and ship the remaining rows raw (distilled=False is a designed
+    #     outcome, see docstring), instead of grinding the bench.
+    seat_fails: dict = {}
+    budget_out = False
     for start in range(0, len(rows), batch):
+        if budget_out:
+            break
         chunk = rows[start:start + batch]
         listing = "\n".join(
             "[%d] %s | \u2b50%s | %s | topics: %s | %s"
@@ -762,6 +774,8 @@ def distill(rows, batch=10):
         user = DISTILL_PROMPT % listing
         parsed = []
         for seat in seats:
+            if seat_fails.get(seat["id"], 0) >= 2:
+                continue
             try:
                 stats["calls"] += 1
                 txt = roster.call(seat, "You output JSON only.", user,
@@ -772,9 +786,17 @@ def distill(rows, batch=10):
                     stats["seat"] = seat["id"]
                     stats["ok"] += 1
                     break
+            except roster.BudgetExhausted:
+                print("    [arsenal] distill budget exhausted -- shipping the "
+                      "rest raw", flush=True)
+                budget_out = True
+                break
             except Exception as e:
-                print("    [arsenal] seat %s failed: %s"
-                      % (seat["id"], type(e).__name__), flush=True)
+                seat_fails[seat["id"]] = seat_fails.get(seat["id"], 0) + 1
+                bench_note = (" (benched for this distill)"
+                              if seat_fails[seat["id"]] >= 2 else "")
+                print("    [arsenal] seat %s failed: %s%s"
+                      % (seat["id"], type(e).__name__, bench_note), flush=True)
         by_i = {}
         for o in parsed:
             try:
