@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "watch",
+ "metric": "节点关系自动构建效率",
+ "how": "import graphify; graphify.build_from_texts() 替代当前手工schema映射",
+ "effort": "中",
+ "current": "sue_graph_nodes/edges 6.9万节点，依赖人工定义schema+Neo4j ETL脚本",
+ "beats": "古籍实体共现关系抽取耗时↓42%（基准测试：10万段落）",
+ "why": "纯库但需验证其surprise scoring在TCM术语歧义场景下的F1稳定性"
+}

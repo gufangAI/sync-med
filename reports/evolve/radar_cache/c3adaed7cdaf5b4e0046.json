@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "古籍PDF转结构化文本准确率",
+ "how": "替换PaddleOCR后处理环节，接入MinerU的layout-aware markdown pipeline",
+ "effort": "中",
+ "current": "paddleocr + 自研后处理（无公式/表格感知）",
+ "beats": "竖排古籍PDF中公式与表格区域识别F1↑12.7%（论文Table 3）",
+ "why": "需验证其torch依赖与Cloudflare Workers兼容性，且未提供纯CPU/低内存模式"
+}

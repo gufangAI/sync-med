@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "古籍PDF转结构化文本的准确率",
+ "how": "替换当前PDF解析环节，用MinerU直接输出带布局语义的Markdown+JSON",
+ "effort": "中",
+ "current": "pdfplumber + custom layout heuristics + pandoc",
+ "beats": "表格与公式区域识别F1提升23%（官方benchmark）",
+ "why": "纯Python库，无常驻服务，可嵌入GitHub Actions OCR流水线"
+}

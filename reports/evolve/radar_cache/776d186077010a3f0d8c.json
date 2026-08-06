@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "古籍竖排识别准确率",
+ "how": "已在家底中，当前即用此库",
+ "effort": "小",
+ "current": "pip install paddleocr",
+ "beats": "无——与自身对比无改进",
+ "why": "项目即我们当前所用方案，不满足‘改进且仅改进一个模块’铁律"
+}

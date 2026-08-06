@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "古籍竖排文字识别准确率",
+ "how": "需编译C++二进制并常驻调用，无法在Cloudflare Workers无状态环境运行",
+ "effort": "大",
+ "current": "pip install paddleocr",
+ "beats": "无实测证据显示其在古籍竖排、朱砂批注、虫蛀缺字等场景优于PaddleOCR",
+ "why": "违反铁律：需常驻进程+无量化胜出证据+未适配无服务器环境"
+}

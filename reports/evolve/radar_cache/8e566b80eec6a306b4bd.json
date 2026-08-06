@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "PaddleOCR v2.6 (ONNX Runtime + CPU inference in Actions)",
+ "beats": "",
+ "why": "功能重叠，已用PaddleOCR且适配Cloudflare Workers环境"
+}

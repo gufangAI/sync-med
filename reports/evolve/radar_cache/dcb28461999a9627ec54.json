@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "古籍竖排文字识别准确率",
+ "how": "替换paddleocr为RapidOCR ONNX推理后端",
+ "effort": "中",
+ "current": "pip install paddleocr",
+ "beats": "竖排古籍测试集准确率+4.7%（论文Table 3）",
+ "why": "需验证ONNX模型在Cloudflare Workers的兼容性与内存占用"
+}
