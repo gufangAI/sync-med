@@ -212,13 +212,45 @@ def main():
             rows.append(dict(who=label, supplier=sup, score=tot, delta=d, cls=cls,
                              note=f"{model} · {len(cand)}字", body=cand))
 
+    # ── 晋升闸 ────────────────────────────────────────────────
+    # 【2026-08-06 首轮实测后立此闸】首次有挑战者赢过冠军(+0.0500),
+    #   但拆开看:**涨分 100% 在 skip 类(0.9000→1.0000),adopt 类 0.5000 纹丝不动**。
+    #   它学会的是"更会拒绝",不是"更会认出机会"。
+    #   宏平均防住了「全判 skip」这个退化策略,却没防住次级退化:
+    #     skip 类 10 题、adopt 类 4 题,而**拒绝比识别容易得多** ——
+    #     只要在 skip 类刷满分,总分就涨,adopt 类可以一动不动。
+    #   而对一个情报雷达来说:**拒绝的价值有上限(最多省下审核人的时间),
+    #     认出机会的价值没有上限 —— 那才是整个自进化系统的燃料。**
+    #   一个从不认机会的雷达,拒绝得再干净也是废的。
+    # 所以晋升要两个条件同时成立,总分涨不够:
+    #   ① 总分涨;② **adopt 类不许退步**(退步 = 用真机会换假干净,亏本买卖)。
+    def promotable(r):
+        if not r.get("score") or r["score"] <= base_total:
+            return False, "总分没涨"
+        a_new = (r.get("cls") or {}).get("adopt", 0)
+        a_old = base_cls.get("adopt", 0)
+        if a_new < a_old:
+            return False, f"adopt 类退步({a_old:.4f}→{a_new:.4f})—— 拿真机会换假干净"
+        if a_new == a_old:
+            return True, f"可晋升,但**只是更会拒绝**(adopt 类 {a_new:.4f} 没动)"
+        return True, f"可晋升,且真的更会认机会(adopt {a_old:.4f}→{a_new:.4f})"
+
     win = [r for r in rows[1:] if r.get("delta") and r["delta"] > 0]
     print("\n" + "═" * 76)
     if win:
         b = max(win, key=lambda r: r["delta"])
-        print(f"✅ **有免费模型改出了更准的判定大脑**:{b['supplier']} "
-              f"{b['score']:.4f} vs 现任 {base_total:.4f}(+{b['delta']:.4f})")
-        print("   → 不自动换冠军。晋升由人拍板 —— 先看它是不是靠某一类堆分。")
+        ok, why = promotable(b)
+        print(f"{'✅' if ok else '⛔'} 最高分挑战者:{b['supplier']} "
+              f"{b['score']:.4f} vs 现任 {base_total:.4f}({b['delta']:+.4f})")
+        print(f"   晋升闸:{why}")
+        print(f"   分类明细:skip {base_cls.get('skip',0):.4f}→{(b.get('cls') or {}).get('skip',0):.4f} · "
+              f"adopt {base_cls.get('adopt',0):.4f}→{(b.get('cls') or {}).get('adopt',0):.4f}")
+        print("   → **不自动换冠军**,晋升由人拍板。")
+        # 点名却落到同一个模型 = 赛马是假的,必须当场喊出来
+        mods = [str(r.get("note", "")).split(" · ")[0] for r in rows[1:] if r.get("score")]
+        if len(mods) > 1 and len(set(mods)) == 1:
+            print(f"   ⚠️ **这不是多家赛马**:点名的 {len(mods)} 家全落到同一个模型 "
+                  f"`{mods[0]}` —— 网关 fallback 把点名吃掉了,等于同一个模型赢了 {len(mods)} 次。")
     else:
         print(f"❌ 没有一家改得更准。现任 {base_total:.4f} 保持冠军。")
         print("   注意:**本轮无改进也是合法结果**,不许为了让它赢去松判据。")
