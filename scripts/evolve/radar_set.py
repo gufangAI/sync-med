@@ -94,12 +94,14 @@ EXAM = [
          want="adopt", probe="",
          why="**真落地了**(adoption.txt 2026-07-29):当内容工厂 → 抖音/小红书的投递适配器。"
              "CLI 形态,不需要常驻。"),
-    dict(repo="BerriAI/litellm", stars=15000, lang="Python",
-         desc="Call all LLM APIs using the OpenAI format. Proxy server optional; "
-              "the Python SDK works standalone.",
-         want="skip", probe="already_have",
-         why="**已在家底**(免费模型池已统一接入 16 家)。同时是道好题:"
-             "它既能当纯库又能开 proxy server,判定器要认出「我们用的是库那一半」。"),
+    # 【2026-08-06 出题当天就撤掉的一题 —— 留痕,别再犯】
+    #   我曾把 BerriAI/litellm 标成 want="skip" / probe="already_have",理由写「已在家底」。
+    #   跑完基线去核实,全仓 grep 只命中三处:模型自己的答案缓存、`land.py` 里**我自己写的举例**、
+    #   和一个叫 `sk-litellm-local-dev` 的 key 名字。**litellm 根本没在我们系统里用。**
+    #   我把「我写的举例」当成了家底证据 —— 正是「记忆是线索不是真相」那条铁律的原样重犯。
+    #   判定大脑判它 adopt(理由:替换现有网关层)不是错,**是我标错了答案**。
+    #   回归集里一道错答案比没有回归集更糟:它会把雷达往错的方向训。
+    #   所以撤题,不改标签硬留 —— 我手上没有它的真实判决,而**每一题都必须是真发生过的判定**。
     dict(repo="opendatalab/MinerU", stars=25000, lang="Python",
          desc="A high-quality tool for convert PDF to Markdown and JSON. "
               "Layout detection, formula recognition, table extraction.",
