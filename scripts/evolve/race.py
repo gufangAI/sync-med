@@ -33,7 +33,8 @@ sys.path.insert(0, HERE)
 from _ai import d1, q, ask, ask_opencode                     # noqa: E402
 from gate import score as gate_score, SCORER_VERSION         # noqa: E402
 import herb_factory as HF                                    # noqa: E402
-from improve import SYS_IMPROVER, diagnose, strip_wrapper, guard, SCOPES  # noqa: E402
+from improve import (SYS_IMPROVER, diagnose, strip_wrapper,   # noqa: E402
+                     guard, soft_flags, SCOPES)
 
 # 参赛的改进者 —— **点名**,不走容错链。这正是此前那个错误的反面:
 #   不点名 = 每次都落在链头最弱的那家,而我却拿它的失败去否定整个免费池。
@@ -99,7 +100,13 @@ def make_candidate(scope, parent_body, supplier, reasons, samples):
             return None, model, f"重试调用失败 {type(e).__name__}"
     if bad:
         return None, model, f"不合规:{bad}"
-    return body, model, None
+    # 【黑马赛道 2026-08-06】形式越界不再砍人,只标记 —— 它照样上赛道跑分,
+    #   由 gate.py 判它的**真实产出**。合规一步不退(资格闸在产出层),
+    #   退的只是"看长相就拒之门外"。
+    dh = soft_flags(parent_body, body)
+    if dh:
+        print(f"    [{supplier}] 🐴 黑马:{';'.join(dh)} —— 不砍,让它跑分说话", flush=True)
+    return body, model, ("🐴黑马:" + ";".join(dh) if dh else None)
 
 
 def run_exam(scope, body, items):

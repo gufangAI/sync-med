@@ -31,7 +31,7 @@ Improve 算子 —— 自我进化闭环的**心脏**:让系统自己生出下�
   · 改进者只改提示词,**碰不到**产线代码、D1 数据、已上线内容。
   · 新方案一律 status='trial',靠 A/B 自己去挣成绩;赢了才由 arbitrate() 提拔。
 """
-import os, sys, json, time, uuid, hashlib, argparse, urllib.request
+import os, sys, json, time, uuid, random, hashlib, argparse, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "content_factory"))
@@ -85,6 +85,29 @@ SYS_IMPROVER = (
     "    医嘱 / 临床 / 禁 —— 上一轮 openrouter 就是丢了「出处」二字整条作废。\n"
     "  · 长度控制在父代的 0.8~1.5 倍。\n"
     "直接输出改写后的完整提示词全文,一个字的多余话都不要。"
+)
+
+
+SYS_DEBUG = (
+    "你是提示词工程师。上一版改写**被自动闸拦下了**,现在给你原始产出和拦截原因,"
+    "你的任务是**只修被拦的那一处**,其余一个字不动。\n"
+    "常见拦截与修法:\n"
+    "  · 「比父代长太多」→ 多出来的通常是你写的改进说明,**整段删掉**,只留提示词本体;\n"
+    "  · 「丢失红线关键词」→ 把缺的那几个词原样加回原来的位置;\n"
+    "  · 「比父代短太多」→ 你精简掉了约束,把父代里被删的约束补回来;\n"
+    "  · 「与父代完全相同」→ 你没改,针对失败原因真正改一处。\n"
+    "直接输出修好的提示词全文,不要解释、不要围栏、不要开场白。"
+)
+
+SYS_CROSSOVER = (
+    "你是提示词工程师。给你**两版**针对同一条产线的提示词,它们各有长处。\n"
+    "任务:**取两者之长合成第三版** —— 不是二选一,也不是简单拼接。\n"
+    "硬约束:\n"
+    "  ① 两版里出现过的**任何合规红线**(禁剂量/禁疗效承诺/禁医嘱口吻/宁可留空不许编造/出处)"
+    "一条都不许丢;\n"
+    "  ② 长度与较长那版相当,不许暴涨;\n"
+    "  ③ 只输出合成后的提示词全文,不要解释、不要围栏。\n"
+    "合成思路:哪一版对某个失败原因下刀更准,就用哪一版的那一段。"
 )
 
 
@@ -168,23 +191,64 @@ def strip_wrapper(t):
     return "\n".join(lines).strip()
 
 
-def guard(parent_body, child_body):
-    """**红线闸** —— 父代有的合规约束,子代必须一条不少。确定性判据,不问模型。
+def hard_guard(parent_body, child_body):
+    """**真砍闸** —— 只拦「根本不是一条候选」的东西。返回拦截原因或 None。
 
-    模型重写提示词时最常见的破坏就是"顺手精简":把「禁开剂量」这类它认为啰嗦的约束删掉。
-    效果差一点可以靠 A/B 淘汰,**红线掉了是要出事的**,所以这道闸只能是硬编码。
+    这里只剩三条,因为它们不是"可能不好",是"压根没东西":
+      空 / 过短 / 与父代一字不差(没改就不是新一代)。
+    **合规安全不在这道闸上把** —— 它在 `gate.py` 的资格闸上,判的是**真实产出**
+      (剂量、用法、疗效承诺、医嘱口吻,全是确定性正则,命中即 0 分)。
+      判产出才是真判据;判提示词字面只是代理指标。
     """
     if not child_body or len(child_body) < 80:
         return "产出为空或过短"
-    if len(child_body) < len(parent_body) * 0.6:
-        return f"比父代短太多({len(child_body)} vs {len(parent_body)}),疑似被截断/精简掉了约束"
-    if len(child_body) > len(parent_body) * 3.0:
-        return f"比父代长太多({len(child_body)} vs {len(parent_body)}),剪掉包装后仍超标,疑似夹带解说"
-    lost = [m for m in RED_MARKERS if m in parent_body and m not in child_body]
-    if lost:
-        return "丢失红线关键词:" + "/".join(lost)
     if child_body.strip() == parent_body.strip():
         return "与父代完全相同,没有改进"
+    return None
+
+
+def soft_flags(parent_body, child_body):
+    """**分道标记** —— 形式类问题只标记,**不砍**。返回问题列表(空 = 走主赛道)。
+
+    【2026-08-06 创始人:「黑马机制,赛马机制……可你的一刀切,那限制很大,
+      就直接全部没用了」】—— 说的正是这里。此前这两条是硬砍:
+      · 长度越界(0.6~3.0 倍):一条**更简洁而更准**的提示词直接毙掉。
+        "精简掉废话"和"精简掉约束"长度上看起来一样,字面闸分不出来 →
+        于是一律当成后者杀掉,**等于从结构上禁止「改得更短」这个改进方向**。
+      · 字面关键词缺失:RED_MARKERS 是**字面**匹配。把「禁开剂量」改写成
+        「禁止标注任何用量」,意思一样甚至更准,但「剂量」二字不在了 → 当场毙掉。
+        它检查的是**用词**,不是**约束在不在**。
+
+    改成标记后,这类候选照样上赛道,由 `gate.py` 判它的**真实产出**:
+      产出里真出现剂量/疗效承诺 → 资格闸 0 分,自然淘汰,一点没放松;
+      产出干干净净、分还更高 → 它就是黑马,本来就该赢。
+    """
+    flags = []
+    lp, lc = len(parent_body), len(child_body)
+    if lc < lp * 0.6:
+        flags.append(f"比父代短很多({lc} vs {lp})")
+    if lc > lp * 3.0:
+        flags.append(f"比父代长很多({lc} vs {lp})")
+    lost = [m for m in RED_MARKERS if m in parent_body and m not in child_body]
+    if lost:
+        flags.append("未原样保留字面词:" + "/".join(lost))
+    return flags
+
+
+def guard(parent_body, child_body):
+    """兼容旧调用点。默认**只跑真砍闸**;形式问题交给 soft_flags 分道。
+
+    `EVOLVE_STRICT_GATE=1` 可恢复旧的一刀切行为 —— 留着不是为了保守,
+      是为了能 A/B 对比「一刀切 vs 黑马赛道」哪个产出更好的冠军。
+      **这本身就是一次赛马。**
+    """
+    bad = hard_guard(parent_body, child_body)
+    if bad:
+        return bad
+    if os.environ.get("EVOLVE_STRICT_GATE", "0") == "1":
+        f = soft_flags(parent_body, child_body)
+        if f:
+            return ";".join(f)
     return None
 
 
@@ -321,8 +385,23 @@ def make_tickets(dry=False, limit=12):
 
 def improve_one(scope, improver="freepool", dry=False):
     slot, tbl, _, _ = SCOPES[scope]
+    # 【学 OpenRSI 的父代选择】它有 get_best / **get_random_by_fitness** / get_top_k 三种,
+    #   我们此前永远从 status='active' 的冠军派生 —— **近亲繁殖,多样性为零**,
+    #   这很可能是三轮赛马 0/5 赢不了的结构原因之一。
+    #   改:七成从冠军派生(稳),三成从历史 top-k 里随机取一个当父代(探索)。
+    #   注意 lost/retired 的方案**没有被删**,它们的分数还在,正好当多样性来源。
     cur = d1(f"SELECT variant_id,body,fitness,sample_n FROM evolve_variants "
              f"WHERE scope={q(scope)} AND slot={q(slot)} AND status='active' LIMIT 1")
+    if cur and random.random() < float(os.environ.get("EVOLVE_PARENT_EXPLORE", "0.3")):
+        pool = d1(f"SELECT variant_id,body,fitness,sample_n FROM evolve_variants "
+                  f"WHERE scope={q(scope)} AND slot={q(slot)} "
+                  f"AND status IN ('lost','retired','rolled_back') AND fitness IS NOT NULL "
+                  f"ORDER BY fitness DESC LIMIT 5")
+        if pool:
+            pick = random.choice(pool)
+            print(f"  [{scope}] 父代改从历史池取 {pick['variant_id']}"
+                  f"(fitness={pick.get('fitness')})—— 打破近亲繁殖", flush=True)
+            cur = [pick]
     if not cur:
         print(f"  [{scope}] 无在位方案,跳过(先让产线跑一轮 seed_variant)", flush=True)
         return None
@@ -392,7 +471,27 @@ def improve_one(scope, improver="freepool", dry=False):
                             f"必须压到 {int(len(par['body'])*1.6)} 字以内 —— 删掉举例和展开,只留规则。")
         bad = guard(par["body"], child)
     if bad:
-        print(f"  [{scope}] ✗ 红线闸拦下这次改进(重试后仍不合格):{bad}", flush=True)
+        # 【学 OpenRSI 的 debug 模式】它的 generation_mode 有 draft/improve/**debug**/crossover,
+        #   候选跑挂了会喂着 run_log 让模型专门去修,而不是整条扔掉。
+        #   我们此前是"拦下即丢弃" —— 等于每次都从头再来,前面那次的所有正确部分白费。
+        #   这里给第三次机会:把**原始产出 + 拦截原因**一起喂回去,只让它修被拦的那一处。
+        print(f"  [{scope}] ⚙ 转 debug 模式(第 3 次):{bad}", flush=True)
+        try:
+            dbg_user = (f"【被拦下的产出】\n{child[:4000]}\n\n"
+                        f"【自动闸的拦截原因】{bad}\n\n"
+                        f"【父代提示词(长度 {len(par['body'])} 字,供对照)】\n{par['body'][:2000]}\n\n"
+                        f"只修被拦的那一处,其余不动。")
+            t, m2 = (ask_claude_api(SYS_DEBUG, dbg_user) if improver == "claude-api"
+                     else ask(SYS_DEBUG, dbg_user, max_tokens=3000, json_mode=False))
+            child = strip_wrapper(t or "")
+            bad = guard(par["body"], child)
+            if not bad:
+                model = m2
+                print(f"  [{scope}] ✓ debug 模式救回来了", flush=True)
+        except Exception as e:
+            print(f"  [{scope}] debug 模式调用失败:{type(e).__name__}", flush=True)
+    if bad:
+        print(f"  [{scope}] ✗ 红线闸拦下这次改进(debug 后仍不合格):{bad}", flush=True)
         return None
     if dry:
         print(f"  [{scope}] (dry-run)将写入子代,长度 {len(child)},改进者 {model}", flush=True)
