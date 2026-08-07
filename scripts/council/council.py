@@ -39,6 +39,7 @@ RED LINE: advisory only. D1 access is SELECT-guarded at the transport layer
 file outside reports/council/, or deploys anything.
 """
 import argparse
+import hashlib
 import io
 import json
 import os
@@ -587,6 +588,47 @@ def create_issue(title, body, date_str):
 _DECISIONS_KEEP = 400
 
 
+def _machine_verdict(r):
+    """Derive the machine-consumable verdict from HARD COUNTS only -- no extra
+    LLM call, no randomness, same discipline as the evolve scorers.
+
+    Why not ask the referee for JSON: zh.py is a GENERATED ascii-escaped file
+    (public-repo zero-CJK rule), so a new prompt means regenerating it, and a
+    self-reported verdict is weaker evidence than the vote matrix we already
+    counted. Everything below reads counts the code produced itself.
+
+    Closed enum -- adopt / watch / drop / hold. Anything not derivable here
+    stays `hold`; a decision we cannot justify from counts is not invented.
+
+      referee failed or no surviving plan -> hold (no grounds, say so)
+      any veto vote                       -> watch, NOT drop
+      critics all said the same thing     -> hold (flat review = no signal)
+      otherwise                           -> adopt
+
+    The veto->watch mapping is the founder's rule in decision form (2026-06-20):
+    "never write anyone off -- just put them further back; when the tech
+    matures they become valuable." A veto is a reason to queue for re-review,
+    not to kill. Hard `drop` is left to the ledger's own dedup/skip path, which
+    already has non-opinion grounds (already in-house, needs a standing host).
+    """
+    if (r.get("verdict_err") or "").strip() or not (r.get("verdict") or "").strip():
+        return "hold", "referee-failed"
+    if not [p for p in (r.get("plans") or []) if p.get("ok")]:
+        return "hold", "no-surviving-plan"
+    if r.get("vetoes"):
+        return "watch", "veto:%d" % len(r["vetoes"])
+    crits = r.get("critiques") or []
+    if crits and all(c.get("flat") for c in crits):
+        return "hold", "flat-review"
+    return "adopt", "no-veto"
+
+
+def _fingerprint(source, verdict):
+    """Stable id so the same conclusion cannot re-enter the queue every cycle
+    (the 'raised again three days later' loop). Deliberately excludes the date."""
+    return hashlib.sha1(("%s|%s" % (source, verdict)).encode("utf-8")).hexdigest()[:16]
+
+
 def write_decisions(results, date_str, issue_num, outdir):
     """Append this session's debated intel items to reports/council/decisions.json.
 
@@ -598,9 +640,16 @@ def write_decisions(results, date_str, issue_num, outdir):
         cand = (r.get("topic") or {}).get("intel")
         if not cand or not cand.get("repo"):
             continue
+        # 2026-08-07: this used to be a hard-coded "hold" -- the consumer side
+        # (arsenal_radar._DECISION_TO_STATUS) has always understood adopt/drop,
+        # so the loop was not missing, it was severed by this one literal.
+        src = "arsenal:%s" % cand["repo"]
+        dec, why = _machine_verdict(r)
         rows.append({
-            "source": "arsenal:%s" % cand["repo"],
-            "decision": "hold",
+            "source": src,
+            "decision": dec,
+            "basis": why,                       # why this verdict, from counts
+            "fingerprint": _fingerprint(src, dec),
             "date": date_str,
             "issue": issue_num,
             "topic": (r["topic"].get("title") or "")[:120],

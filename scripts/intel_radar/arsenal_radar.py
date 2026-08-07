@@ -911,6 +911,13 @@ _DECISION_TO_STATUS = {
     "adopt": "verified", "integrate": "integrated", "integrated": "integrated",
     "verified": "verified", "drop": "dropped", "reject": "dropped",
     "dropped": "dropped", "hold": "debated",
+    # 2026-08-07: the council now emits `watch` when a plan drew a veto vote.
+    # It maps to `debated`, NOT `dropped`, on purpose -- a veto queues an entry
+    # for re-review, it does not write it off ("never write anyone off, just
+    # put them further back", founder 2026-06-20). Landing in `debated` keeps
+    # it eligible to be picked up again once the judgement bar or the entry
+    # itself has moved.
+    "watch": "debated",
 }
 
 
