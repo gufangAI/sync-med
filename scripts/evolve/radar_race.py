@@ -41,15 +41,41 @@ _PLATFORM_SUPPLIER = {
     "openrouter": "openrouter",
 }
 
-# 兜底赛手:白名单读不到时用,**全部免费家**。
-# 刻意不含 dashscope —— 它是付费源,memory 铁律定性「只兜底」,
-# 不该当固定考生/赛手(2026-08-07 严格模式暴露:它一度是唯一跑得通的挑战者)。
-_FALLBACK_RACERS = [
-    ("opencode",   None, "OpenCode 免密端点 · deepseek-v4-flash"),
-    ("nvidia",     None, "NVIDIA NIM · 默认模型"),
-    ("zhipu",      None, "智谱 · glm-4-flash"),
-    ("openrouter", None, "OpenRouter 聚合 free 档"),
+# ── 主力赛手:opencode.ai/zen 的免密免费档 ────────────────────────
+# 【2026-08-07 创始人点名:「opencode 的免费 deepseek 要用上」】
+# 当天逐个实测(真跑同一道长提示词改写任务,判据=正文≥500字):
+#   deepseek-v4-flash-free 1537字/6.6s · mimo-v2.5-free 1940字/18.5s
+#   ling-3.0-flash-free 947字/3.7s · nemotron-3-ultra-free 3717字/47s
+#   laguna-s-2.1-free 1121字/8.8s · longcat-2.0-free 1543字/46.6s
+#   big-pickle 1696字/12.8s
+#   (剔除:ling-3.0-tiny-free 503、north-mini-code-free 401)
+# 为什么它比走网关的车道更适合当赛马主力:
+#   ① **真免密**,不占任何 key、不吃额度;
+#   ② NVIDIA 免费层实为一次性 5000 credits 试用,用完即止,不能当稳定赛道;
+#   ③ 七个不同家族(deepseek/mimo/ling/nemotron/laguna/longcat/pickle),
+#      **这才是赛马要的真多样性** —— 同一个模型戴七顶帽子仍是同一个脑子。
+_OPENCODE_FREE = [
+    ("opencode", "deepseek-v4-flash-free", "opencode · deepseek-v4-flash-free"),
+    ("opencode", "mimo-v2.5-free",         "opencode · mimo-v2.5-free"),
+    ("opencode", "ling-3.0-flash-free",    "opencode · ling-3.0-flash-free"),
+    ("opencode", "nemotron-3-ultra-free",  "opencode · nemotron-3-ultra-free"),
+    ("opencode", "laguna-s-2.1-free",      "opencode · laguna-s-2.1-free"),
+    ("opencode", "longcat-2.0-free",       "opencode · longcat-2.0-free"),
+    ("opencode", "big-pickle",             "opencode · big-pickle"),
 ]
+
+# 网关侧补充赛手:只留 2026-08-07 直测**真通**的(nvidia 默认 2.9s / zhipu 1.1s /
+# cerebras 2.0s)。刻意不含 dashscope:付费源,memory 铁律定性「只兜底」,
+# 不该当固定赛手(当天严格模式暴露:它一度是唯一跑得通的挑战者)。
+# openrouter 也不含:实测它的 served_by 是 nvidia/nemotron-3-ultra-550b:free,
+# 与 nvidia 默认**同一个模型** —— 点两家等于同一个脑子,是第二层假多样性。
+_GATEWAY_RACERS = [
+    ("nvidia",   None, "gateway · nvidia 默认(nemotron-3-ultra)"),
+    ("zhipu",    None, "gateway · 智谱 glm-4-flash"),
+    ("cerebras", None, "gateway · cerebras zai-glm-4.7"),
+]
+
+_FALLBACK_RACERS = _OPENCODE_FREE + _GATEWAY_RACERS
 
 
 def load_racers():
@@ -64,29 +90,39 @@ def load_racers():
     模型家族也真分散(youtu / kimi / mistral / deepseek / llama / ling)——
     这才是赛马要的真多样性:同厂同款戴几顶帽子仍是同一个脑子。
     """
+    # 【2026-08-07 实测后调序】白名单的模型名是 07-25 探的,13 天后再跑
+    # **7 家里 6 家 HTTP 503** —— 不是平台挂了,是那几个模型名在上游已失效
+    # (deepseek-v4-flash 在 NVIDIA/腾讯两边都死、llama-4-maverick 死、
+    #  kimi-k2.7-code-highspeed 死;而同平台的 youtu-vita 1.2s 秒通)。
+    # 「可用性是运行时统计量,不是配置里的布尔值」——静态清单必然衰减。
+    # 所以主力改用当天实测通过的免密档,白名单降级为**追加候选**:
+    # 它带来的多样性是净增量,但不能再当唯一来源。
+    racers = list(_FALLBACK_RACERS)
     path = os.path.join(REPO_ROOT, "scripts", "model_pool_whitelist.json")
     try:
         with open(path, encoding="utf-8") as f:
             grp = (json.load(f).get("recommend") or {}).get("race_diversity") or []
     except Exception as e:
-        print(f"  [赛手] 白名单读取失败({type(e).__name__}),用兜底名单", flush=True)
-        return _FALLBACK_RACERS
+        print(f"  [赛手] 白名单读取失败({type(e).__name__}),只用实测名单", flush=True)
+        return racers
     out = []
+    seen = {(s, m) for s, m, _ in racers}
+    added = 0
     for item in grp:
         if "@" not in str(item):
             continue
         mdl, plat = str(item).rsplit("@", 1)
         sup = _PLATFORM_SUPPLIER.get(plat)
         if not sup:                       # 平台没有对应网关接入点 = 跳过,不硬凑
-            print(f"  [赛手] 跳过 {item}:平台 {plat} 无网关接入点", flush=True)
             continue
-        out.append((sup, mdl, f"{plat} · {mdl}"))
-    if not out:
-        print("  [赛手] 白名单无可用项,用兜底名单", flush=True)
-        return _FALLBACK_RACERS
-    print(f"  [赛手] 白名单 race_diversity 取到 {len(out)} 家 "
-          f"(平台:{sorted({r[2].split(' · ')[0] for r in out})})", flush=True)
-    return out
+        if (sup, mdl) in seen:            # 与实测名单重复的不再追加
+            continue
+        seen.add((sup, mdl))
+        racers.append((sup, mdl, f"whitelist · {plat}/{mdl}"))
+        added += 1
+    print(f"  [赛手] 实测免密 {len(_OPENCODE_FREE)} + 网关实测 {len(_GATEWAY_RACERS)} "
+          f"+ 白名单追加 {added} = 共 {len(racers)} 家", flush=True)
+    return racers
 
 
 RACERS = load_racers()
@@ -132,7 +168,7 @@ def _ask_any(system, user, supplier, max_tokens=3000, json_mode=False, model=Non
     opencode 是免密端点直连,不经网关,天然无容错链,不受此参数影响。
     """
     if supplier == "opencode":
-        return ask_opencode(system, user, max_tokens=max_tokens, need="")
+        return ask_opencode(system, user, max_tokens=max_tokens, need="", model=model)
     return ask(system, user, max_tokens=max_tokens, supplier=supplier,
                json_mode=json_mode, no_fallback=True, model=model)
 

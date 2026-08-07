@@ -119,7 +119,7 @@ def ask(system, user, timeout=120, max_tokens=2600, supplier=None,
     return txt, (j.get("model") or j.get("supplier") or "")
 
 
-def ask_opencode(system, user, timeout=120, max_tokens=3000, need="["):
+def ask_opencode(system, user, timeout=120, max_tokens=3000, need="[", model=None):
     """直连 OpenCode 免密端点(免费池内的一员,零成本)。
 
     两个实测要点:
@@ -130,7 +130,13 @@ def ask_opencode(system, user, timeout=120, max_tokens=3000, need="["):
     """
     merged = (system or "") + "\n\n" + (user or "")
     last = ""
-    for model in (OPENCODE_MODEL, OPENCODE_MODEL_ALT):
+    # 【2026-08-07 开放点名】此前只在两个写死模型间轮换。实测 opencode.ai/zen
+    # 有 61 个模型,其中带 `-free` 后缀的一批**真免密**(不带 key 也不报 401):
+    #   deepseek-v4-flash-free / mimo-v2.5-free / ling-3.0-flash-free /
+    #   nemotron-3-ultra-free / laguna-s-2.1-free / longcat-2.0-free / big-pickle
+    # 这批比走网关的车道更硬:不吃 NVIDIA 那种一次性 credits、不看 key 权限。
+    # 注意 `deepseek-v4-flash`(无 -free)是**付费档**,不带 key 直接 401 —— 一字之差。
+    for model in ([model] if model else [OPENCODE_MODEL, OPENCODE_MODEL_ALT]):
         body = json.dumps({
             "model": model, "max_tokens": max_tokens, "temperature": 0.3,
             "messages": [{"role": "user", "content": merged}],
