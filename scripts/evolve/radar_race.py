@@ -334,7 +334,9 @@ def main():
             flag = "🏆 赢了" if d > 0 else ("持平" if d == 0 else "没赢")
             print(f"   {model} · 提示词 {len(cand)} 字 · 总分 **{tot:.4f}** "
                   f"({d:+.4f}) {flag} · {time.time()-t1:.1f}s")
-            rows.append(dict(who=label, supplier=sup, score=tot, delta=d, cls=cls,
+            rows.append(dict(who=label, supplier=sup, want_model=want_model,
+                             served_by=model,        # ← 真跑的那个,不是点名的那个
+                             score=tot, delta=d, cls=cls,
                              note=f"{model} · {len(cand)}字", body=cand))
 
     # ── 晋升闸 ────────────────────────────────────────────────
@@ -371,11 +373,23 @@ def main():
         print(f"   分类明细:skip {base_cls.get('skip',0):.4f}→{(b.get('cls') or {}).get('skip',0):.4f} · "
               f"adopt {base_cls.get('adopt',0):.4f}→{(b.get('cls') or {}).get('adopt',0):.4f}")
         print("   → **不自动换冠军**,晋升由人拍板。")
-        # 点名却落到同一个模型 = 赛马是假的,必须当场喊出来
-        mods = [str(r.get("note", "")).split(" · ")[0] for r in rows[1:] if r.get("score")]
-        if len(mods) > 1 and len(set(mods)) == 1:
-            print(f"   ⚠️ **这不是多家赛马**:点名的 {len(mods)} 家全落到同一个模型 "
-                  f"`{mods[0]}` —— 网关 fallback 把点名吃掉了,等于同一个模型赢了 {len(mods)} 次。")
+        # ── 真多样性核算:一律按 served_by,不按点名 ──────────────
+        # 【学 OpenRouter 的思维,不是用 OpenRouter】它值钱的地方是
+        #   **served_by 必回** —— 你永远知道实际是谁跑的。我们今天两次被这个咬:
+        #   ① fallback 静默换马:点名 5 家、3 家 503,被换成同一个 Qwen3-8B;
+        #   ② 两个 supplier 配了同一模型:openrouter 的 served_by 实测是
+        #      `nvidia/nemotron-3-ultra-550b:free`,与 nvidia 默认同一个脑子。
+        # 按 supplier 去重看不见这两层,按 served_by 才看得见。
+        served = [str(r.get("served_by") or "") for r in rows[1:] if r.get("score") is not None]
+        uniq = {s for s in served if s}
+        print(f"   真多样性:{len(served)} 家跑出成绩 → 实际 **{len(uniq)}** 个不同模型")
+        if served and len(uniq) < len(served):
+            from collections import Counter
+            dup = [f"{m}×{n}" for m, n in Counter(served).items() if n > 1]
+            print(f"   ⚠️ 有点名落到同一模型(按 served_by 认):{', '.join(dup)} "
+                  f"—— 记分只认 served_by,同一模型不重复计入多样性。")
+        if len(uniq) == 1 and len(served) > 1:
+            print(f"   ⛔ **这不是多家赛马**:全部落到 `{list(uniq)[0]}`,等于一个模型跑了 {len(served)} 次。")
     else:
         print(f"❌ 没有一家改得更准。现任 {base_total:.4f} 保持冠军。")
         print("   注意:**本轮无改进也是合法结果**,不许为了让它赢去松判据。")
