@@ -33,13 +33,63 @@ from radar_set import EXAM, score_all, score_one, baselines, SCORER_VERSION  # n
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 CACHE_DIR = os.path.join(REPO_ROOT, "reports", "evolve", "radar_cache")
 
-RACERS = [
-    ("opencode",   "OpenCode 免密端点 · deepseek-v4-flash"),
-    ("nvidia",     "NVIDIA NIM · nemotron 系"),
-    ("dashscope",  "阿里云百炼 · qwen-plus"),
-    ("zhipu",      "智谱 · glm-4-flash"),
-    ("openrouter", "OpenRouter 聚合 free 档"),
+# 白名单里的 platform → 网关 supplier(网关 provider 表里真实存在的接入点)。
+# 白名单只记 `模型@平台`,网关按 supplier 索引 base+key,两边靠这张表对上。
+_PLATFORM_SUPPLIER = {
+    "tencent":    "tc_dsflash",   # tokenhub.tencentmaas.com,配 model 覆盖即可换模型
+    "nvidia":     "nvidia",       # integrate.api.nvidia.com
+    "openrouter": "openrouter",
+}
+
+# 兜底赛手:白名单读不到时用,**全部免费家**。
+# 刻意不含 dashscope —— 它是付费源,memory 铁律定性「只兜底」,
+# 不该当固定考生/赛手(2026-08-07 严格模式暴露:它一度是唯一跑得通的挑战者)。
+_FALLBACK_RACERS = [
+    ("opencode",   None, "OpenCode 免密端点 · deepseek-v4-flash"),
+    ("nvidia",     None, "NVIDIA NIM · 默认模型"),
+    ("zhipu",      None, "智谱 · glm-4-flash"),
+    ("openrouter", None, "OpenRouter 聚合 free 档"),
 ]
+
+
+def load_racers():
+    """赛手从**实测白名单**取,不再硬编码。
+
+    【2026-08-07 接上零引用的白名单】`scripts/model_pool_whitelist.json`
+    2026-07-25 建成:192 个注册模型 → 实测 90 个能应答 → 37 个过中医判据,
+    还预先分好了 race_diversity / batch_quality / bulk_fast 等组。
+    **然后全仓零引用,躺了 13 天。** 而赛马这边硬编码 5 家、其中 3 家今天实测 503。
+    "192 个只驾驭 3 个"不是没资源,是**探活结果没有入口喂进来**。
+    race_diversity 组 7 个模型跨 3 家平台(腾讯/NVIDIA/OpenRouter),
+    模型家族也真分散(youtu / kimi / mistral / deepseek / llama / ling)——
+    这才是赛马要的真多样性:同厂同款戴几顶帽子仍是同一个脑子。
+    """
+    path = os.path.join(REPO_ROOT, "scripts", "model_pool_whitelist.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            grp = (json.load(f).get("recommend") or {}).get("race_diversity") or []
+    except Exception as e:
+        print(f"  [赛手] 白名单读取失败({type(e).__name__}),用兜底名单", flush=True)
+        return _FALLBACK_RACERS
+    out = []
+    for item in grp:
+        if "@" not in str(item):
+            continue
+        mdl, plat = str(item).rsplit("@", 1)
+        sup = _PLATFORM_SUPPLIER.get(plat)
+        if not sup:                       # 平台没有对应网关接入点 = 跳过,不硬凑
+            print(f"  [赛手] 跳过 {item}:平台 {plat} 无网关接入点", flush=True)
+            continue
+        out.append((sup, mdl, f"{plat} · {mdl}"))
+    if not out:
+        print("  [赛手] 白名单无可用项,用兜底名单", flush=True)
+        return _FALLBACK_RACERS
+    print(f"  [赛手] 白名单 race_diversity 取到 {len(out)} 家 "
+          f"(平台:{sorted({r[2].split(' · ')[0] for r in out})})", flush=True)
+    return out
+
+
+RACERS = load_racers()
 
 SYS_REWRITE = (
     "你是**技术选型评审员的提示词优化师**。给你:现任评审提示词、它在一套真题上的失分明细。\n"
@@ -68,7 +118,7 @@ SYS_REWRITE = (
 )
 
 
-def _ask_any(system, user, supplier, max_tokens=3000, json_mode=False):
+def _ask_any(system, user, supplier, max_tokens=3000, json_mode=False, model=None):
     """本文件的每一次调用都是评测/赛马,所以**一律走严格模式**(no_fallback)。
 
     【2026-08-07 修·实锤在 Issue #205】点名 nvidia / zhipu / openrouter 三家,
@@ -84,7 +134,7 @@ def _ask_any(system, user, supplier, max_tokens=3000, json_mode=False):
     if supplier == "opencode":
         return ask_opencode(system, user, max_tokens=max_tokens, need="")
     return ask(system, user, max_tokens=max_tokens, supplier=supplier,
-               json_mode=json_mode, no_fallback=True)
+               json_mode=json_mode, no_fallback=True, model=model)
 
 
 # ── 冻结考卷 ────────────────────────────────────────────────────
@@ -210,17 +260,22 @@ def main():
 
     if not a.baseline_only:
         fb = failure_feedback(base_lines, base_total, base_cls)
-        for sup, label in RACERS:
+        for sup, want_model, label in RACERS:
             t1 = time.time()
             print(f"\n── {label}")
             try:
                 txt, model = _ask_any(
                     SYS_REWRITE,
                     f"【现任评审提示词】\n{SYS_ADOPT}\n\n【它的真实失分】\n{fb}\n\n"
-                    f"改写它。只输出提示词全文。", sup)
+                    f"改写它。只输出提示词全文。", sup, model=want_model)
+                # 点名的 vs 真跑的:两者不一致 = 网关换了马,分数不能算在点名那家头上。
+                # (架构参谋的判词:记分只认 served_by,不认点名 —— 这是赛马变真的开关)
+                if want_model and model and want_model.split("/")[-1] not in str(model):
+                    print(f"   ⚠️ 点名 {want_model} 实跑 {model} —— 记分按实跑")
             except Exception as e:
                 print(f"   ✗ 调用失败 {type(e).__name__}: {str(e)[:70]}")
-                rows.append(dict(who=label, supplier=sup, score=None, delta=None,
+                rows.append(dict(who=label, supplier=sup, want_model=want_model,
+                                 score=None, delta=None,
                                  cls={}, note=f"调用失败 {type(e).__name__}"))
                 continue
             cand = (txt or "").strip()

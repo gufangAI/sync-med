@@ -58,7 +58,8 @@ def q(v):
 
 
 def ask(system, user, timeout=120, max_tokens=2600, supplier=None,
-        source="content_factory", json_mode=True, temperature=None, no_fallback=False):
+        source="content_factory", json_mode=True, temperature=None, no_fallback=False,
+        model=None):
     """走内部免费池网关。supplier 可点名某家(失败仍按容错链兜)。
 
     【2026-08-05 实测抓到的大 bug】`json` 此前是**写死 True** 的,而网关看到它就注入
@@ -85,6 +86,13 @@ def ask(system, user, timeout=120, max_tokens=2600, supplier=None,
         payload["fallback"] = False
     if supplier:
         payload["supplier"] = supplier
+    if model:
+        # 网关 chat.js 早就支持 body.model → model_override(同一 provider 换模型)。
+        # 【2026-08-07 接上白名单】没有这个参数时,一个 supplier 只能跑它写死的那个
+        # 模型 —— 于是 192 个注册模型里能被点名的只有十几个,而实测可用的有 90 个。
+        # scripts/model_pool_whitelist.json 建成 13 天全仓零引用,根因就在这:
+        # **不是没探活,是探活结果没有入口能喂进来。**
+        payload["model"] = model
     req = urllib.request.Request(
         GATEWAY, method="POST", data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         headers={"Content-Type": "application/json; charset=utf-8", "User-Agent": UA})
