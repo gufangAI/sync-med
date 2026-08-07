@@ -69,9 +69,22 @@ SYS_REWRITE = (
 
 
 def _ask_any(system, user, supplier, max_tokens=3000, json_mode=False):
+    """本文件的每一次调用都是评测/赛马,所以**一律走严格模式**(no_fallback)。
+
+    【2026-08-07 修·实锤在 Issue #205】点名 nvidia / zhipu / openrouter 三家,
+    结果"实际模型"列全是 `Qwen/Qwen3-8B` —— 网关的容错链把点名吃掉了,
+    三家赛马实际是同一个模型跟自己吵了三次,赛马从根上是假的。
+    容错链在生产是优点(用户不该看见报错),在评测是污染源:
+      · 考卷这一路换供应商 = 换了考生,分数不可比;
+      · 改写这一路换供应商 = 多样性归零,赛马失去意义。
+    严格模式下失败就是失败,记 fail 让它显形(两处调用方都已有 except 记录),
+    **绝不静默换马** —— 看不见的失败比失败本身更贵。
+    opencode 是免密端点直连,不经网关,天然无容错链,不受此参数影响。
+    """
     if supplier == "opencode":
         return ask_opencode(system, user, max_tokens=max_tokens, need="")
-    return ask(system, user, max_tokens=max_tokens, supplier=supplier, json_mode=json_mode)
+    return ask(system, user, max_tokens=max_tokens, supplier=supplier,
+               json_mode=json_mode, no_fallback=True)
 
 
 # ── 冻结考卷 ────────────────────────────────────────────────────
