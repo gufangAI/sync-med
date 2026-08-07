@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR字符错误率",
+ "how": "无需接入，已在用",
+ "effort": "小",
+ "current": "paddleocr==2.8.0（GitHub Actions 中 pip install paddleocr）",
+ "beats": "无，项目即当前所用版本",
+ "why": "项目即我们家底本身，违反‘绝不接纳已在家底中的工具’铁律"
+}

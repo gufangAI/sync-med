@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR字符错误率",
+ "how": "需替换paddleocr为rapidocr",
+ "effort": "中",
+ "current": "paddleocr==2.8.0（GitHub Actions中pip install paddleocr + CPU推理）",
+ "beats": "无实测对比数据，项目README未提供与paddleocr==2.8.0在古籍扫描件（如《普济方》影印本）上的字符错误率差值",
+ "why": "未声明古籍场景benchmark，且依赖ONNXRuntime非纯Python库，在Cloudflare Workers不可运行，Actions中需额外onnxruntime-cpu二进制兼容性验证"
+}

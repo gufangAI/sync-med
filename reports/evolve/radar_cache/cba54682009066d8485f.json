@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "大",
+ "current": "",
+ "beats": "",
+ "why": "Caddy 是常驻进程型 Web 服务器，需监听端口、管理 TLS 生命周期、维护配置状态，违反‘零常驻主机’铁律，Cloudflare Workers/Pages 架构无法部署"
+}

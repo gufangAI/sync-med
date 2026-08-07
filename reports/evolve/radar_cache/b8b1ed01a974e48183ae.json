@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "大",
+ "current": "",
+ "beats": "",
+ "why": "Neo4j 是常驻服务进程，需 JVM 后台运行，违反零主机铁律；且知识图谱星图模块已用 D1 + 自研图遍历算法，非 Neo4j 依赖"
+}
