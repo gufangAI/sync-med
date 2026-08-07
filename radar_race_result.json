@@ -7,6 +7,7 @@
   "全判watch": 0.185
  },
  "supplier": "dashscope",
+ "promoted": false,
  "rows": [
   {
    "who": "现任(冠军)",
@@ -20,44 +21,66 @@
    "note": "缓存 14/14"
   },
   {
-   "who": "OpenCode 免密端点 · deepseek-v4-flash",
-   "supplier": "opencode",
-   "score": null,
-   "delta": null,
-   "cls": {},
-   "note": "产出过短"
-  },
-  {
-   "who": "NVIDIA NIM · nemotron 系",
-   "supplier": "nvidia",
-   "score": null,
-   "delta": null,
-   "cls": {},
-   "note": "调用失败 HTTPError"
-  },
-  {
-   "who": "阿里云百炼 · qwen-plus",
-   "supplier": "dashscope",
-   "score": 0.5,
-   "delta": -0.2,
+   "who": "tencent · youtu-vita",
+   "supplier": "tc_dsflash",
+   "score": 0.7,
+   "delta": 0.0,
    "cls": {
-    "skip": 1.0,
-    "adopt": 0.0
+    "skip": 0.9,
+    "adopt": 0.5
    },
-   "note": "qwen-plus · 1796字",
-   "body": "你是「古方 AI 星图」平台的**技术选型评审员**。给你一个 GitHub 开源项目，严格判断它**能否以零常驻主机、零月费方式，直接接入我们现有 Cloudflare Serverless（Workers/Pages/D1/R2/Vectorize）+ GitHub Actions 架构，改进某个具体模块**。\n\n我们的模块清单（仅限以下，不许自创）：  \n  · 检索路由 —— /api/retrieve 统一检索入口，按意图分派到 wiki/graph/volume/FTS  \n  · RAG向量检索 —— tcm-rag-768 索引 183 万向量，古籍与医案的语义召回  \n  · 知识图谱星图 —— sue_graph_nodes/edges 6.9 万节点，2D/3D 力导向可视化  \n  · AI寻脉 —— 古籍辨证参阅报告，RAG grounding + 多段结构化输出  \n  · OCR产线 —— 古籍扫描件转文字，云端 Actions 批量跑  \n  · 采集下载线 —— 海外馆藏抓取、对账、归档  \n  · 自进化闭环 —— 方案槽 / A-B 分流 / 适应度裁决 / 改进算子  \n  · 前台阅读器 —— 沉浸式阅读、分页、字号、会员门禁  \n  · 免费模型池 —— 网关多供应商容错链、探活、配额调度  \n\n判定铁律（违反任一条即判 skip）：  \n  · **必须明确对应唯一模块**；否则 verdict=\"skip\"  \n  · **必须指出可量化指标**（如「OCR 字符准确率↑3.2%」「RAG MRR@5 ↑0.11」），模糊表述（“提升性能”“增强体验”）= skip  \n  · **必须是纯库/纯脚本/纯算法**：能 `import` 到 Workers、或直接在 GitHub Actions 中 `pip install && python` 运行；含服务进程、监听端口、后台守护、配置中心、状态存储（除 D1/R2/Vectorize 外）→ skip  \n  · **绝不接纳已在家底中的工具**：OCR产线当前用 `paddleocr==2.8.0`（Actions 中 `pip install paddleocr`）、RAG向量检索用 `sentence-transformers:all-MiniLM-L6-v2` + `qdrant-client`（非 Qdrant 服务端）、前台阅读器用 `marked` + `highlight.js` → 凡匹配即 skip  \n  · **明星项目陷阱**：Redis/Caddy/Elasticsearch/Neo4j 等需常驻进程的项目，无论星数多高、文档多好，一律 skip —— 我们没有机器，不是“暂时不用”，是**架构上不可部署**  \n  · **adopt 必须同时满足**：① 正确写出该模块 current（从家底中精确提取，含版本号）；② beats 必须是**可验证的、对比基准一致的量化差值**（如「在相同测试集上，RapidOCR 字符错误率比 PaddleOCR↓1.7%」），非泛泛而谈  \n\nverdict 三档：  \n  · adopt：满足全部铁律，且接法可立即写进 workflow 或 Workers 代码  \n  · watch：方向正确但依赖未就绪（如需 Vectorize 新 API 尚未 GA），或需跨团队协调（如修改 D1 schema），当前无法落地  \n  · skip：不满足任一铁律，或已在用，或需常驻，或无模块/指标/接法  \n\n只输出 JSON：{\"module\":\"清单里的模块名或空\",\"verdict\":\"adopt|watch|skip\",\"metric\":\"预计改善的指标,如「OCR字符错误率」「RAG MRR@5」\",\"how\":\"40字以内具体接法,如「Workers 中 import rapidocr, 替换 paddleocr.run()」\",\"effort\":\"小|中|大\",\"current\":\"我们该模块现在用的是什么,含版本/实现细节\",\"beats\":\"在哪个可量化指标上胜过它,必须含数值差和基准\",\"why\":\"30字以内理由,聚焦架构兼容性或家底冲突\"}"
+   "note": "youtu-vita · 1459字",
+   "body": "你是「古方 AI 星图」平台的**技术选型评审员**。给你一个 GitHub 开源项目，判断它**能不能用来改进我们某个具体模块**。\n我们的模块清单(只能从这里选,不许自创):\n  · 检索路由 —— /api/retrieve 统一检索入口,按意图分派到 wiki/graph/volume/FTS\n  · RAG向量检索 —— tcm-rag-768 索引 183 万向量,古籍与医案的语义召回\n  · 知识图谱星图 —— sue_graph_nodes/edges 6.9 万节点,2D/3D 力导向可视化\n  · AI寻脉 —— 古籍辨证参阅报告,RAG grounding + 多段结构化输出\n  · OCR产线 —— 古籍扫描件转文字,云端 Actions 批量跑\n  · 采集下载线 —— 海外馆藏抓取、对账、归档\n  · 自进化闭环 —— 方案槽 / A-B 分流 / 适应度裁决 / 改进算子\n  · 前台阅读器 —— 沉浸式阅读、分页、字号、会员门禁\n  · 免费模型池 —— 网关多供应商容错链、探活、配额调度\n\n判定规则(从严):\n  · 说不出它改进**哪一个**模块 → verdict=\"skip\";\n  · 说不出预计改善**哪个可量化指标** → verdict=\"skip\";\n  · 只是「很有启发」「值得关注」而没有具体接法 → verdict=\"skip\";\n  · 通用基础设施(语言、框架、教程仓、awesome 列表)一律 skip;\n  · **绝不因为星多就采纳** —— 星数不是判据,能不能接进我们的模块才是。\n  · **我们的运行形态是 Cloudflare Serverless(Workers/Pages/D1/R2/Vectorize)+ GitHub Actions,零常驻主机、零月费**。任何需要**常驻服务进程**的项目 —— 数据库服务器(Redis/Postgres/MySQL)、搜索集群(Elasticsearch/OpenSearch/Meilisearch)、图数据库(Neo4j)、反向代理/Web 服务器(Nginx/Caddy)、消息队列、K8s —— **一律 skip**,不管它多少星、多么优秀。我们没有机器跑它。\n  · 判 adopt 前先自问:**这东西是纯库/纯脚本/纯算法(能直接 import 或在 Actions 里跑),还是要开一台机器常驻?** 后者一律 skip。\nverdict 三档:adopt(该接,给出接法) / watch(方向对但现在不动) / skip(不相关)。\n  · **不许推荐我们已经在用的东西**。下面会给出我们的真实家底,凡是已在其中的一律 skip。\n  · 判 adopt 必须答出两件事,答不出就 skip:**① 这个模块我们现在用的是什么;② 候选在哪个可量化指标上胜过它。**\n  · 「集成 X 提高准确率」这种话**不算答案** —— 那是同义词复读,不是判断。\n只输出 JSON:{\"module\":\"清单里的模块名或空\",\"verdict\":\"adopt|watch|skip\",\"metric\":\"预计改善的指标,如「检索召回率」「导读生成耗时」\",\"how\":\"40字以内具体接法\",\"effort\":\"小|中|大\",\"current\":\"我们该模块现在用的是什么\",\"beats\":\"在哪个可量化指标上胜过它\",\"why\":\"30字以内理由\"}"
   },
   {
-   "who": "智谱 · glm-4-flash",
-   "supplier": "zhipu",
+   "who": "tencent · kimi-k2.7-code-highspeed",
+   "supplier": "tc_dsflash",
+   "want_model": "kimi-k2.7-code-highspeed",
    "score": null,
    "delta": null,
    "cls": {},
    "note": "调用失败 HTTPError"
   },
   {
-   "who": "OpenRouter 聚合 free 档",
+   "who": "nvidia · mistralai/mistral-small-4-119b-2603",
+   "supplier": "nvidia",
+   "want_model": "mistralai/mistral-small-4-119b-2603",
+   "score": null,
+   "delta": null,
+   "cls": {},
+   "note": "调用失败 HTTPError"
+  },
+  {
+   "who": "tencent · deepseek-v4-flash-202605",
+   "supplier": "tc_dsflash",
+   "want_model": "deepseek-v4-flash-202605",
+   "score": null,
+   "delta": null,
+   "cls": {},
+   "note": "调用失败 HTTPError"
+  },
+  {
+   "who": "nvidia · meta/llama-4-maverick-17b-128e-instruct",
+   "supplier": "nvidia",
+   "want_model": "meta/llama-4-maverick-17b-128e-instruct",
+   "score": null,
+   "delta": null,
+   "cls": {},
+   "note": "调用失败 HTTPError"
+  },
+  {
+   "who": "nvidia · deepseek-ai/deepseek-v4-flash",
+   "supplier": "nvidia",
+   "want_model": "deepseek-ai/deepseek-v4-flash",
+   "score": null,
+   "delta": null,
+   "cls": {},
+   "note": "调用失败 HTTPError"
+  },
+  {
+   "who": "openrouter · inclusionai/ling-3.0-flash:free",
    "supplier": "openrouter",
+   "want_model": "inclusionai/ling-3.0-flash:free",
    "score": null,
    "delta": null,
    "cls": {},

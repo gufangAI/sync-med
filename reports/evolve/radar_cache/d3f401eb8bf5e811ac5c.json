@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "古籍PDF转结构化文本的准确率",
+ "how": "替换现有PDF解析步骤，用MinerU替代pdfplumber+pytesseract pipeline",
+ "effort": "中",
+ "current": "pdfplumber + pytesseract + 自研版面校正规则",
+ "beats": "表格与公式识别F1提升32%（官方benchmark）",
+ "why": "纯Python库，无常驻服务，可直接集成进GitHub Actions PDF处理Job"
+}

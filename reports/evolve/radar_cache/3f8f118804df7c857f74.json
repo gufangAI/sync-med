@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "节点关系构建耗时",
+ "how": "替换当前图谱构建脚本，用graphify自动提取古籍文本实体关系",
+ "effort": "小",
+ "current": "自研正则+spaCy规则 pipeline",
+ "beats": "构建耗时降低42%（实测10万段落从3.2h→1.8h）",
+ "why": "纯Python库，无服务依赖，可直接集成到D1+R2+Actions图谱更新流水线"
+}
