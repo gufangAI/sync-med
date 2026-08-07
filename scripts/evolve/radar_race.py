@@ -178,10 +178,16 @@ def main():
     ap.add_argument("--out", default="radar_race_result.json")
     ap.add_argument("--baseline-only", action="store_true",
                     help="只跑现任大脑,验可复现,不派改进者")
+    ap.add_argument("--promote", action="store_true",
+                    help="过闸即真写方案槽换冠军;不给则只打印「本应晋升谁」(影子期默认)")
     a = ap.parse_args()
 
     sys.path.insert(0, HERE)
-    from adopt import SYS_ADOPT                                # noqa: E402
+    # brain() = 真正在跑的那个大脑(D1 在位冠军,取不到才回落源码常量)。
+    # 必须用它而不是 SYS_ADOPT:晋升一次之后源码常量就不再是现任,
+    # 拿它当基准 = 赛马比的不是真正在跑的东西,分数全部失去意义。
+    from adopt import brain                                    # noqa: E402
+    SYS_ADOPT = brain()
 
     bl = baselines()
     print(f"雷达赛马 · 卷子 {SCORER_VERSION} · {len(EXAM)} 题 · 考生 {a.baseline_supplier}")
@@ -280,8 +286,41 @@ def main():
         print(f"❌ 没有一家改得更准。现任 {base_total:.4f} 保持冠军。")
         print("   注意:**本轮无改进也是合法结果**,不许为了让它赢去松判据。")
 
+    # ── 晋升写入端(刀2b·闭合断头)────────────────────────────────
+    # 此前到上面为止就结束了:算出更好的大脑,只打印一张表给人看,
+    # 冠军永远换不上去 —— 赛马天天跑、天天空转,这就是"人读报告=没自动化"。
+    # 现在真写方案槽。**默认 dry-run**,`--promote` 才真写:
+    #   创始人已拍板"配置级自动晋升",但同时定了 7 天影子期先验判得对不对。
+    #   影子期里每天打印"本应晋升谁",人工复核正确率,达标后 workflow 加 --promote。
+    if win:
+        b = max(win, key=lambda r: r["delta"])
+        ok, why = promotable(b)
+        if ok and b.get("body"):
+            if a.promote:
+                vid = "v_" + hashlib.sha1(
+                    (b["body"] + SCORER_VERSION).encode("utf-8")).hexdigest()[:12]
+                now = int(time.time())
+                try:
+                    from _ai import d1, q                       # noqa: E402
+                    # 先退位再上任:同一 slot 只许一个 active,否则 load 到谁全看排序
+                    d1(f"UPDATE evolve_variants SET status='retired',updated_at={now} "
+                       f"WHERE scope='radar' AND slot='SYS_ADOPT' AND status='active'")
+                    d1(f"INSERT INTO evolve_variants (variant_id,scope,slot,body,status,"
+                       f"mode,author,note,fitness,sample_n,created_at,updated_at) VALUES ("
+                       f"{q(vid)},'radar','SYS_ADOPT',{q(b['body'])},'active','improve',"
+                       f"{q('freepool:' + str(b.get('supplier'))[:32])},"
+                       f"{q('赛马晋升 %.4f→%.4f · %s' % (base_total, b['score'], why))},"
+                       f"{b['score']},{len(EXAM)},{now},{now})")
+                    print(f"✅ 已晋升 {vid} —— 下一轮 adopt 判定即用新大脑")
+                except Exception as e:
+                    print(f"⛔ 晋升写库失败({type(e).__name__}:{str(e)[:80]}),冠军未变")
+            else:
+                print(f"🅿️ [影子期·dry-run] **本应晋升** {b['supplier']} "
+                      f"{base_total:.4f}→{b['score']:.4f} · {why}")
+                print("   （复核无误后给 workflow 加 --promote 即真写；本轮未动库）")
+
     json.dump(dict(scorer=SCORER_VERSION, baseline=base_total, baselines=bl,
-                   supplier=a.baseline_supplier, rows=rows),
+                   supplier=a.baseline_supplier, promoted=bool(a.promote), rows=rows),
               open(a.out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"结果表 → {a.out}")
     return 0

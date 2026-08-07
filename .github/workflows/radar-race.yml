@@ -55,6 +55,10 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python scripts/evolve/radar_set.py
 
+      # ⚠️ 现在**没有** --promote:处于「7 天影子期」(创始人 2026-08-07 拍板:
+      #    配置级自动晋升,但先 dry-run 验判得对不对)。每轮只打印「本应晋升谁」,
+      #    人工复核正确率达标后,在下面这条命令加 `--promote` 即开真写方案槽。
+      #    写入端已就绪(radar_race.py 晋升块 + adopt.py::brain 读 D1 冠军)。
       - name: 赛马(五家改写判定大脑 · 同卷同判分 · 冻结考卷)
         env:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}

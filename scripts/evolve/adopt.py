@@ -214,18 +214,58 @@ def already_judged():
         return set()
 
 
+_BRAIN = {"body": None, "vid": None}
+
+
+def brain():
+    """本轮要用的判定大脑:优先 D1 方案槽的在位冠军,取不到回落源码 SYS_ADOPT。
+
+    【2026-08-07 刀2·闭合雷达断头】此前 radar_race 每天赛马、算出更好的判定
+    提示词,然后**只打印一张结果表**给人看 —— 冠军永远换不上去,赛马等于空转。
+    这里读 D1 让晋升真能落地,`radar_race.py --promote` 是写入端。
+
+    **雷达刻意不做 A/B 流量分流(explore=0)**,与内容线不同:
+    判定大脑是整个闭环的入口,判错 = 后面所有环节没有燃料,风险不对称;
+    而挑战者已在 14 题冻结考卷 + 确定性判分上充分验证过(影子评测),
+    不需要再拿真实判定流量当试验田。这正是架构定的
+    「无生产流量的对象:影子评测通过即可直接换 champion」。
+
+    取不到一律回落源码常量 —— D1 挂了雷达照跑,绝不因方案槽读失败停摆。
+    """
+    if _BRAIN["body"] is None:
+        body, vid = SYS_ADOPT, None
+        try:
+            rows = d1("SELECT variant_id, body FROM evolve_variants "
+                      "WHERE scope='radar' AND slot='SYS_ADOPT' AND status='active' "
+                      "ORDER BY updated_at DESC LIMIT 1")
+            if rows and (rows[0].get("body") or "").strip():
+                body, vid = rows[0]["body"], rows[0]["variant_id"]
+                print(f"  [判定大脑] 走 D1 在位冠军 {vid}", flush=True)
+            else:
+                print("  [判定大脑] 方案槽空,走源码默认 SYS_ADOPT", flush=True)
+        except (Exception, SystemExit) as e:
+            # SystemExit 必须一起接:_ai.d1() 缺凭据时走的是 sys.exit() 而不是
+            # raise,只写 except Exception 的话本地/凭据失效时**整个进程直接死**,
+            # 与本函数"D1 挂了雷达照跑"的设计意图正好相反。实测抓到,不是推演。
+            print(f"  [判定大脑] 读方案槽失败({type(e).__name__}),回落源码默认", flush=True)
+        _BRAIN["body"], _BRAIN["vid"] = body, vid
+    return _BRAIN["body"]
+
+
 def judge(r):
     name = str(r.get("repo") or r.get("full_name") or "").strip()
     desc = str(r.get("description") or "")[:400]
     topics = ",".join(r.get("topics") or [])[:200]
     user = (f"项目:{name}\n星数:{r.get('stars')}\n语言:{r.get('lang')}\n"
             f"topics:{topics}\n简介:{desc}")
-    txt, model = ask(SYS_ADOPT, user, max_tokens=500)
+    txt, model = ask(brain(), user, max_tokens=500)
     try:
         o = parse_json(txt)
     except Exception:
         # 首轮实测 30 个里 3 个解析失败(10%)—— 模型没吐 JSON。重试一次再放弃。
-        txt, model = ask(SYS_ADOPT, user + "\n\n【必须只输出 JSON,不要任何别的字】",
+        # 重试也必须走同一个大脑 —— 主路径读 D1 冠军、重试路径读源码常量,
+        # 等于同一轮判定用了两套提示词,分数无从归因(「只修一半」的老病)。
+        txt, model = ask(brain(), user + "\n\n【必须只输出 JSON,不要任何别的字】",
                          max_tokens=500)
         try:
             o = parse_json(txt)
