@@ -33,8 +33,16 @@
 name: Evolve Improve
 
 on:
-  schedule:
-    - cron: '10 */3 * * *'      # 每 3 小时;错开内容工厂(:20)与复核(:00)
+  # ⛔ 2026-08-07 停 cron 止血:本 workflow 的 SCOPES 只有 biocomp/herb,
+  #    进化的是**内容产线提示词**——而创始人 2026-08-05 已把「内容工厂」从
+  #    雷达模块清单删除,memory `feedback_never_do_tcm_content` 更早立下
+  #    「进化对象永远是系统(采集/判定/路由/引擎),不是内容」。
+  #    实测 2026-08-07 当天仍按 schedule 自动跑了 4 次 = 每 3 小时违禁一次。
+  #    按「可逆动作先止血、再呈报」处理:注释 cron(不点 disable 按钮,
+  #    避免自愈机制静默复活),保留 workflow_dispatch 供人工验证。
+  #    解除条件:SCOPES 改向系统对象(见《自我进化系统_整体架构_v1》刀0)。
+  # schedule:
+  #   - cron: '10 */3 * * *'
   workflow_dispatch:
     inputs:
       scope:
