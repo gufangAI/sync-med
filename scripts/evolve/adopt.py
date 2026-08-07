@@ -271,6 +271,23 @@ def judge(r):
             o = parse_json(txt)
         except Exception as e:
             return None, f"解析失败 {type(e).__name__}(重试后仍失败)"
+    # ── 占位符闸(2026-08-07 立·全池实测 26% 的 skip 是假判定)────────────
+    # 创始人:「GitHub 这种好东西太多了,而我们的鹰眼就是瞎子」。用 Langflow 验尸:
+    #   langflow(152826★) / dify(151261★) / Flowise(55132★) 三个都**采到了**,
+    #   全部 status='skip',而 verdict_note 是
+    #     {"module":"...","metric":"...","how":"...","effort":"...","why":"..."}
+    #   —— 模型把提示词里的示例格式原样吐了回来,一个字的真实判断都没有。
+    # 旧逻辑下它会怎样:module="..." 不在清单 → 自动降级 skip → 入库沉没。
+    #   于是「模型没干活」被记成了「判定为拒绝」,而 skip 不会再被复审。
+    # **判定失败和判定为拒绝是两件事**,混在一起就是这 59 条的由来。
+    # 返回 None 走已有的失败路径(continue 不入库),候选留在 new,下轮重判。
+    def _placeholder(x):
+        s = str(x or "").strip().strip('"').strip()
+        return (not s) or s in ("...", "…", "..", "n/a", "N/A", "todo", "TODO", "xxx", "XXX")
+    blank = [k for k in ("module", "metric", "how", "why") if _placeholder(o.get(k))]
+    if len(blank) >= 2:
+        return None, f"占位符判定(字段 {'/'.join(blank)} 是模板占位,模型没真判)—— 不入库,下轮重判"
+
     v = str(o.get("verdict") or "skip").lower()
     if v not in ("adopt", "watch", "skip"):
         v = "skip"
