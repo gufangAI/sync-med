@@ -16,7 +16,7 @@
   · OpenCode 只能从 GitHub Actions(独立 IP)或本机调,CF Workers 出口固定 429
   · 零 R2:一切素材从 D1 取,绝不 list/读 R2
 """
-import os, sys, json, uuid, urllib.request
+import os, sys, json, uuid, urllib.request, urllib.error
 
 CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
 D1_DB      = os.environ.get("D1_DATABASE_ID", "")
@@ -96,7 +96,23 @@ def ask(system, user, timeout=120, max_tokens=2600, supplier=None,
     req = urllib.request.Request(
         GATEWAY, method="POST", data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         headers={"Content-Type": "application/json; charset=utf-8", "User-Agent": UA})
-    j = json.loads(urllib.request.urlopen(req, timeout=timeout).read())
+    try:
+        j = json.loads(urllib.request.urlopen(req, timeout=timeout).read())
+    except urllib.error.HTTPError as e:
+        # 【2026-08-07 让失败可归因】网关全链失败时返回 HTTP 503 GATEWAY_ALL_FAILED,
+        # **真因在 body 的 errors/tried 字段里**(chat.js:87 明写会带上)。
+        # 此前客户端只看状态码,于是一切失败都长成同一张脸「HTTP Error 503」——
+        # 分不清是模型名不认识、key 没这个模型的权限、还是上游真挂了,
+        # 三个月的诊断全卡在这三个字上。显示层不等于数据层:把 body 读出来。
+        detail = ""
+        try:
+            body = json.loads(e.read().decode("utf-8", "replace"))
+            errs = body.get("errors") or body.get("error") or ""
+            tried = body.get("tried") or []
+            detail = f" | tried={tried} errors={str(errs)[:200]}"
+        except Exception:
+            pass
+        raise RuntimeError(f"HTTP {e.code} {supplier or ''}{('/' + model) if model else ''}{detail}")
     txt = j.get("text") or ""
     if not txt and j.get("choices"):
         txt = (j["choices"][0].get("message") or {}).get("content", "")

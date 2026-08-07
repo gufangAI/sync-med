@@ -273,10 +273,13 @@ def main():
                 if want_model and model and want_model.split("/")[-1] not in str(model):
                     print(f"   ⚠️ 点名 {want_model} 实跑 {model} —— 记分按实跑")
             except Exception as e:
-                print(f"   ✗ 调用失败 {type(e).__name__}: {str(e)[:70]}")
+                # 截到 70 字会把网关带回来的 tried/errors 切掉,而那才是真因所在
+                # ——「503」这三个字本身没有任何诊断价值。放到 400。
+                msg = str(e)[:400]
+                print(f"   ✗ 调用失败 {type(e).__name__}: {msg}")
                 rows.append(dict(who=label, supplier=sup, want_model=want_model,
-                                 score=None, delta=None,
-                                 cls={}, note=f"调用失败 {type(e).__name__}"))
+                                 score=None, delta=None, cls={},
+                                 note=f"调用失败 {type(e).__name__}: {msg[:200]}"))
                 continue
             cand = (txt or "").strip()
             if cand.startswith("```"):
