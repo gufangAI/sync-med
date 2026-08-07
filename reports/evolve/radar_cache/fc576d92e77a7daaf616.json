@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "paddleocr==2.8.0 + tesseract 5.3.4 via actions",
+ "beats": "",
+ "why": "项目即 PaddleOCR 本体，与当前 OCR 产线技术栈完全重合，属已在家底中的方案"
+}

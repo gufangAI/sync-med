@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "paddleocr==2.8.0 + tesseract 5.3.4 via actions",
+ "beats": "",
+ "why": "需常驻PyTorch+LayoutParser+Unstructured，非纯库调用；PDF转Markdown非OCR产线目标（产线只产出原始文本）"
+}
