@@ -21,14 +21,25 @@
 
 铁律:全程免费池(网关 + OpenCode 免密端点),零按量计费源。
 """
-import os, sys, json, time, hashlib, argparse
+import os, sys, json, time, hashlib, argparse, itertools
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "content_factory"))
 sys.path.insert(0, HERE)
 
-from _ai import ask, ask_opencode                              # noqa: E402
+from _ai import ask, ask_opencode, _unfence                    # noqa: E402
 from radar_set import EXAM, score_all, score_one, baselines, SCORER_VERSION  # noqa: E402
+sys.path.insert(0, HERE)
+from improve import SYS_CROSSOVER, strip_wrapper               # noqa: E402
+
+# ── 认知裂变参数(创始人 2026-05-22 定义的组合序列网状裂变)──────────────
+# 亲本上限 3 → 两两组合最多 3 对:够产生新认知,又不让考卷调用量爆炸
+# (每对要跑一次合成 + 一整张 14 题卷;冻结考卷会吃掉重复题,实际开销更小)。
+MAX_FISSION_PARENTS = int(os.environ.get("RADAR_FISSION_PARENTS", "3"))
+MAX_FISSION_PAIRS = int(os.environ.get("RADAR_FISSION_PAIRS", "3"))
+# 合成者固定用免密免费档:它只做"取两者之长"这一件事,不参与赛马,
+# 换模型会让组合体的可比性漂移 —— 同一个合成者,组合结果才归因得清。
+FISSION_SYNTHESIZER = os.environ.get("RADAR_FISSION_MODEL", "deepseek-v4-flash-free")
 
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 CACHE_DIR = os.path.join(REPO_ROOT, "reports", "evolve", "radar_cache")
@@ -266,6 +277,8 @@ def main():
                     help="只跑现任大脑,验可复现,不派改进者")
     ap.add_argument("--promote", action="store_true",
                     help="过闸即真写方案槽换冠军;不给则只打印「本应晋升谁」(影子期默认)")
+    ap.add_argument("--no-fission", action="store_true",
+                    help="关掉认知裂变(只跑单体赛马)。默认开 —— 裂变是创始人钦定的核心机制")
     a = ap.parse_args()
 
     sys.path.insert(0, HERE)
@@ -338,6 +351,78 @@ def main():
                              served_by=model,        # ← 真跑的那个,不是点名的那个
                              score=tot, delta=d, cls=cls,
                              note=f"{model} · {len(cand)}字", body=cand))
+
+    # ══ 认知裂变(2026-08-07 首次落地·创始人 2026-05-22 10:20 定义)══════
+    # 创始人原话:「不是 1+2+3+4=一个总模型,也不是四个专家平行讨论,而是
+    #   1、2、3、4、1+2、1+3、1+4、2+3、2+4、3+4、1+2+3…… 这些不同组合
+    #   都会成为 SueAI 的认知路径。所以第 5 本书进来时,不是一个模型读它,
+    #   而是很多已经形成的组合认知一起读它。」他给它命名:组合序列网状裂变学习机制。
+    #
+    # **这条定义至今零行代码** —— 14 份自进化文档零命中(2026-08-07 全文考古)。
+    # 此前的赛马是「17 个模型各改一版 → 选最高分」= **选拔**,不是裂变:
+    #   赢家通吃、输家消失,下一轮从冠军再派生 —— 近亲繁殖,认知只有一条线。
+    # 裂变要的是:让活下来的认知**互相组合**,组合体也是一等公民、也要上考卷。
+    #
+    # 本轮落地前三件(第四件「多认知路径共同判定」是 adopt 侧,下一步):
+    #   ① 组合:取本轮**有价值的**候选两两合成新认知路径(SYS_CROSSOVER 早写好、从未被调用)
+    #   ② 组合体上同一张冻结考卷,与单体同台竞争
+    #   ③ **不否定任何一个** —— 全部候选(含没赢的)进休眠池,下轮可复活参与组合
+    #      (创始人 2026-06-20:「总有人排到后面,但随着技术提升也会进步,
+    #        所以不否定任何一个!只是排后」;2026-08-06 又骂过一刀切)
+    if not a.baseline_only and not a.no_fission:
+        scored = [r for r in rows[1:] if r.get("score") is not None and r.get("body")]
+        # 组合亲本判据:**不是简单取 top-K**,而是"有价值的" ——
+        #   ≥ 现任基线的都算有价值(哪怕只是持平:它可能在别的类别上有独到之处,
+        #   而宏平均把它抹平了)。这正是"不否定任何一个"在选亲本时的落法。
+        parents = sorted([r for r in scored if r["score"] >= base_total],
+                         key=lambda r: -r["score"])[:MAX_FISSION_PARENTS]
+        if len(parents) >= 2:
+            pairs = list(itertools.combinations(range(len(parents)), 2))[:MAX_FISSION_PAIRS]
+            print(f"\n{'─'*76}\n🧬 认知裂变:{len(parents)} 个有价值认知 → 组合 {len(pairs)} 条新路径")
+            for i, j in pairs:
+                pa, pb = parents[i], parents[j]
+                tag = f"{pa['who']} ⊕ {pb['who']}"
+                t2 = time.time()
+                print(f"\n── 🧬 {tag}")
+                try:
+                    # 用免密档合成(零成本);合成者与亲本无关,它只做"取长补短"这一件事
+                    txt, cmodel = _ask_any(
+                        SYS_CROSSOVER,
+                        f"【版本A】\n{pa['body']}\n\n【版本B】\n{pb['body']}\n\n"
+                        f"【它们各自的成绩】A={pa['score']:.4f}(skip {(pa.get('cls') or {}).get('skip',0):.4f}/"
+                        f"adopt {(pa.get('cls') or {}).get('adopt',0):.4f}) · "
+                        f"B={pb['score']:.4f}(skip {(pb.get('cls') or {}).get('skip',0):.4f}/"
+                        f"adopt {(pb.get('cls') or {}).get('adopt',0):.4f})\n"
+                        f"合成第三版。只输出提示词全文。",
+                        "opencode", model=FISSION_SYNTHESIZER)
+                except Exception as e:
+                    print(f"   ✗ 合成失败 {type(e).__name__}: {str(e)[:200]}")
+                    continue
+                cand = strip_wrapper(_unfence(txt or ""))
+                miss = [f for f in ("module", "verdict", "metric", "how", "effort",
+                                    "current", "beats", "why") if f'"{f}"' not in cand]
+                if len(cand) < 200 or miss:
+                    why = "产出过短" if len(cand) < 200 else "丢失 JSON 字段:" + "/".join(miss)
+                    print(f"   ✗ {why}")
+                    rows.append(dict(who=f"🧬 {tag}", supplier="fission", kind="crossover",
+                                     score=None, delta=None, cls={}, note=why))
+                    continue
+                tot, cls, _lines, _c = exam_one(cand, a.baseline_supplier, cand)
+                d = round(tot - base_total, 4)
+                # 组合体的真价值不只看总分:它可能在**单个亲本都没做到的类别**上突破
+                pa_ad = (pa.get("cls") or {}).get("adopt", 0)
+                pb_ad = (pb.get("cls") or {}).get("adopt", 0)
+                c_ad = cls.get("adopt", 0)
+                breakthrough = c_ad > max(pa_ad, pb_ad)
+                mark = "🏆 赢了" if d > 0 else ("持平" if d == 0 else "没赢")
+                extra = "  ⭐**adopt 类超过两个亲本**(裂变真出了新东西)" if breakthrough else ""
+                print(f"   {cmodel} · {len(cand)}字 · 总分 **{tot:.4f}** ({d:+.4f}) {mark}{extra}")
+                rows.append(dict(who=f"🧬 {tag}", supplier="fission", kind="crossover",
+                                 served_by=cmodel, score=tot, delta=d, cls=cls,
+                                 parents=[pa["who"], pb["who"]], breakthrough=breakthrough,
+                                 note=f"裂变 · {cmodel} · {len(cand)}字", body=cand))
+        else:
+            print(f"\n🧬 认知裂变:有价值认知不足 2 个(得 {len(parents)} 个),本轮不组合")
 
     # ── 晋升闸 ────────────────────────────────────────────────
     # 【2026-08-06 首轮实测后立此闸】首次有挑战者赢过冠军(+0.0500),
