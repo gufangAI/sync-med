@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "PaddleOCR（在 paddle_ocr_workflow.yml 中调用）",
+ "beats": "",
+ "why": "需本地C++运行时与常驻进程，不兼容Cloudflare Workers无状态Serverless环境"
+}

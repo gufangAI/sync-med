@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "古籍PDF结构化准确率（表/公式/段落层级）",
+ "how": "替换当前RapidOCR后处理链，用MinerU直接输出带layout的Markdown+JSON",
+ "effort": "中",
+ "current": "RapidOCR + 自研规则后处理",
+ "beats": "表格识别F1提升22%（arXiv:2403.15862基准）",
+ "why": "纯Python库，可封装为Cloudflare Worker兼容函数，在Actions中调用，无需常驻服务"
+}

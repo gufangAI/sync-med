@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "watch",
+ "metric": "古籍医案实体关系覆盖率",
+ "how": "评估其社区发现与surprise scoring在医案文本上的可迁移性",
+ "effort": "中",
+ "current": "自研基于规则+BiLSTM-CRF的实体识别+Neo4j内存快照导出",
+ "beats": "",
+ "why": "纯库但需验证古籍NER/关系抽取泛化能力，无医案场景量化基准"
+}

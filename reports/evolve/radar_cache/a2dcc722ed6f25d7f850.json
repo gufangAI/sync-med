@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "PaddleOCR（在 paddle_ocr_workflow.yml 中调用）",
+ "beats": "",
+ "why": "MinerU 是 Python 工具链，需本地/服务器部署，依赖 PyTorch/Triton/OCR模型服务，违反运行形态红线"
+}

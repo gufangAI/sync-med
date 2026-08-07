@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "",
+ "beats": "",
+ "why": "违反运行形态红线：Redis需常驻服务进程，绑定端口，无法在Cloudflare Workers无状态环境中运行"
+}

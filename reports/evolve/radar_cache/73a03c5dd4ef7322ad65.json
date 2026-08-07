@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "PaddleOCR+自训练版面模型",
+ "beats": "",
+ "why": "需常驻进程（C++服务端二进制），无法在Cloudflare Workers/Actions纯无服务器环境直接运行；无WASM/ONNX封装，不满足纯库/脚本接入画像"
+}

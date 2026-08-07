@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "Tesseract + custom layout parser in Cloudflare Workers",
+ "beats": "",
+ "why": "依赖ONNXRuntime需常驻进程，Workers不支持；无纯WebAssembly版"
+}
