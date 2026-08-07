@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "paddleocr",
+ "beats": "",
+ "why": "同义替代品，当前OCR产线已用paddleocr，且tesseract需本地二进制依赖，不兼容Cloudflare Workers无常驻环境"
+}

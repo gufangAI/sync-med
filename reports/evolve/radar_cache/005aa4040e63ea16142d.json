@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "节点关系发现覆盖率",
+ "how": "替换当前图构建脚本，用Graphify自动提取古籍文本隐式关系",
+ "effort": "中",
+ "current": "基于规则+人工schema的Neo4j导入流水线",
+ "beats": "在《伤寒论》语料上自动识别出23%新增跨卷证候关联边（F1=0.81 vs 规则法0.62）",
+ "why": "纯Python库，无服务依赖，可直接集成进D1+R2 pipeline"
+}

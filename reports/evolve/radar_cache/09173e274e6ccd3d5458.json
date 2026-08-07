@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "大",
+ "current": "",
+ "beats": "",
+ "why": "Elasticsearch 需常驻 JVM 进程与集群，违反 Cloudflare Serverless 零常驻前提"
+}

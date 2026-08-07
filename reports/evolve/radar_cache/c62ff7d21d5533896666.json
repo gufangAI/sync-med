@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "古籍PDF结构化准确率",
+ "how": "替换当前paddleocr+规则后处理，用MinerU端到端输出带布局语义的Markdown",
+ "effort": "中",
+ "current": "paddleocr + custom layout parser + regex post-processing",
+ "beats": "表格与公式识别F1提升23.6%（官方benchmark vs paddleocr+layoutparser）",
+ "why": "纯Python库，无常驻服务，可直接集成进GitHub Actions OCR workflow"
+}
