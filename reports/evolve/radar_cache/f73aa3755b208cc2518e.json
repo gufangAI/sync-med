@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "大",
+ "current": "",
+ "beats": "",
+ "why": "Caddy 是常驻 Web 服务器，需长期运行进程，违反 Cloudflare Serverless 零常驻主机架构"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "大",
+ "current": "Tesseract 5.3.0 via GitHub Actions (Docker-in-Actions with tesseract CLI)",
+ "beats": "",
+ "why": "C++二进制需容器运行，无法在Cloudflare Workers中执行；Actions中已稳定使用官方镜像，无收益增量"
+}

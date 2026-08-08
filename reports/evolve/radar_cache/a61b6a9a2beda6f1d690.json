@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "大",
+ "current": "",
+ "beats": "",
+ "why": "需常驻进程：Redis 服务端必须长期运行，违反 Cloudflare Serverless 零常驻主机约束"
+}

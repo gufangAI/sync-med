@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "PaddleOCR, tesseract",
+ "beats": "",
+ "why": "ONNXRuntime需常驻进程或本地推理环境，不兼容Cloudflare Workers无服务器架构"
+}

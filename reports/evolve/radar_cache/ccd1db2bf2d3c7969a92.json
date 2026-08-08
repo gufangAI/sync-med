@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "GitHub Actions 跑 PaddleOCR / Tesseract (ONNX)",
+ "beats": "",
+ "why": "已在家底：当前OCR产线已使用Tesseract（ONNX版），本项目为原生C++服务端实现，需常驻进程编译运行，违反硬性过滤条款1"
+}

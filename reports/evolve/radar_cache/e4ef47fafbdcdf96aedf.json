@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "pdf2image + Tesseract + custom layout heuristics (Actions)",
+ "beats": "",
+ "why": "依赖PyTorch/Triton/CUDA，需GPU推理服务，无法在Cloudflare Workers或GitHub Actions无GPU环境中运行"
+}

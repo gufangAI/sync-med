@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "PDF→结构化文本的准确率（尤其表格/公式/多栏）",
+ "how": "替换当前PaddleOCR+规则后处理环节，直接接入MinerU作为PDF解析主干",
+ "effort": "中",
+ "current": "PaddleOCR + 自研版面分析+正则后处理",
+ "beats": "表格识别F1提升≥22%（Paper reported），公式LaTeX还原准确率↑35%",
+ "why": "纯Python库，无常驻服务，可直接在GitHub Actions中调用，输出JSON/Markdown兼容现有OCR产线输入契约"
+}

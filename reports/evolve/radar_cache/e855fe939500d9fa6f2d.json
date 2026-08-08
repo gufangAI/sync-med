@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "",
+ "beats": "",
+ "why": "Claude Code插件，依赖本地IDE运行时与Claude API交互，需常驻编辑器进程及后端服务，无法在Cloudflare Workers中执行"
+}

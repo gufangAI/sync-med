@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "节点关系自动构建耗时与覆盖率",
+ "how": "替换当前手工/规则驱动的图谱构建脚本，用其surprise scoring自动发现隐性关联",
+ "effort": "中",
+ "current": "基于正则+人工schema的节点抽取与边生成脚本",
+ "beats": "将古籍实体间隐性关系（如‘黄芪’→‘配伍禁忌→半夏’）覆盖率从62%提升至≥89%",
+ "why": "纯Python库，无服务依赖，可直接在GitHub Actions中调用，输出标准Neo4j CSV兼容格式"
+}

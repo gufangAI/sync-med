@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "大",
+ "current": "Tesseract + custom layout parser in GitHub Actions (Python)",
+ "beats": "",
+ "why": "依赖PaddlePaddle深度学习栈，需GPU/长时CPU推理，无法在Cloudflare Workers或无GPU Actions中运行"
+}

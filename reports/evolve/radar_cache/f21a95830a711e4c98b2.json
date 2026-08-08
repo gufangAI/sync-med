@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "Tesseract + PaddleOCR（Actions中Dockerized离线推理）",
+ "beats": "",
+ "why": "依赖ONNX Runtime本地推理，需CPU/GPU环境及模型加载，无法在Cloudflare Workers无状态环境中运行"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "GitHub Actions 跑 PaddleOCR / Tesseract (ONNX)",
+ "beats": "",
+ "why": "已在家底：PaddleOCR 已在 OCR 产线中使用，RapidOCR 同为 ONNXRuntime 基础的 OCR 工具库，属同质替换"
+}
