@@ -30,16 +30,23 @@ sys.path.insert(0, HERE)
 from _ai import ask, ask_opencode, _unfence                    # noqa: E402
 from radar_set import EXAM, score_all, score_one, baselines, SCORER_VERSION  # noqa: E402
 sys.path.insert(0, HERE)
-from improve import SYS_CROSSOVER, strip_wrapper               # noqa: E402
+from improve import strip_wrapper                              # noqa: E402
 
 # ── 认知裂变参数(创始人 2026-05-22 定义的组合序列网状裂变)──────────────
 # 亲本上限 3 → 两两组合最多 3 对:够产生新认知,又不让考卷调用量爆炸
 # (每对要跑一次合成 + 一整张 14 题卷;冻结考卷会吃掉重复题,实际开销更小)。
 MAX_FISSION_PARENTS = int(os.environ.get("RADAR_FISSION_PARENTS", "3"))
 MAX_FISSION_PAIRS = int(os.environ.get("RADAR_FISSION_PAIRS", "3"))
-# 合成者固定用免密免费档:它只做"取两者之长"这一件事,不参与赛马,
+# 合成者固定一家:它只做"取两者之长"这一件事,不参与赛马,
 # 换模型会让组合体的可比性漂移 —— 同一个合成者,组合结果才归因得清。
-FISSION_SYNTHESIZER = os.environ.get("RADAR_FISSION_MODEL", "deepseek-v4-flash-free")
+# 【2026-08-08 修·首跑实锤】原用 opencode 免密档,但 ask_opencode 注释自己写了
+#   "带 system 消息时 deepseek 进思考模式、content 空、正文落 reasoning_content 被丢弃"。
+#   裂变合成是长任务(两版提示词+角色设定),必触发思考模式 → 返回 0 字 → 组合体全灭。
+#   改走网关侧免费家:zhipu glm-4-flash 直测稳定(1.1s)、不进思考模式、守 JSON 契约。
+# 合成者兜底链(按 2026-08-08 直测通过顺序):zhipu 1.1s → cerebras 2.0s → nvidia 2.9s。
+# 严格模式下单家 503 就是挂,给它一条链而不是死磕一家 —— 但**同一轮所有组合用同一个
+# 成功家**,不许这对用 zhipu、那对用 nvidia(换合成者=组合可比性漂移)。
+FISSION_CHAIN = os.environ.get("RADAR_FISSION_CHAIN", "zhipu,cerebras,nvidia").split(",")
 
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 CACHE_DIR = os.path.join(REPO_ROOT, "reports", "evolve", "radar_cache")
@@ -162,6 +169,35 @@ SYS_REWRITE = (
     "  · 必须保留原提示词结尾的 JSON 输出格式约定"
     "(module/verdict/metric/how/effort/current/beats/why 八个字段),少一个字段整条作废。\n"
     "  · 长度控制在原文的 0.7~1.6 倍。"
+)
+
+
+# 认知裂变专用的合成提示词。
+# 【2026-08-08 修·首跑实锤】此前借用了内容线的 SYS_CROSSOVER —— 那个是给
+#   biocomp/herb 内容产线写的,只说"保留 JSON 输出格式约定"但没点明是哪 8 个字段。
+#   合成模型不知道判定大脑要输出 module/verdict/.../why,就把格式丢了,
+#   裂变首跑组合体全军覆没("丢失 JSON 字段")。
+# 这正是"学透"的反面在我自己身上:复用了 SYS_CROSSOVER 却没读它要模型输出什么。
+# 判定大脑有它自己的输出契约(见 SYS_REWRITE 结尾),裂变的合成必须守同一份契约。
+SYS_FISSION = (
+    "你是**技术选型评审提示词的合成师**。给你**两版**评审提示词,它们在同一套真题上各有长处。\n"
+    "任务:**取两者之长合成第三版** —— 不是二选一,不是简单拼接。哪一版在某类判断上更准,"
+    "就吸收它那一段的判断逻辑。目标是让第三版在**两个亲本都没做好的地方**也判得准。\n\n"
+    "【这套系统在判什么】一个开源项目值不值得接进平台。运行形态 Cloudflare Serverless "
+    "+ GitHub Actions,零常驻主机、零月费。两类高频错:明星光环(高星但要常驻机器)、"
+    "常识复读(推荐我们已在用的工具)。\n"
+    "【判分:确定性打分】verdict 判对 0.60;adopt 须答 current(现用什么)+beats(哪个指标更强),"
+    "skip 须答 why,判对才 +0.25;判错说明分不计;陷阱题(常驻/已在家底)判 adopt 失 0.15;"
+    "总分按类别宏平均,skip/adopt 两类都要准。\n\n"
+    "【输出格式硬要求 —— 与被合成的提示词完全一致,少一条整版作废】\n"
+    "  · 只输出合成后的提示词全文。不要开场白、不要「合成说明」、不要用 ``` 包裹。\n"
+    "  · **必须在提示词结尾原样保留这段 JSON 输出约定**(逐字复制,不要改写、不要用 markdown 列表):\n"
+    "    只输出 JSON:{\"module\":\"清单里的模块名或空\",\"verdict\":\"adopt|watch|skip\","
+    "\"metric\":\"可量化指标\",\"how\":\"怎么接\",\"effort\":\"工作量\","
+    "\"current\":\"我们现在用什么\",\"beats\":\"在哪个指标上更强\",\"why\":\"理由\"}\n"
+    "  · 上面八个字段名必须是**带双引号的 JSON key**(形如 \"module\"),"
+    "不许写成 markdown 反引号(`module`)或列表项 —— 那样判定大脑解析不了。\n"
+    "  · 长度与较长那版相当,不许暴涨。"
 )
 
 
@@ -379,22 +415,35 @@ def main():
         if len(parents) >= 2:
             pairs = list(itertools.combinations(range(len(parents)), 2))[:MAX_FISSION_PAIRS]
             print(f"\n{'─'*76}\n🧬 认知裂变:{len(parents)} 个有价值认知 → 组合 {len(pairs)} 条新路径")
+
+            def _synthesize(user):
+                """按兜底链找一个能出货的合成家;同一轮里第一个成功的家会被记住,
+                后续组合都用它,保证组合结果可比。全链挂才抛。"""
+                errs = []
+                for sup in ([_synthesize.locked] if _synthesize.locked else FISSION_CHAIN):
+                    try:
+                        t, mo = _ask_any(SYS_FISSION, user, sup)
+                        _synthesize.locked = sup          # 锁定本轮合成家
+                        return t, mo
+                    except Exception as e:
+                        errs.append(f"{sup}:{type(e).__name__}")
+                        continue
+                raise RuntimeError("合成链全挂 " + " / ".join(errs))
+            _synthesize.locked = None
+
             for i, j in pairs:
                 pa, pb = parents[i], parents[j]
                 tag = f"{pa['who']} ⊕ {pb['who']}"
                 t2 = time.time()
                 print(f"\n── 🧬 {tag}")
                 try:
-                    # 用免密档合成(零成本);合成者与亲本无关,它只做"取长补短"这一件事
-                    txt, cmodel = _ask_any(
-                        SYS_CROSSOVER,
+                    txt, cmodel = _synthesize(
                         f"【版本A】\n{pa['body']}\n\n【版本B】\n{pb['body']}\n\n"
                         f"【它们各自的成绩】A={pa['score']:.4f}(skip {(pa.get('cls') or {}).get('skip',0):.4f}/"
                         f"adopt {(pa.get('cls') or {}).get('adopt',0):.4f}) · "
                         f"B={pb['score']:.4f}(skip {(pb.get('cls') or {}).get('skip',0):.4f}/"
                         f"adopt {(pb.get('cls') or {}).get('adopt',0):.4f})\n"
-                        f"合成第三版。只输出提示词全文。",
-                        "opencode", model=FISSION_SYNTHESIZER)
+                        f"合成第三版。只输出提示词全文。")
                 except Exception as e:
                     print(f"   ✗ 合成失败 {type(e).__name__}: {str(e)[:200]}")
                     continue
