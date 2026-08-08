@@ -1,0 +1,15 @@
+# gitleaks 配置 —— 整合队列#3(2026-08-08)。继承默认规则,只加已核实误报白名单。
+[extend]
+useDefault = true
+
+[allowlist]
+description = "已核实误报(2026-08-08 基线扫描)"
+regexes = [
+  '''gfx_exhibition_guest_quota''',   # localStorage 键名,非密钥
+  '''xoppaddleocrv16''',              # OpenCode 免密身份标识串(x-opcode-*),非key
+  '''xopqwen36v35b''',
+]
+paths = [
+  '''\.env$''',                       # 已 gitignore,dir 扫描顺带命中
+  '''_待清/''',                        # 退役文件区
+]
