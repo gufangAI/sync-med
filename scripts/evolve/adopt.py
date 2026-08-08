@@ -309,10 +309,18 @@ def judge(r, sys_body=None):
     def _placeholder(x):
         s = str(x or "").strip().strip('"').strip()
         return (not s) or s in ("...", "…", "..", "n/a", "N/A", "todo", "TODO", "xxx", "XXX")
-    blank = [k for k in ("module", "metric", "how", "why") if _placeholder(o.get(k))]
-    if len(blank) >= 2:
-        return None, (f"占位符判定(字段 {'/'.join(blank)} 是模板占位,模型没真判)"
-                      f"[model={model}]—— 不入库,下轮重判")
+    # 【2026-08-08 精修·实锤误杀】原判据「module/metric/how/why 任意≥2占位就拦」把
+    #   **正确判 skip** 也误杀了:coding agent/AI界面/翻墙工具 对中医平台确实无用,模型判
+    #   skip 时 module/metric/how 本就该空(那是 adopt 专属字段),只 why 该给理由。实测
+    #   cline/open-webui/fanqiang 三个明显 skip 候选(连 zai-glm-4.7 也)全被当"没真判"
+    #   误杀 → adopt 轮恒 0 采纳、候选空转重判。真正的"没真判"(那59条 Langflow/dify)特征
+    #   是**判词与理由一起模板化**。故判据收敛到核心证据:verdict 是合法实词 且 why 有实质
+    #   = 判了,放行;verdict 非法 或 why 也占位 = 没真判,拦。module/metric/how 占位交给
+    #   后面的确定性硬闸(不在清单/无指标→降 skip)处理,不再算"失败"。
+    v_raw = str(o.get("verdict") or "").strip().lower()
+    if v_raw not in ("adopt", "watch", "skip") or _placeholder(o.get("why")):
+        return None, (f"占位符判定(verdict={o.get('verdict')!r}/why={str(o.get('why'))[:24]!r}"
+                      f"=模板,模型没真判)[model={model}]—— 不入库,下轮重判")
 
     v = str(o.get("verdict") or "skip").lower()
     if v not in ("adopt", "watch", "skip"):
