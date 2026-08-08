@@ -200,6 +200,19 @@ SYS_FISSION = (
     "  · 长度与较长那版相当,不许暴涨。"
 )
 
+# 【2026-08-08 第二跑实锤后立此段】契约是**我们的不变量**,不能交给合成模型转述:
+#   第二跑 3 条组合里 1 条保住了契约、2 条又丢(都含 nemotron 亲本)——SYS_FISSION 把话
+#   说到"逐字复制、少一条整版作废"份上,转述照样丢。拜托没有用,保证要靠代码:
+#   合成产物缺任何一个字段 → 把下面这段(与 adopt.py 判定大脑的契约逐字同源)硬拼到尾部。
+#   模型服从的是**离结尾最近的格式指令**,尾部整段权威覆盖正文里的残缺表述。
+FISSION_CONTRACT = (
+    "\n\n只输出 JSON:{\"module\":\"清单里的模块名或空\",\"verdict\":\"adopt|watch|skip\","
+    "\"metric\":\"预计改善的指标,如「检索召回率」「导读生成耗时」\",\"how\":\"40字以内具体接法\","
+    "\"effort\":\"小|中|大\","
+    "\"current\":\"我们该模块现在用的是什么\",\"beats\":\"在哪个可量化指标上胜过它\","
+    "\"why\":\"30字以内理由\"}"
+)
+
 
 def _ask_any(system, user, supplier, max_tokens=3000, json_mode=False, model=None):
     """本文件的每一次调用都是评测/赛马,所以**一律走严格模式**(no_fallback)。
@@ -448,14 +461,17 @@ def main():
                     print(f"   ✗ 合成失败 {type(e).__name__}: {str(e)[:200]}")
                     continue
                 cand = strip_wrapper(_unfence(txt or ""))
+                if len(cand) < 200:
+                    print("   ✗ 产出过短")
+                    rows.append(dict(who=f"🧬 {tag}", supplier="fission", kind="crossover",
+                                     score=None, delta=None, cls={}, note="产出过短"))
+                    continue
                 miss = [f for f in ("module", "verdict", "metric", "how", "effort",
                                     "current", "beats", "why") if f'"{f}"' not in cand]
-                if len(cand) < 200 or miss:
-                    why = "产出过短" if len(cand) < 200 else "丢失 JSON 字段:" + "/".join(miss)
-                    print(f"   ✗ {why}")
-                    rows.append(dict(who=f"🧬 {tag}", supplier="fission", kind="crossover",
-                                     score=None, delta=None, cls={}, note=why))
-                    continue
+                if miss:
+                    # 合成模型没保住契约 → 代码补挂,不作废(丢的是转述,不是融合本身)
+                    cand += FISSION_CONTRACT
+                    print(f"   ⚙️ 合成丢了 {len(miss)} 个字段({'/'.join(miss)}),契约已由代码补挂尾部")
                 tot, cls, _lines, _c = exam_one(cand, a.baseline_supplier, cand)
                 d = round(tot - base_total, 4)
                 # 组合体的真价值不只看总分:它可能在**单个亲本都没做到的类别**上突破
