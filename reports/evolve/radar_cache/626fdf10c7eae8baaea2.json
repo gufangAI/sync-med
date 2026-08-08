@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "Next.js + MDX 渲染器（家底：@mdx-js/react v2.3.0）",
+ "beats": "",
+ "why": "需常驻 Node.js 服务（Express + MongoDB + Redis），违反 Cloudflare Serverless 铁律；且含完整 CMS/用户系统/认证流，与轻量前台阅读器无功能交集；家底中已用 Next.js+MDX 实现静态化 SSR，无改进必要"
+}

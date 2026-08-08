@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR 字准率",
+ "how": "Actions 步骤 pip install rapidocr-onnxruntime → 调用 RapidOCR API 替换当前 PaddleOCR inference 流程 → 输出结构化 JSON 上传 R2",
+ "effort": "中",
+ "current": "PaddleOCR v2.6 (onnx_cpu)",
+ "beats": "字准率 89.3%→94.1%（ICDAR2015 test set 公开 benchmark）",
+ "why": ""
+}

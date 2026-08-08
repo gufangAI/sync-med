@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "PaddleOCR",
+ "beats": "",
+ "why": "RapidOCR本质是PaddleOCR的ONNX封装+多语言绑定，非新算法，且我们已在用PaddleOCR；无量化指标提升证据"
+}

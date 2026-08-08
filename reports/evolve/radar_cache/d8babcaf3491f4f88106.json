@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "PaddleOCR",
+ "beats": "",
+ "why": "我们已在用 PaddleOCR，且 Tesseract 需本地 C++ 运行时/常驻进程，不兼容 Cloudflare Workers Serverless 环境"
+}

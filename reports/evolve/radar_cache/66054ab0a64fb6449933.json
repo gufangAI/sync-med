@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "",
+ "beats": "",
+ "why": "项目为 Claude Code 插件，聚焦于约束 AI 生成代码量，与我方所有模块（检索路由、RAG向量检索、知识图谱星图、AI寻脉、OCR产线、采集下载线、自进化闭环、前台阅读器、免费模型池）无功能交集；非库/算法/脚本，不可 import 或在 Cloudflare Workers / GitHub Actions 中调用；不解决任何可量化指标（如召回率、OCR准确率、图谱加载时延、抓取失败率等）；且运行依赖 Claude 生态及 IDE 插件环境，无法部署于 Serverless 架构。"
+}

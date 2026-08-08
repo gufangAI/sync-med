@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "PaddleOCR（ONNX Runtime 后端，已深度定制适配古籍版式与竖排）",
+ "beats": "",
+ "why": "RapidOCR 是 PaddleOCR 的封装/简化分发版本，核心模型、后端（ONNXRuntime）、检测/识别流程与我们当前使用的 PaddleOCR 完全一致；无新模型、无新预处理算法、无针对古籍竖排/虫蛀/褪色的专项优化；未提供可量化提升的 benchmark（如在《伤寒论》扫描件上的字符准确率提升 Δ+0.8% 或行切分错误率↓12%）；且其 CLI/API 接口与我们现有 pipeline 兼容但无增量价值——属于已有家底的同源复刻，不满足‘家底之外的同领域新方案且确有量化优势’条件"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "采集下载线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "无",
+ "beats": "",
+ "why": "需常驻 ffmpeg 进程执行视频合成，违反 Cloudflare Workers/Actions 无状态、无进程模型；视频处理属 CPU 密集型长时任务（>10min），超出 Actions 单次 10min 限制与 Workers 50ms CPU 限额；非纯库/算法/WASM，而是 CLI 工具链，无法在 Serverless 环境直接嵌入"
+}

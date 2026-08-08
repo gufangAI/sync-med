@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "",
+ "beats": "",
+ "why": "项目聚焦视频自动剪辑（video montage），与古方 AI 星图平台所有模块无功能交集；无任何可复用的纯算法/库/脚本能嵌入现有 Serverless 工作流（Workers/Actions）；不涉及文本、OCR、RAG、图谱、检索、爬虫、模型调度等任一模块的技术栈；且需依赖 ffmpeg 本地二进制及音视频处理上下文，无法在 Cloudflare Workers 或 D1/R2 环境中运行，亦无对应模块需求。"
+}

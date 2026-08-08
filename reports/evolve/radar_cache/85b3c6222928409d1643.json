@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "",
+ "beats": "",
+ "why": "违反运行形态铁律：Caddy 是需常驻进程的 HTTP 服务器，依赖 systemd/docker/守护进程，无法在 Cloudflare Workers 或 GitHub Actions 环境中零常驻运行；禁入清单明确包含 Caddy"
+}

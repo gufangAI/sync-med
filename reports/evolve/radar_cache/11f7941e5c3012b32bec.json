@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "PaddleOCR、tesseract",
+ "beats": "",
+ "why": "RapidOCR 是 ONNXRuntime 推理封装，与我们已用的 PaddleOCR 同构（均基于 PaddleOCR 模型+ONNX），无指标优势"
+}

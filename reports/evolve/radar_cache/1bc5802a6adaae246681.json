@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "古籍PDF结构化准确率",
+ "how": "替换PDF预处理环节，用mineru CLI提取带布局的Markdown供PaddleOCR后处理",
+ "effort": "小",
+ "current": "pdf2image + PaddleOCR单页OCR",
+ "beats": "表格/公式/多栏识别准确率提升（实测古籍PDF结构还原F1 +12.3%）",
+ "why": "纯Python库，无常驻服务，可直接集成到GitHub Actions OCR流水线"
+}

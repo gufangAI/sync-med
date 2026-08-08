@@ -1,0 +1,10 @@
+{
+ "module": "采集下载线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "",
+ "beats": "",
+ "why": "需常驻进程模拟浏览器/维持登录态（cookie-based auth 依赖长期有效会话），违反 Cloudflare Serverless 零常驻铁律；且目标平台（抖音、小红书、B站、TikTok）上传属外部 API 调用+反爬对抗，非检索/OCR/图谱等平台内模块职责，与「采集下载线」定义（指结构化抓取公开网页内容并入库）不匹配"
+}

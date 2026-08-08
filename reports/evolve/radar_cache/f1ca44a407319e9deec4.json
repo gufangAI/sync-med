@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "",
+ "beats": "",
+ "why": "freeCodeCamp 是面向编程教育的全栈 Web 应用（含 Node.js 后端、MongoDB、React 前端），需常驻服务器部署，依赖数据库、API 服务、用户会话、CMS 等完整基础设施；与我方 Cloudflare Serverless（零常驻主机）架构完全不兼容；且其核心能力（课程编排、学习进度追踪、认证系统）与我方九大模块无任何技术接口或可复用组件；非库/非算法/非 CLI 工具，不可 import、不可在 Workers 或 Actions 中直接调用；属于通用教育平台，非垂直领域技术增强项。"
+}

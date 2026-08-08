@@ -1,0 +1,10 @@
+{
+ "module": "AI寻脉",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "Claude 3.5 Sonnet via Anthropic API",
+ "beats": "",
+ "why": "非运行时组件，是 IDE 插件（VS Code extension），依赖客户端 UI 环境与 LSP 协议，无法在 Cloudflare Workers 或 GitHub Actions 中执行；且 '约束 AI 少写代码' 属提示工程/输出后处理范畴，不改变检索、路由、图谱或模型推理逻辑，对 AI寻脉 的召回率@5、首包延迟 p95、推理 token 效率等可量化 metric 无可观测影响"
+}

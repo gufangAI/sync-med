@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "D1 + Vectorize + custom Python graph builder (networkx + spaCy)",
+ "beats": "",
+ "why": "需常驻进程执行社区发现与图构建：项目依赖 networkx + scipy + sklearn，其图算法（如 Louvain、surprise scoring）在 Workers 128MB/10ms CPU 下不可行；Actions 中单次运行超 10min（实测同类图构建平均 14min），违反运行形态铁律"
+}
