@@ -187,7 +187,9 @@ def load_repo_candidates(limit=400):
             r["topics"] = [t for t in str(r.get("topics") or "").split(",") if t]
         print(f"  [采集] 月榜全量库:{len(pool)} 个", flush=True)
         rows += pool
-    except Exception as e:
+    except (Exception, SystemExit) as e:
+        # SystemExit 必须接:d1() 缺凭据走 sys.exit,不接的话"走文件兜底"是死代码
+        # (brain() 那处 2026-08-07 已实测抓过同款,这里是"只修一半"的补全)
         print(f"  [采集] 读月榜库失败({str(e)[:70]}),走文件兜底", flush=True)
     for p, tag in ((GAP_JSON, "缺口驱动"), (CAND_JSON, "热门榜快照")):
         if not os.path.exists(p):
@@ -210,7 +212,7 @@ def already_judged():
     try:
         return {r["title"] for r in d1("SELECT title FROM evolve_candidates "
                                        "WHERE kind='repo' AND status!='new'")}
-    except Exception:
+    except (Exception, SystemExit):
         return set()
 
 
@@ -261,16 +263,23 @@ def judge(r, sys_body=None):
     topics = ",".join(r.get("topics") or [])[:200]
     user = (f"项目:{name}\n星数:{r.get('stars')}\n语言:{r.get('lang')}\n"
             f"topics:{topics}\n简介:{desc}")
-    txt, model = ask(b, user, max_tokens=500)
+    # 【2026-08-08 对抗审查】ask() 本身也会炸(网关全链失败 RuntimeError、urlopen
+    #   超时裸抛)——此前只有 parse_json 在 try 里,一次 503 穿透 co_judge 和主循环
+    #   炸掉整轮。judge 是本产线所有 ask 的唯一必经点,在这里单点收口:
+    #   调用失败返回 (None, err),自动接通主循环 fail 计数与星网"失败不计票"。
+    try:
+        txt, model = ask(b, user, max_tokens=500)
+    except Exception as e:
+        return None, f"调用失败 {type(e).__name__}:{str(e)[:80]}"
     try:
         o = parse_json(txt)
     except Exception:
         # 首轮实测 30 个里 3 个解析失败(10%)—— 模型没吐 JSON。重试一次再放弃。
         # 重试也必须走同一个大脑 —— 主路径读 D1 冠军、重试路径读源码常量,
         # 等于同一轮判定用了两套提示词,分数无从归因(「只修一半」的老病)。
-        txt, model = ask(b, user + "\n\n【必须只输出 JSON,不要任何别的字】",
-                         max_tokens=500)
         try:
+            txt, model = ask(b, user + "\n\n【必须只输出 JSON,不要任何别的字】",
+                             max_tokens=500)
             o = parse_json(txt)
         except Exception as e:
             return None, f"解析失败 {type(e).__name__}(重试后仍失败)"
@@ -337,9 +346,19 @@ def cognition_paths():
             champ = brain().strip()
             for row in d.get("rows") or []:
                 b = (row.get("body") or "").strip()
-                if b and row.get("score") is not None and row["score"] >= base and b != champ:
-                    paths.append({"who": str(row.get("who") or "?"), "body": b,
-                                  "score": row["score"]})
+                if not (b and row.get("score") is not None and row["score"] >= base and b != champ):
+                    continue
+                # 【2026-08-08 对抗审查·读者准入】赛场只考 8 字段、从不考模块清单;
+                #   而本产线的硬闸要求 module 必须在 MODULE_NAMES 里 —— 丢了清单的
+                #   高分 body 说不出准确模块名,每票 adopt/watch 都被降成 skip,
+                #   两个这样的读者就能 2S 绞杀冠军的 1A。清单不全 = 不配当读者。
+                lost = [m for m in MODULE_NAMES if m not in b]
+                if lost:
+                    print(f"  [星网] 淘汰读者 {row.get('who')}:丢了 {len(lost)} 个模块名"
+                          f"({'/'.join(lost[:3])}…)", flush=True)
+                    continue
+                paths.append({"who": str(row.get("who") or "?"), "body": b,
+                              "score": row["score"]})
             paths.sort(key=lambda p: -p["score"])
         except Exception as e:
             print(f"  [星网] 读认知路径失败({type(e).__name__}),本轮单脑判定", flush=True)
@@ -353,12 +372,15 @@ def cognition_paths():
 def co_judge(r, o):
     """星网共判:返回(终判 o, 票面说明)。冠军的 o 已在手,读者们各判一票。"""
     votes, adopt_o = [("冠军", o["verdict"])], (o if o["verdict"] == "adopt" else None)
+    downgraded = 0
     for p in cognition_paths():
         po, perr = judge(r, sys_body=p["body"])
         if perr:
             print(f"    ~ 读者 {p['who']} 判定失败不计票({str(perr)[:40]})", flush=True)
             continue
         votes.append((p["who"], po["verdict"]))
+        if str(po.get("why") or "").startswith("(自动降级"):
+            downgraded += 1
         if po["verdict"] == "adopt" and adopt_o is None:
             adopt_o = po
     tally = {"adopt": 0, "watch": 0, "skip": 0}
@@ -368,6 +390,9 @@ def co_judge(r, o):
     winners = [k for k, c in tally.items() if c == best]
     final = winners[0] if len(winners) == 1 else "watch"
     face = f"{tally['adopt']}A/{tally['watch']}W/{tally['skip']}S"
+    if downgraded:
+        # 硬闸降级产生的票单独亮出来 —— 否则"2S 绞杀"在票面上看不出是判断还是降级
+        face += f"·{downgraded}↓"
     if final == "adopt" and adopt_o is not None:
         o = adopt_o                       # 带着过闸的 current/beats 落库
     if final != o["verdict"] or len(votes) > 1:
@@ -410,7 +435,18 @@ def main():
     # 【2026-08-05】上一轮 run 30968296973 就挂在这:我加了用它的地方,**漏了定义**,
     #   `NameError: per_module is not defined` 整条产线挂掉 —— 又一次"只改一半"。
     per_module = {}
+    # 【2026-08-08 对抗审查·时间预算】星网把每候选最坏调用放大到 8 次,池子劣化时
+    #   串行 120s 超时 ×15 次就吃光 workflow 30 分钟 —— 被 runner 杀掉的后果是
+    #   report 不落盘、Issue 不开,而 D1 已逐条写入 → 报表与库不一致。
+    #   软预算 20 分钟:超了就停止取新候选,带着已判部分正常走完落盘;
+    #   report 每 5 个候选增量落盘一次,中途被杀也有账。
+    t_round0, judged_n = time.time(), 0
     for r in todo:
+        if time.time() - t_round0 > 20 * 60:
+            print(f"  ⏱️ 软预算 20 分钟用尽,本轮停在 {judged_n}/{len(todo)},"
+                  f"剩余候选留给下轮(状态还是 new)", flush=True)
+            break
+        judged_n += 1
         name = str(r.get("repo") or "")
         o, err = judge(r)
         if err:
@@ -448,8 +484,11 @@ def main():
                "(cand_id,kind,title,url,radar_run,score,status,verdict_note,created_at,updated_at) "
                f"VALUES ({q(cid)},'repo',{q(name)},{q(str(r.get('url') or '')[:300])},"
                f"{q(str(now))},{q(r.get('stars') or 0)},{q(v)},{q(note)},{now},{now})")
-        except Exception as e:
+        except (Exception, SystemExit) as e:
             print(f"    写库失败:{str(e)[:90]}", flush=True)
+        if a.report and judged_n % 5 == 0:
+            json.dump(out, open(a.report, "w", encoding="utf-8"),
+                      ensure_ascii=False, indent=2)
 
     print(f"\n=== 本轮:采纳 {len(out['adopt'])} · 观望 {len(out['watch'])} · "
           f"不相关 {out['skip']} · 失败 {out['fail']} ===", flush=True)

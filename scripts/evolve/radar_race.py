@@ -49,7 +49,9 @@ MAX_FISSION_PAIRS = int(os.environ.get("RADAR_FISSION_PAIRS", "3"))
 FISSION_CHAIN = os.environ.get("RADAR_FISSION_CHAIN", "zhipu,cerebras,nvidia").split(",")
 
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-CACHE_DIR = os.path.join(REPO_ROOT, "reports", "evolve", "radar_cache")
+# radar_cache2:2026-08-08 考场断代。旧 radar_cache 里 369 份答卷是付费考官
+# dashscope 产的(红线①违规,已呈报),且旧键不含考官/题干/卷版 —— 一份都不能带进新考场。
+CACHE_DIR = os.path.join(REPO_ROOT, "reports", "evolve", "radar_cache2")
 
 # 白名单里的 platform → 网关 supplier(网关 provider 表里真实存在的接入点)。
 # 白名单只记 `模型@平台`,网关按 supplier 索引 base+key,两边靠这张表对上。
@@ -152,11 +154,14 @@ SYS_REWRITE = (
     "  一个开源项目值不值得接进我们平台。我们的运行形态是 Cloudflare Serverless"
     "(Workers/Pages/D1/R2/Vectorize)+ GitHub Actions —— **零常驻主机、零月费**。\n"
     "【它反复犯的两类错(真事故)】\n"
-    "  · **明星光环**:redis 75876★ 被判成能改进「RAG 向量检索」、caddy 74627★ 被判成"
-    "能改进「前台阅读器」。它们要开机器常驻,我们没有机器。\n"
-    "  · **常识复读**:把 PaddleOCR / tesseract 判成能改进 OCR 产线 —— 而 "
-    "`pip install paddleocr` 就写在我们自己的 workflow 里。推荐我们已经在用的东西不是判断,"
+    "  · **明星光环**:某 7 万星级内存数据库被判成能改进「RAG 向量检索」、"
+    "某 7 万星级 Web 服务器被判成能改进「前台阅读器」。它们要开机器常驻,我们没有机器。\n"
+    "  · **常识复读**:把某领域最著名的 OCR 引擎判成能改进 OCR 产线 —— 而它就写在"
+    "我们自己的 workflow 里。推荐我们已经在用的东西不是判断,"
     "是「这个领域最有名的工具是什么」的同义词联想。\n\n"
+    # ↑【2026-08-08 对抗审查·背题通道】此段原来实名写着 redis 75876★/caddy 74627★/
+    #   PaddleOCR/tesseract —— 四个全是考题,星数与题干逐字一致,等于把答案印在考试说明上。
+    #   改写者只要抄这些名字进提示词,陷阱题按名字白拿分。类别化表述留下教训、抹掉答案。
     "【判分规则 · 确定性代码打分,完全公开,照着改】\n"
     "  · verdict 判对得 0.60(watch 当半对 0.25);\n"
     "  · 判对之后:adopt 必须答出 `current`(我们现在用什么)与 `beats`(在哪个可量化指标上更强),"
@@ -232,20 +237,30 @@ def _extract_prompt(raw):
     t = strip_wrapper(_unfence(raw or ""))
     if not (any(m in t for m in _META_MARKS) or t.count("只输出 JSON") >= 2):
         return t, ""
+    # 【2026-08-08 对抗审查修·两处锚点】
+    #   ① tail 必须取「其后真有 } 的最后一个契约」—— 模型在契约后补一句
+    #     "(再次强调:只输出 JSON)"且无 } 时,旧逻辑 brace<0 会把干净提示词整条误作废。
+    #   ② 块首不能 rfind 向前找最近的"你是" —— 终稿正文里"先自问:你是否在推荐…"
+    #     含子串"你是",旧逻辑会把角色设定和模块清单整段截掉,截断体还能过 8 字段闸。
+    #     正确锚点 =「上一个契约之后的第一个你是」:终稿块必然始于上一版草稿的契约之后。
     tail = t.rfind("只输出 JSON")
+    while tail >= 0 and t.find("}", tail) < 0:
+        tail = t.rfind("只输出 JSON", 0, tail)
     if tail < 0:
-        return "", "推理污染且无契约,作废"
+        return "", "推理污染且无完整契约,作废"
     brace = t.find("}", tail)                      # 契约模板单层花括号,首个}即终点
-    start = t.rfind("你是", 0, tail)
-    if brace < 0 or start < 0:
+    prev = t.rfind("只输出 JSON", 0, tail)
+    start = t.find("你是", prev + 1 if prev >= 0 else 0, tail)
+    if start < 0:
         return "", "推理污染,提取失败(找不到完整「你是…只输出JSON」块),作废"
     cand = t[start:brace + 1].strip()
-    if len(cand) < 200:
-        return "", "推理污染,提取出的块过短,作废"
+    if len(cand) < 200 or not cand.startswith("你是"):
+        return "", "推理污染,提取出的块过短或头部不完整,作废"
     return cand, f"推理污染(全文{len(t)}字),已提取末版干净提示词({len(cand)}字)"
 
 
-def _ask_any(system, user, supplier, max_tokens=3000, json_mode=False, model=None):
+def _ask_any(system, user, supplier, max_tokens=3000, json_mode=False, model=None,
+             temperature=None):
     """本文件的每一次调用都是评测/赛马,所以**一律走严格模式**(no_fallback)。
 
     【2026-08-07 修·实锤在 Issue #205】点名 nvidia / zhipu / openrouter 三家,
@@ -261,31 +276,47 @@ def _ask_any(system, user, supplier, max_tokens=3000, json_mode=False, model=Non
     if supplier == "opencode":
         return ask_opencode(system, user, max_tokens=max_tokens, need="", model=model)
     return ask(system, user, max_tokens=max_tokens, supplier=supplier,
-               json_mode=json_mode, no_fallback=True, model=model)
+               json_mode=json_mode, no_fallback=True, model=model,
+               temperature=temperature)
 
 
 # ── 冻结考卷 ────────────────────────────────────────────────────
 #   同一段提示词 + 同一道题 = 同一个答案,直接复用。
 #   没有这个,「连跑 3 次分数一致」就永远验不出来 —— temperature=0 也不是字节确定的。
-def _ck(body, repo):
-    h = hashlib.sha1((body + "||" + repo).encode("utf-8")).hexdigest()[:20]
+#
+# 【2026-08-08 对抗审查·两处根修】
+#   ① 键补全答案的完整身份:旧键只有 body+repo,换考官(supplier)/改题干/换卷版后
+#      旧答案静默复用 —— 同一张榜单上的分数来自不同考生,晋升闸据此放行,同卷是假象。
+#      新键 = body+考官+题干全文+卷版;并换新目录 radar_cache2 与旧 dashscope 时代
+#      的 369 份旧答案彻底断代(旧答案是付费考官产的,新考官 zhipu 一份都不能复用)。
+#   ② 失败绝不入缓存:旧逻辑把 {"verdict":"","_err":503} 与真答案同路冻结并提交回仓,
+#      瞬时故障级联成永久坏分(缓存里实锤 1 份毒条目)。与 adopt.py「判定失败≠判定为
+#      拒绝」同源:写入侧只存真答案,读取侧见 _err/空 verdict 视同未命中当场重考。
+def _ck(body, repo, supplier, q_user):
+    ident = "||".join([body, supplier or "", q_user, SCORER_VERSION])
+    h = hashlib.sha1(ident.encode("utf-8")).hexdigest()[:20]
     return os.path.join(CACHE_DIR, h + ".json")
 
 
-def _cget(body, repo):
-    p = _ck(body, repo)
+def _cget(body, repo, supplier, q_user):
+    p = _ck(body, repo, supplier, q_user)
     if os.path.exists(p):
         try:
-            return json.load(open(p, encoding="utf-8"))
+            got = json.load(open(p, encoding="utf-8"))
+            if "_err" in got or not str(got.get("verdict") or "").strip():
+                return None                    # 毒条目自愈:视同未命中,重考并覆盖
+            return got
         except Exception:
             return None
     return None
 
 
-def _cput(body, repo, obj):
+def _cput(body, repo, supplier, q_user, obj):
+    if "_err" in obj or not str(obj.get("verdict") or "").strip():
+        return                                 # 失败只活在当轮内存,绝不冻结
     os.makedirs(CACHE_DIR, exist_ok=True)
     try:
-        json.dump(obj, open(_ck(body, repo), "w", encoding="utf-8"),
+        json.dump(obj, open(_ck(body, repo, supplier, q_user), "w", encoding="utf-8"),
                   ensure_ascii=False, indent=1)
     except Exception:
         pass
@@ -303,22 +334,28 @@ def _parse_json(t):
 
 
 def exam_one(body, supplier, judge_system):
-    """完整跑一遍卷子。judge_system = 被考的那段判定提示词。"""
+    """完整跑一遍卷子。judge_system = 被考的那段判定提示词。
+    考卷调用一律 temperature=0(评测态,与 _ai.py 自述惯例对齐)——冻结缓存只保证
+    复跑一致,消不掉首考在 0.3 温度下的抽样噪声:adopt 类只有 4 题,一题的运气
+    足以翻转晋升闸与 breakthrough 判据。失败当场重试一次,仍失败只计当轮、不冻结。"""
     answers, cached = [], 0
     for q_ in EXAM:
         user = (f"项目:{q_['repo']}\n星数:{q_['stars']}\n语言:{q_['lang']}\n"
                 f"topics:\n简介:{q_['desc']}")
-        got = _cget(judge_system, q_["repo"])
+        got = _cget(judge_system, q_["repo"], supplier, user)
         if got is not None:
             cached += 1
         else:
-            try:
-                txt, _ = _ask_any(judge_system, user, supplier,
-                                  max_tokens=500, json_mode=True)
-                got = _parse_json(txt)
-            except Exception as e:
-                got = {"verdict": "", "_err": f"{type(e).__name__}:{str(e)[:60]}"}
-            _cput(judge_system, q_["repo"], got)
+            got = None
+            for _attempt in range(2):
+                try:
+                    txt, _ = _ask_any(judge_system, user, supplier,
+                                      max_tokens=500, json_mode=True, temperature=0)
+                    got = _parse_json(txt)
+                    break
+                except Exception as e:
+                    got = {"verdict": "", "_err": f"{type(e).__name__}:{str(e)[:60]}"}
+            _cput(judge_system, q_["repo"], supplier, user, got)
         answers.append(got)
     total, per_cls = score_all(answers)
     lines = []
@@ -369,8 +406,11 @@ def failure_feedback(lines, total, per_cls):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--baseline-supplier", default="dashscope",
-                    help="用哪家来考卷(考生固定一家,否则分数不可比)")
+    # 【2026-08-08 对抗审查·红线①】原默认 dashscope = 阿里付费源,cron 每天真调 ——
+    #   本文件 86 行自己写着「dashscope:付费源,不该当固定赛手」,考官却全量在用。
+    #   已呈报创始人;考官改走 zhipu(网关免费家,glm 系,实测 1.1s 稳守 JSON 契约)。
+    ap.add_argument("--baseline-supplier", default="zhipu",
+                    help="用哪家来考卷(考生固定一家,否则分数不可比;必须是免费家)")
     ap.add_argument("--out", default="radar_race_result.json")
     ap.add_argument("--baseline-only", action="store_true",
                     help="只跑现任大脑,验可复现,不派改进者")
@@ -526,7 +566,12 @@ def main():
                 miss = [f for f in ("module", "verdict", "metric", "how", "effort",
                                     "current", "beats", "why") if f'"{f}"' not in cand]
                 if miss:
-                    # 合成模型没保住契约 → 代码补挂,不作废(丢的是转述,不是融合本身)
+                    # 合成模型没保住契约 → 代码补挂,不作废(丢的是转述,不是融合本身)。
+                    # 补挂前先剥掉残缺契约:否则 body 里"只输出 JSON"出现两次,该体一旦
+                    # 晋升,下一轮所有忠实保留双契约的干净改写会全数误中污染闸(对抗审查抓的)。
+                    pos = cand.find("只输出 JSON")
+                    if pos >= 0:
+                        cand = cand[:pos].rstrip()
                     cand += FISSION_CONTRACT
                     print(f"   ⚙️ 合成丢了 {len(miss)} 个字段({'/'.join(miss)}),契约已由代码补挂尾部")
                 tot, cls, _lines, _c = exam_one(cand, a.baseline_supplier, cand)

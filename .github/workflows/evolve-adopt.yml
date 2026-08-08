@@ -42,7 +42,9 @@ concurrency:
 jobs:
   adopt:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 45 分钟:星网共判把每候选最坏调用放大到 8 次,30 分钟对不上最坏账(2026-08-08 审出);
+    # adopt.py 侧另有 20 分钟软预算自截,双保险
+    timeout-minutes: 45
     permissions:
       contents: write        # 要把收件箱提交回仓
       issues: write             # 高分提案要能被看见,不许只躺在表里

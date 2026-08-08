@@ -26,7 +26,9 @@ import os, re, sys, json, argparse
 HERE = os.path.dirname(os.path.abspath(__file__))
 ADOPTION = os.path.join(HERE, "..", "intel_radar", "adoption.txt")
 
-SCORER_VERSION = "radar-v1-2026-08-06"
+# v2 断代(2026-08-08 对抗审查后):考官 dashscope(付费,红线①)→zhipu 免费家、
+# 考卷调用 temperature 0.3→0、缓存键补全考官+题干+卷版。v1 时代分数与 v2 不可比。
+SCORER_VERSION = "radar-v2-2026-08-08"
 
 
 # ══════════════════════════════════════════════════════════════

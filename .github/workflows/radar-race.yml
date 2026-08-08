@@ -72,8 +72,11 @@ jobs:
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
           PYTHONIOENCODING: utf-8
         run: |
+          # --baseline-supplier zhipu 显式钉死免费家(红线①:2026-08-08 审出旧默认
+          # dashscope 是付费源;就算脚本默认值再被改回,这里也兜住)
           python scripts/evolve/radar_race.py \
             --out radar_race_result.json \
+            --baseline-supplier zhipu \
             ${{ (github.event.inputs.baseline_only == 'true') && '--baseline-only' || '' }} \
             ${{ (github.event.inputs.promote == 'true') && '--promote' || '' }}
 
@@ -84,9 +87,9 @@ jobs:
         run: |
           git config user.name  'evolve-bot'
           git config user.email 'evolve-bot@users.noreply.github.com'
-          git add reports/evolve/radar_cache radar_race_result.json 2>/dev/null || true
+          git add reports/evolve/radar_cache2 radar_race_result.json 2>/dev/null || true
           if ! git diff --cached --quiet; then
-            n=$(ls reports/evolve/radar_cache 2>/dev/null | wc -l)
+            n=$(ls reports/evolve/radar_cache2 2>/dev/null | wc -l)
             git commit -m "雷达赛马:冻结考卷累计 $n 份 + 结果表 $(date -u +%Y-%m-%dT%H:%M) [skip ci]"
             git pull --rebase -q origin main || true
             git push || echo '推送失败(不致命,下轮重来)'
