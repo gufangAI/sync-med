@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "skip",
+ "metric": "无",
+ "how": "",
+ "effort": "无",
+ "current": "我们前台阅读器使用的是基于 Node.js 的服务器，支持 HTTPS。",
+ "beats": "无",
+ "why": "Caddy 是一个 Web 服务器，但我们的前台阅读器已经使用 Node.js，且 Caddy 需要常驻服务进程，不符合我们的运行形态。"
+}

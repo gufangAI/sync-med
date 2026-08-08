@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "我们目前使用的是云端 Actions 批量处理古籍扫描件转文字",
+ "beats": "",
+ "why": "Redis 是内存数据库，不适合处理大规模的 OCR 转文字任务，且需要常驻服务进程"
+}

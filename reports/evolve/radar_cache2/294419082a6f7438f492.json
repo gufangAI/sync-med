@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "替换现有OCR工具，集成RapidOCR进行古籍扫描件转文字",
+ "effort": "中",
+ "current": "现有OCR工具",
+ "beats": "识别准确率",
+ "why": "RapidOCR基于ONNXRuntime，性能优越"
+}

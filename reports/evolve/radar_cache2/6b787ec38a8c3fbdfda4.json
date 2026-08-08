@@ -1,0 +1,10 @@
+{
+ "module": "HTTP服务器",
+ "verdict": "adopt",
+ "metric": "性能、可扩展性、安全性",
+ "how": "Caddy 是一个快速且可扩展的 HTTP/1-2-3 服务器，具有自动 HTTPS 功能",
+ "effort": "中等",
+ "current": "目前使用的是 Nginx",
+ "beats": "性能、安全性",
+ "why": "Caddy 的高星数和 Go 语言支持表明它在性能和安全性方面表现良好，且具有自动 HTTPS 功能，符合我们的需求"
+}

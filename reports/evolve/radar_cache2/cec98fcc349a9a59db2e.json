@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "我们该模块现在用的是什么",
+ "beats": "",
+ "why": "RapidOCR需要常驻服务进程，而我们使用的是GitHub Actions和Cloudflare Serverless，不支持常驻服务进程。"
+}

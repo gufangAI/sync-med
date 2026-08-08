@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "我们前台阅读器模块使用的是基于Node.js的Express框架，结合Nginx作为反向代理。",
+ "beats": "",
+ "why": "Caddy是一个HTTP服务器，主要用于提供HTTPS服务，与我们的前台阅读器模块功能不直接相关。我们的阅读器模块更侧重于用户界面和阅读体验，而不是服务器端的基础HTTP服务。"
+}

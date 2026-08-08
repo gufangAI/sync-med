@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "skip",
+ "metric": "图谱节点连接密度",
+ "how": "集成Neo4j作为图数据库",
+ "effort": "大",
+ "current": "sue_graph_nodes/edges",
+ "beats": "图谱查询性能",
+ "why": "Neo4j是图数据库领域的领先者，但我们需要的是特定于古籍与医案语义的优化"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "skip",
+ "metric": "向量检索速度",
+ "how": "",
+ "effort": "小",
+ "current": "tcm-rag-768 索引 183 万向量",
+ "beats": "",
+ "why": "Redis 是内存数据库，不适合处理大规模向量索引，且需要常驻服务进程"
+}

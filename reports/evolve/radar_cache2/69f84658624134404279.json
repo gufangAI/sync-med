@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "识别准确率提升",
+ "how": "集成RapidOCR作为OCR引擎，替换现有Tesseract",
+ "effort": "中",
+ "current": "Tesseract",
+ "beats": "在特定字符集或复杂背景下的识别准确率",
+ "why": "RapidOCR基于ONNXRuntime，可能在某些场景下有更好的性能"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "skip",
+ "metric": "向量检索性能",
+ "how": "集成Elasticsearch作为后端搜索服务",
+ "effort": "大",
+ "current": "tcm-rag-768",
+ "beats": "无",
+ "why": "Elasticsearch已在家底，且为独立常驻服务"
+}

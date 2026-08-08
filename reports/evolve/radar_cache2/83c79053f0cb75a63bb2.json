@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR识别准确率",
+ "how": "集成到现有流程中",
+ "effort": "中",
+ "current": "Tesseract OCR",
+ "beats": "在中文识别上可能更准确",
+ "why": "PaddleOCR在中文OCR识别上表现较好，但已在用Tesseract OCR"
+}

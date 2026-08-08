@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "替换现有OCR引擎，提高古籍扫描件转文字的准确率",
+ "effort": "中",
+ "current": "目前使用的OCR引擎",
+ "beats": "识别准确率",
+ "why": "Tesseract是成熟的OCR开源引擎，准确率高"
+}

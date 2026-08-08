@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "watch",
+ "metric": "阅读体验流畅度",
+ "how": "使用Caddy作为Web服务器，提供自动HTTPS支持，提升阅读体验",
+ "effort": "小",
+ "current": "目前使用的是Nginx",
+ "beats": "HTTPS自动配置和性能",
+ "why": "Caddy提供自动HTTPS，简化配置，可能提升用户体验"
+}

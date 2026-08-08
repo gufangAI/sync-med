@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "skip",
+ "metric": "无",
+ "how": "无",
+ "effort": "无",
+ "current": "我们前台阅读器使用的是PDF.js库进行PDF到HTML的转换",
+ "beats": "无",
+ "why": "该项目专注于PDF到Markdown和JSON的转换，不涉及PDF到HTML的转换，且需要常驻服务进程，不适合我们的无服务器架构"
+}

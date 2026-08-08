@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR转换准确率",
+ "how": "集成MinerU进行PDF到Markdown和JSON的转换，提高古籍扫描件的处理效率",
+ "effort": "中",
+ "current": "目前使用的是基于Tesseract的OCR技术",
+ "beats": "在PDF格式识别和表格提取方面的准确率",
+ "why": "MinerU在PDF格式处理方面有较好的评价，可能提高转换准确率"
+}

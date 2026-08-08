@@ -1,0 +1,10 @@
+{
+ "module": "采集下载线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "我们使用的是自定义的爬虫框架，结合了 Scrapy 和 Selenium。",
+ "beats": "",
+ "why": "该项目需要常驻服务进程，不适合 Cloudflare Serverless 环境。"
+}

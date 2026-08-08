@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "替换现有OCR引擎",
+ "effort": "中",
+ "current": "Tesseract OCR",
+ "beats": "在识别准确率上",
+ "why": "RapidOCR基于ONNXRuntime，可能提供更高的识别准确率"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "OCR",
+ "verdict": "watch",
+ "metric": "识别准确率，字符识别速度",
+ "how": "通过集成PaddlePaddle的深度学习模型",
+ "effort": "中等",
+ "current": "目前使用Tesseract OCR",
+ "beats": "在多语言支持上",
+ "why": "PaddleOCR基于PaddlePaddle，具有较好的多语言支持能力，但具体性能表现需进一步评估。"
+}

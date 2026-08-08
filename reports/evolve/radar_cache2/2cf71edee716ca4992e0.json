@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "tcm-rag-768 索引 183 万向量，古籍与医案的语义召回",
+ "beats": "",
+ "why": "Elasticsearch 是一个搜索集群，需要常驻服务进程，不适合我们的无服务器架构。"
+}

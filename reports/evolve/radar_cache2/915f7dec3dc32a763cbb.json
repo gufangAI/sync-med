@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR识别准确率",
+ "how": "",
+ "effort": "",
+ "current": "Tesseract OCR",
+ "beats": "",
+ "why": "PaddlePaddle/PaddleOCR需要常驻服务进程，不符合我们的运行形态。"
+}

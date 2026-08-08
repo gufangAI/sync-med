@@ -1,0 +1,10 @@
+{
+ "module": "OCR",
+ "verdict": "watch",
+ "metric": "准确率、速度、兼容性",
+ "how": "基于ONNXRuntime的多语言工具包，支持多种编程语言",
+ "effort": "中等",
+ "current": "目前使用Tesseract",
+ "beats": "在兼容性和多语言支持上可能更强",
+ "why": "虽然RapidOCR基于ONNXRuntime，但具体性能和效果需要进一步评估"
+}
