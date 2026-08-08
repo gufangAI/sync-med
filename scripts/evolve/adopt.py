@@ -177,11 +177,23 @@ def load_repo_candidates(limit=400):
         base = ("SELECT repo, url, description, stars, lang, topics, found_by "
                 "FROM gh_repo_pool "
                 "WHERE repo NOT IN (SELECT title FROM evolve_candidates WHERE kind='repo') ")
+        # 【2026-08-09 根因修·实测坐实】star_delta 全表 4603 个**全是 0** —— 唯一计算它的
+        #   ranks.py 从没接进任何 workflow 调度(evolve-adopt 只跑 trending→harvest→adopt)。
+        #   于是「按星速排」退化成纯 stars DESC,每轮撞同一批超级头部教程/框架(linux/react/
+        #   vscode/awesome-*),被 SIGNAL 预筛砍 99%;而 616 个含垂直词的相关候选(都是 sd=0、
+        #   中等星)排在头部教程之后、limit 够不到,**永远轮不到** → 每轮精判仅 3 个。
+        #   修:排序不再死磕失效的 star_delta。垂直信号词命中的排最前(那 616 个先消化,且与
+        #   下游 _prefilter 用同一 SIGNAL 词表 → 排上来的大概率过预筛),其次 star_delta
+        #   (ranks.py 接上调度后自然复活),再 pushed_at 活跃度,最后 stars。
+        vsql = " OR ".join(f"lower(description) LIKE '%{w}%'" for w in SIGNAL if "'" not in w)
+        order = (f"ORDER BY (CASE WHEN {vsql} THEN 0 ELSE 1 END), "
+                 "COALESCE(star_delta,0) DESC, COALESCE(pushed_at,'') DESC, "
+                 "COALESCE(stars,0) DESC LIMIT 2000")
         try:
-            pool = d1(base + "ORDER BY COALESCE(star_delta,0) DESC, COALESCE(stars,0) DESC LIMIT 2000")
-            print("  [采集] 排序=星速优先(star_delta)", flush=True)
+            pool = d1(base + order)
+            print("  [采集] 排序=垂直词优先 → 星速 → 活跃度 → 总星", flush=True)
         except Exception as e1:
-            print(f"  [采集] 星速列不可用({str(e1)[:50]}),退回总星排序", flush=True)
+            print(f"  [采集] 加权排序不可用({str(e1)[:50]}),退回总星排序", flush=True)
             pool = d1(base + "ORDER BY COALESCE(stars,0) DESC LIMIT 2000")
         for r in pool:
             r["topics"] = [t for t in str(r.get("topics") or "").split(",") if t]
