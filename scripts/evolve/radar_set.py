@@ -72,6 +72,21 @@ EXAM = [
          desc="Tesseract Open Source OCR Engine (main repository)",
          want="skip", probe="already_have",
          why="同一轮被堆到 OCR 产线上的第三个 —— 判定器在做「这领域最有名的工具是什么」的同义词联想。"),
+    # ── 乙2类:堆叠陷阱·2026-08-08 扩题(adopt.py 记录在案的真实事故:──────
+    #   「同一轮还把 firecrawl/browser-use/crawl4ai/Scrapling 四个爬虫全堆到采集线上」。
+    #   这两题的名字**不在**任何提示词正文里(与甲/乙类不同)—— 专验判定器学的是
+    #   「采集线已有自研体系+浏览器自动化要本地算力」这条原则,不是背名单。
+    dict(repo="browser-use/browser-use", stars=100000, lang="Python",
+         desc="Make websites accessible for AI agents. Automate tasks online with ease. "
+              "Playwright-based browser automation for LLM agents.",
+         want="skip", probe="already_have",
+         why="真实事故:被判 adopt 堆到采集线上。Playwright 要本地/常驻浏览器算力,"
+             "我们的采集线是 CF Workers+Actions 云端体系 —— 10 万星是对「星数不是判据」的又一次检验。"),
+    dict(repo="unclecode/crawl4ai", stars=40000, lang="Python",
+         desc="Open-source LLM Friendly Web Crawler & Scraper. Crawl smarter, faster.",
+         want="skip", probe="already_have",
+         why="同一轮四爬虫堆叠事故之二。采集线已有成熟自研抓取体系(worker 分流+对账),"
+             "再堆一个通用爬虫不是改进,是同类堆叠。"),
 
     # ── 丙类:真该采纳的(adoption.txt 里真落地了的)──────────────
     #   这一类必须够多。第一版只放了 1 题,自检当场抓到:
@@ -110,6 +125,23 @@ EXAM = [
          want="adopt", probe="",
          why="**仍是候选**(_stack.py 家底闸实测返回「仍是候选」)。纯库形态、"
              "能在 Actions 里跑,而我们 OCR 产线正缺版面/表格结构化 —— 这题的正解是 adopt。"),
+    # ── 丙类扩题(2026-08-08:adopt 类 4 题太少,一题运气=类分 ±0.0625,──────
+    #   足以翻转晋升闸。扩到 6 题把单题权重降到 1/6。两题都是**真落地**且
+    #   名字不在任何提示词正文里 —— adopt 类的分只能靠判断力挣,没有白给分。
+    dict(repo="deweizhu/bookget", stars=1300, lang="Go",
+         desc="Digital library book downloader supporting 50+ libraries: "
+              "NDL Japan, Naikaku Bunko, Harvard-Yenching, CADAL, etc. CLI tool.",
+         want="adopt", probe="",
+         why="**真落地**(下载线主力工具之一,MEMORY-down 与 reference_bookget_official_apis "
+             "记录在案:内閣和書 fonds3682585 靠它下)。CLI 形态、官方 API 直连 —— "
+             "50+ 馆源覆盖是自研脚本比不了的。"),
+    dict(repo="obra/superpowers", stars=2000, lang="TypeScript",
+         desc="Skills, hooks and workflow discipline for Claude Code agents: "
+              "TDD enforcement, debugging workflows, planning gates.",
+         want="adopt", probe="",
+         why="**真落地**(已装已启用于 .claude/settings.json,hooks 在生效;"
+             "protected_files_gate.py 就是学它的 hook 契约写的)。把 agent 纪律从"
+             "手写提醒变成代码层拦截 —— 2026-07-25 agent 改写铁律血案的正解。"),
 
     # ── 丁类:试过但不采用的(adoption.txt 里 DROPPED)────────────
     dict(repo="DietrichGebert/ponytail", stars=95160, lang="TypeScript",
