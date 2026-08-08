@@ -20,4 +20,5 @@ jobs:
       - name: probe fleet + upsert issue
         env:
           GH_TOKEN: ${{ github.token }}
+          GW_KEY:   ${{ secrets.GW_KEY }}
         run: python scripts/intel_radar/fleet_health.py
