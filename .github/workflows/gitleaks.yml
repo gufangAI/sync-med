@@ -3,6 +3,7 @@ name: Gitleaks
 on:
   push:
   pull_request:
+  workflow_dispatch:
   schedule:
     - cron: '30 2 * * *'      # 每日 UTC 02:30 全量兜底(防被绕过单次 push)
 permissions:
