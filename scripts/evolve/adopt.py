@@ -252,20 +252,23 @@ def brain():
     return _BRAIN["body"]
 
 
-def judge(r):
+def judge(r, sys_body=None):
+    """判一个候选。sys_body 缺省=冠军大脑;星网共判时传入其他认知路径的提示词——
+    **判定逻辑与硬闸完全同一套**,只有大脑不同,票才可比。"""
+    b = sys_body or brain()
     name = str(r.get("repo") or r.get("full_name") or "").strip()
     desc = str(r.get("description") or "")[:400]
     topics = ",".join(r.get("topics") or [])[:200]
     user = (f"项目:{name}\n星数:{r.get('stars')}\n语言:{r.get('lang')}\n"
             f"topics:{topics}\n简介:{desc}")
-    txt, model = ask(brain(), user, max_tokens=500)
+    txt, model = ask(b, user, max_tokens=500)
     try:
         o = parse_json(txt)
     except Exception:
         # 首轮实测 30 个里 3 个解析失败(10%)—— 模型没吐 JSON。重试一次再放弃。
         # 重试也必须走同一个大脑 —— 主路径读 D1 冠军、重试路径读源码常量,
         # 等于同一轮判定用了两套提示词,分数无从归因(「只修一半」的老病)。
-        txt, model = ask(brain(), user + "\n\n【必须只输出 JSON,不要任何别的字】",
+        txt, model = ask(b, user + "\n\n【必须只输出 JSON,不要任何别的字】",
                          max_tokens=500)
         try:
             o = parse_json(txt)
@@ -305,10 +308,79 @@ def judge(r):
     return o, None
 
 
+# ── 星网共判(认知裂变第 4 件·2026-08-08)────────────────────────────
+# 创始人 2026-05-22 对裂变的定义,最后半句一直没落地:
+#   「第 5 本书进来时,是**很多已成形的组合认知一起读它**」——
+#   此前判定始终是一个大脑判一次,网状根本没网起来。
+# 落法(升级审,不是全量陪审):
+#   · 冠军初判 skip → 直接过(skip 类考卷准确率 0.90-1.00,陪审是浪费);
+#   · 初判 adopt/watch =「有意思的书」→ 赛马场上 ≥基线的活体认知
+#     (单体+裂变组合体,radar_race_result.json 里带 body 的)各自再判一次,
+#     同一套 judge() 硬闸,多数票定终判 —— 这正打在最弱的 adopt 类准确率上。
+#   · 判定失败不计票(判定失败≠判定为拒绝,占位符闸同源的规矩);
+#   · 平票 → watch(网内有分歧本身就是"值得盯"的信号);
+#   · 终判升到 adopt 时,用真投了 adopt 的那个读者的完整输出落库
+#     (它过了 current/beats 硬闸,冠军的 watch 输出没有这两样)。
+MAX_CO_READERS = 3
+_PATHS = {"v": None}
+
+
+def cognition_paths():
+    """读者名单:赛马结果里 ≥基线的活体(与在位冠军去重)。缺文件/无合格行 → 空,退回单脑。"""
+    if _PATHS["v"] is None:
+        paths = []
+        try:
+            fp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "..", "..", "radar_race_result.json")
+            d = json.load(open(fp, encoding="utf-8"))
+            base = d.get("baseline") or 0
+            champ = brain().strip()
+            for row in d.get("rows") or []:
+                b = (row.get("body") or "").strip()
+                if b and row.get("score") is not None and row["score"] >= base and b != champ:
+                    paths.append({"who": str(row.get("who") or "?"), "body": b,
+                                  "score": row["score"]})
+            paths.sort(key=lambda p: -p["score"])
+        except Exception as e:
+            print(f"  [星网] 读认知路径失败({type(e).__name__}),本轮单脑判定", flush=True)
+        _PATHS["v"] = paths[:MAX_CO_READERS]
+        if _PATHS["v"]:
+            print("  [星网] 共判读者 " + " · ".join(
+                f"{p['who']}({p['score']:.2f})" for p in _PATHS["v"]), flush=True)
+    return _PATHS["v"]
+
+
+def co_judge(r, o):
+    """星网共判:返回(终判 o, 票面说明)。冠军的 o 已在手,读者们各判一票。"""
+    votes, adopt_o = [("冠军", o["verdict"])], (o if o["verdict"] == "adopt" else None)
+    for p in cognition_paths():
+        po, perr = judge(r, sys_body=p["body"])
+        if perr:
+            print(f"    ~ 读者 {p['who']} 判定失败不计票({str(perr)[:40]})", flush=True)
+            continue
+        votes.append((p["who"], po["verdict"]))
+        if po["verdict"] == "adopt" and adopt_o is None:
+            adopt_o = po
+    tally = {"adopt": 0, "watch": 0, "skip": 0}
+    for _, pv in votes:
+        tally[pv] += 1
+    best = max(tally.values())
+    winners = [k for k, c in tally.items() if c == best]
+    final = winners[0] if len(winners) == 1 else "watch"
+    face = f"{tally['adopt']}A/{tally['watch']}W/{tally['skip']}S"
+    if final == "adopt" and adopt_o is not None:
+        o = adopt_o                       # 带着过闸的 current/beats 落库
+    if final != o["verdict"] or len(votes) > 1:
+        o["why"] = f"[星网{face}]" + str(o.get("why") or "")[:250]
+    o["verdict"] = final
+    return o, face
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=30, help="本轮评审几个候选")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--no-starnet", action="store_true", help="关星网共判,回退单脑(排障用)")
     ap.add_argument("--report", default="")
     a = ap.parse_args()
 
@@ -345,6 +417,11 @@ def main():
             out["fail"] += 1
             print(f"  ✗ {name}: {err}", flush=True)
             continue
+        # 星网共判:初判 adopt/watch 的"有意思的书"才升级到多认知共读
+        if o["verdict"] in ("adopt", "watch") and not a.no_starnet and cognition_paths():
+            v0 = o["verdict"]
+            o, face = co_judge(r, o)
+            print(f"  🕸️ {name}: 冠军初判 {v0} → 星网 {face} → 终判 {o['verdict']}", flush=True)
         v = o["verdict"]
         line = {"repo": name, "stars": r.get("stars"), "url": r.get("url"),
                 "module": o.get("module"), "metric": o.get("metric"),
