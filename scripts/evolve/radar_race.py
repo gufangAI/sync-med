@@ -214,6 +214,37 @@ FISSION_CONTRACT = (
 )
 
 
+# ── 产出卫生闸(2026-08-08 复核 0.875 挑战者实锤后立)──────────────────
+#   那个"本应晋升"的 body 是 5703 字的**完整思维过程**("1.分析需求…4.起草改进…"),
+#   真提示词嵌在中间出现两遍、结尾截断 —— strip_wrapper 只剪开场白/结尾解说,
+#   剪不掉整篇推理;而嵌着的契约让 8 字段检查照样通过,污染体就这样进了赛场、
+#   还差点被晋升。晋升闸的人审拦住了它 —— 但闸应该在产出口,不该靠最后一道人眼。
+_META_MARKS = ("分析需求", "思维过程", "解构现任", "分析失分明细",
+               "自我修正", "最终输出生成", "起草具体文本", "迭代过程")
+
+
+def _extract_prompt(raw):
+    """改写/合成产物必须是**干净的提示词**,不是推理文档。
+    确定性判据:含推理元标记 或 JSON 契约出现 ≥2 次(草稿+终稿)= 污染。
+    提取:取最后一个「你是 … 只输出 JSON:{…}」完整块(模型的终版草稿);
+    提取不出 = 作废 —— 剪不干净仍然拦,红线一步不退(与 strip_wrapper 同一取向)。
+    返回 (cand, note):note 空串 = 干净原样;有字 = 污染的处置说明。"""
+    t = strip_wrapper(_unfence(raw or ""))
+    if not (any(m in t for m in _META_MARKS) or t.count("只输出 JSON") >= 2):
+        return t, ""
+    tail = t.rfind("只输出 JSON")
+    if tail < 0:
+        return "", "推理污染且无契约,作废"
+    brace = t.find("}", tail)                      # 契约模板单层花括号,首个}即终点
+    start = t.rfind("你是", 0, tail)
+    if brace < 0 or start < 0:
+        return "", "推理污染,提取失败(找不到完整「你是…只输出JSON」块),作废"
+    cand = t[start:brace + 1].strip()
+    if len(cand) < 200:
+        return "", "推理污染,提取出的块过短,作废"
+    return cand, f"推理污染(全文{len(t)}字),已提取末版干净提示词({len(cand)}字)"
+
+
 def _ask_any(system, user, supplier, max_tokens=3000, json_mode=False, model=None):
     """本文件的每一次调用都是评测/赛马,所以**一律走严格模式**(no_fallback)。
 
@@ -298,8 +329,27 @@ def exam_one(body, supplier, judge_system):
     return total, per_cls, lines, cached
 
 
+def _redact_exam_names(line):
+    """把考题项目名从失分明细里抹掉 —— 改写者要学的是**模式**(哪类判错了),
+    不是**答案**(哪个名字该判什么)。
+    【2026-08-08 复核 0.875 挑战者实锤】它把 OpenMontage/RapidOCR 这些考题名
+    连同"该判什么"直接写进了提示词式暗示 —— 那 0.875 有一部分是背答案,
+    不是判断力。冻结考卷 + 实名失分明细 = 给背题开了门,这里把名字关掉。"""
+    for i, q_ in enumerate(EXAM, 1):
+        r = str(q_.get("repo") or "")
+        if not r:
+            continue
+        if r in line:
+            line = line.replace(r, f"题{i}·某{q_.get('lang') or '开源'}项目")
+        short = r.split("/")[-1]
+        if len(short) >= 4 and short in line:      # 太短的词(如 cua)别乱替,会伤及无辜
+            line = line.replace(short, f"题{i}项目")
+    return line
+
+
 def failure_feedback(lines, total, per_cls):
-    bad = [l for l in lines if "判错" in l or "踩中" in l or "答不出" in l]
+    bad = [_redact_exam_names(l) for l in lines
+           if "判错" in l or "踩中" in l or "答不出" in l]
     # 【2026-08-06 落「下一刀」】此前失分明细按题号顺序原样喂 —— 而 skip 类失分
     #   最好修(拒绝比识别容易),改进者自然全往那边跑:首轮实测涨分 100% 来自
     #   skip 类,adopt 类纹丝不动。要它啃真瓶颈,反馈必须自己指方向:
@@ -379,9 +429,13 @@ def main():
                                  score=None, delta=None, cls={},
                                  note=f"调用失败 {type(e).__name__}: {msg[:200]}"))
                 continue
-            cand = (txt or "").strip()
-            if cand.startswith("```"):
-                cand = cand.split("```")[1].lstrip("json").strip()
+            cand, hygiene = _extract_prompt(txt)
+            if hygiene:
+                print(f"   ⚙️ {hygiene}")
+            if not cand:
+                rows.append(dict(who=label, supplier=sup, score=None, delta=None,
+                                 cls={}, note=hygiene))
+                continue
             # 硬闸:JSON 八字段一个都不能少(少了雷达根本解析不了它的判定)
             miss = [f for f in ["module", "verdict", "metric", "how", "effort",
                                 "current", "beats", "why"] if f'"{f}"' not in cand]
@@ -460,11 +514,14 @@ def main():
                 except Exception as e:
                     print(f"   ✗ 合成失败 {type(e).__name__}: {str(e)[:200]}")
                     continue
-                cand = strip_wrapper(_unfence(txt or ""))
-                if len(cand) < 200:
-                    print("   ✗ 产出过短")
+                cand, hygiene = _extract_prompt(txt)
+                if hygiene:
+                    print(f"   ⚙️ {hygiene}")
+                if not cand or len(cand) < 200:
+                    why = hygiene or "产出过短"
+                    print(f"   ✗ {why}")
                     rows.append(dict(who=f"🧬 {tag}", supplier="fission", kind="crossover",
-                                     score=None, delta=None, cls={}, note="产出过短"))
+                                     score=None, delta=None, cls={}, note=why))
                     continue
                 miss = [f for f in ("module", "verdict", "metric", "how", "effort",
                                     "current", "beats", "why") if f'"{f}"' not in cand]
