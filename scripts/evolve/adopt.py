@@ -254,6 +254,17 @@ def brain():
     return _BRAIN["body"]
 
 
+# 判定应答者固定一家(2026-08-08 诊断实锤):judge 此前不点名应答者,网关容错链
+#   随机派模型;三次实测全被派到 agnes-2.0-flash —— 它通用生成正常,但结构化判定
+#   任务上一贯吐占位符 {"verdict":"..."} / 非 JSON,导致星网初判永远失败、点不着火。
+#   点名 zhipu:它是 radar_race 的判定考官,18 题冻结考卷 + 晋升全程都由它应答,
+#   判定任务实测合格。附带收严:应答者固定后,judge 结果的差异才真来自「大脑不同」
+#   而非「应答模型不同」——与 radar_race「考生固定一家否则分数不可比」同一条纪律。
+#   保留容错(不 no_fallback):zhipu 偶尔限流时切链兜底,派到 agnes 的占位符仍被
+#   占位符闸拦下、下轮重判,不致命。可用 JUDGE_SUPPLIER 环境变量改判定家。
+JUDGE_SUPPLIER = os.environ.get("JUDGE_SUPPLIER", "zhipu")
+
+
 def judge(r, sys_body=None):
     """判一个候选。sys_body 缺省=冠军大脑;星网共判时传入其他认知路径的提示词——
     **判定逻辑与硬闸完全同一套**,只有大脑不同,票才可比。"""
@@ -268,7 +279,7 @@ def judge(r, sys_body=None):
     #   炸掉整轮。judge 是本产线所有 ask 的唯一必经点,在这里单点收口:
     #   调用失败返回 (None, err),自动接通主循环 fail 计数与星网"失败不计票"。
     try:
-        txt, model = ask(b, user, max_tokens=500)
+        txt, model = ask(b, user, max_tokens=500, supplier=JUDGE_SUPPLIER)
     except Exception as e:
         return None, f"调用失败 {type(e).__name__}:{str(e)[:80]}"
     try:
@@ -279,7 +290,7 @@ def judge(r, sys_body=None):
         # 等于同一轮判定用了两套提示词,分数无从归因(「只修一半」的老病)。
         try:
             txt, model = ask(b, user + "\n\n【必须只输出 JSON,不要任何别的字】",
-                             max_tokens=500)
+                             max_tokens=500, supplier=JUDGE_SUPPLIER)
             o = parse_json(txt)
         except Exception as e:
             # 带上肇事模型名:重放验证连败三轮才发现失败日志里看不出是哪家在偷懒
