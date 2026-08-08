@@ -31,6 +31,11 @@ on:
         type: boolean
         required: false
         default: false
+      promote:
+        description: '晋升开关:过闸即真写方案槽换冠军(仅限人工复核通过后手动触发;cron 永远不带,影子期不破)'
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: radar-race
@@ -55,10 +60,11 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python scripts/evolve/radar_set.py
 
-      # ⚠️ 现在**没有** --promote:处于「7 天影子期」(创始人 2026-08-07 拍板:
-      #    配置级自动晋升,但先 dry-run 验判得对不对)。每轮只打印「本应晋升谁」,
-      #    人工复核正确率达标后,在下面这条命令加 `--promote` 即开真写方案槽。
-      #    写入端已就绪(radar_race.py 晋升块 + adopt.py::brain 读 D1 冠军)。
+      # ⚠️ cron 轮**永远不带** --promote:「7 天影子期」(创始人 2026-08-07 拍板:
+      #    配置级自动晋升,但先 dry-run 验判得对不对)。每轮只打印「本应晋升谁」。
+      #    人工复核通过后,手动 dispatch 勾 promote=true 即真写方案槽 —— 复核不是
+      #    走形式:2026-08-08 首个"本应晋升"的 0.875 挑战者就被复核拦下
+      #    (body 是整篇推理文档 + 把考题名写进提示词背题),此后加了产出卫生闸+脱敏。
       - name: 赛马(五家改写判定大脑 · 同卷同判分 · 冻结考卷)
         env:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
@@ -68,7 +74,8 @@ jobs:
         run: |
           python scripts/evolve/radar_race.py \
             --out radar_race_result.json \
-            ${{ (github.event.inputs.baseline_only == 'true') && '--baseline-only' || '' }}
+            ${{ (github.event.inputs.baseline_only == 'true') && '--baseline-only' || '' }} \
+            ${{ (github.event.inputs.promote == 'true') && '--promote' || '' }}
 
       # 冻结的考卷必须跨 runner 存活 —— 不提交回仓,下一轮新机器上「冻结」等于没冻,
       # 「连跑 3 次同分」永远验不出来。与 evolve-improve / evolve-race 同一套。
