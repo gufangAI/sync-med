@@ -59,6 +59,7 @@ jobs:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          GW_KEY:         ${{ secrets.GW_KEY }}
           GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
           PYTHONIOENCODING: utf-8
         run: python scripts/evolve/trending.py --days 30 --report evolve_trending.json
@@ -68,6 +69,7 @@ jobs:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          GW_KEY:         ${{ secrets.GW_KEY }}
           GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
           PYTHONIOENCODING: utf-8
         run: python scripts/evolve/harvest.py --report evolve_harvest.json || echo '采集失败不致命,下一步用热门榜兜底'
@@ -77,6 +79,7 @@ jobs:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          GW_KEY:         ${{ secrets.GW_KEY }}
           PYTHONIOENCODING: utf-8
         run: |
           python scripts/evolve/adopt.py \
@@ -91,6 +94,7 @@ jobs:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          GW_KEY:         ${{ secrets.GW_KEY }}
           PYTHONIOENCODING: utf-8
         run: |
           python scripts/evolve/inbox.py

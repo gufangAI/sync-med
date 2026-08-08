@@ -95,7 +95,10 @@ def ask(system, user, timeout=120, max_tokens=2600, supplier=None,
         payload["model"] = model
     req = urllib.request.Request(
         GATEWAY, method="POST", data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={"Content-Type": "application/json; charset=utf-8", "User-Agent": UA})
+        headers={"Content-Type": "application/json; charset=utf-8", "User-Agent": UA,
+                 # 网关认证(2026-08-08 软启动):有钥带钥,无钥照跑(ENFORCE 拨上前不断人)
+                 **({"X-Gateway-Key": os.environ.get("GW_KEY", "")}
+                    if os.environ.get("GW_KEY") else {})})
     try:
         j = json.loads(urllib.request.urlopen(req, timeout=timeout).read())
     except urllib.error.HTTPError as e:
