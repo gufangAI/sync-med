@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "PaddleOCR/Tesseract",
+ "beats": "",
+ "why": "拒绝常识复读。PaddleOCR 是 OCR 领域默认/最著名的工具，按规则默认我们已使用，且其需常驻服务（如 PPOCRServer）或重型推理环境，不满足零常驻主机约束。"
+}

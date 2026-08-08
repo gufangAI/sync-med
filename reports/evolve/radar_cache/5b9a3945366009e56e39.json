@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "PaddleOCR/Tesseract",
+ "beats": "",
+ "why": "Tesseract 是 OCR 领域最著名、最标准的开源引擎，属于常识级默认工具。我们默认已在 OCR 产线中使用（或其封装如 PaddleOCR），且其 C++ 实现无法直接在 Cloudflare Workers 或 GitHub Actions 中运行，需编译部署和常驻进程支持，违反零常驻主机约束。"
+}

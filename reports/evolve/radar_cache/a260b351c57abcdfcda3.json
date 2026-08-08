@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "大",
+ "current": "",
+ "beats": "",
+ "why": "Redis 是常驻数据库服务，需独立服务器进程，违反零常驻主机约束"
+}

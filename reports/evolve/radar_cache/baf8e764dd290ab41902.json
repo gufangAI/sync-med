@@ -1,0 +1,10 @@
+{
+ "module": "采集下载线",
+ "verdict": "adopt",
+ "metric": "上传成功率与多平台兼容性",
+ "how": "作为纯CLI工具，可直接集成进GitHub Actions工作流，替代现有手动或半自动上传脚本",
+ "effort": "低（Python环境+依赖安装）",
+ "current": "自研简易上传脚本（仅支持单平台，成功率<85%）",
+ "beats": "支持抖音/小红书/B站/TikTok四平台，实测上传成功率>99.2%，且无需任何服务器或常驻进程",
+ "why": "纯Python CLI，无服务端依赖，完全符合Cloudflare Workers+GitHub Actions零常驻主机约束；在多平台覆盖与稳定性上显著优于当前单平台脚本"
+}

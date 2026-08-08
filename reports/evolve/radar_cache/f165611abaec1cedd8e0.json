@@ -1,0 +1,10 @@
+{
+ "module": "AI寻脉",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "Claude Code",
+ "beats": "",
+ "why": "项目本质是 Claude Code 的插件，非独立库/脚本；需依赖 Claude 生态及常驻服务，无法在 Cloudflare Workers 或 GitHub Actions 中独立运行；属于 AI 工具链扩展而非可嵌入的 Serverless 模块。"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "PaddleOCR",
+ "beats": "",
+ "why": "RapidOCR本质是ONNX模型+Runtime封装的OCR工具集，与PaddleOCR同属客户端推理库；非增量改进，且PaddleOCR已在产线成熟使用"
+}

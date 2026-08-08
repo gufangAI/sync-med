@@ -1,0 +1,10 @@
+{
+ "module": "检索路由",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "",
+ "beats": "",
+ "why": "Redis 需要常驻服务器进程，违反零常驻主机约束；且是缓存领域默认/最著名工具，属于常识复读陷阱。"
+}

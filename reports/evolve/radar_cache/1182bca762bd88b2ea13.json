@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "PDF→PDFium→PyMuPDF→OCR+LayoutParser+TableTransformer",
+ "beats": "",
+ "why": "MinerU依赖GPU和常驻服务，无法在Cloudflare Workers运行"
+}

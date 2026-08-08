@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "PaddleOCR/Tesseract",
+ "beats": "",
+ "why": "MinerU 是一个需要常驻进程（如启动 PDF 解析服务）的端到端工具链，非纯库；其核心依赖（如 LayoutParser、Unstructured）在 CF Workers 环境中无法原生运行；且 OCR 产线领域默认已采用 PaddleOCR/Tesseract 等标准方案，属常识复读"
+}

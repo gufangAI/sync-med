@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "paddleocr",
+ "beats": "",
+ "why": "需本地C++运行时及训练/识别模型文件，无法在Cloudflare Workers或GitHub Actions pip环境中直接调用"
+}

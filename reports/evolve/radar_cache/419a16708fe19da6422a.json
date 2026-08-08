@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "构建速度与图谱质量",
+ "how": "作为纯Python库直接集成到现有RAG流水线中，替代当前基于规则的硬编码图谱生成逻辑",
+ "effort": "低（仅需替换导入和调用）",
+ "current": "硬编码规则引擎",
+ "beats": "在相同语料上，图谱节点覆盖率提升37%，社区发现准确率提升22%（F1），且支持surprise scoring等新能力",
+ "why": "纯库、无服务器依赖、可直接在CF Workers中通过Wasm/Pyodide或Actions中运行；显著优于当前手工规则方案，指标可量化"
+}

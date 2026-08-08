@@ -1,0 +1,10 @@
+{
+ "module": "检索路由",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "",
+ "beats": "",
+ "why": "Elasticsearch 需要常驻 Java 进程与独立服务器，违反零常驻主机约束；且作为检索领域默认方案，默认已被采用，落入常识复读陷阱。"
+}

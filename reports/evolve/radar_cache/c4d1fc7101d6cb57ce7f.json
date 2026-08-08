@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "知识图谱构建耗时降低40%，支持纯库调用",
+ "how": "pip install graphify，替换现有图谱构建模块，在Actions工作流中直接import调用",
+ "effort": "低",
+ "current": "networkx+custom",
+ "beats": "无需启动服务，原生支持代码/文本输入，内置社区发现和surprise scoring算法",
+ "why": "纯Python库，零常驻进程，完全符合Serverless架构；相比当前networkx+custom方案，省去服务部署和维护，且内置算法更丰富"
+}

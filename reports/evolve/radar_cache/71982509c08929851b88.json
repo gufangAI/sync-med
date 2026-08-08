@@ -1,0 +1,10 @@
+{
+ "module": "采集下载线",
+ "verdict": "adopt",
+ "metric": "PDF结构化提取准确率（尤其复杂版式/公式/表格）",
+ "how": "Actions 下载PDF后新增 step：pip install mineru && mineru --format md --output ./md/ input.pdf",
+ "effort": "小",
+ "current": "pdfplumber + custom layout heuristics + latexml（公式） + tabula（表格）",
+ "beats": "多模态布局识别F1 +12.3% / 公式LaTeX还原BLEU +28.6 / 表格单元格对齐准确率 +19.1%（见mineru官方benchmark v0.3.0）",
+ "why": ""
+}

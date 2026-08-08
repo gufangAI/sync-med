@@ -1,0 +1,10 @@
+{
+ "module": "AI寻脉",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "",
+ "beats": "",
+ "why": "ponytail 是 Claude Code 插件，依赖外部大模型服务与 IDE 环境，无法在 Cloudflare Workers 或 GitHub Actions 中独立运行；属于 AI 工具链外围插件，非可集成库/脚本，且不解决我们 Serverless 架构下的任何核心指标问题。"
+}

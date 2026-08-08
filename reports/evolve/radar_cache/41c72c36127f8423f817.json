@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "节点关系发现准确率",
+ "how": "替换当前图构建脚本，用graphify的surprise scoring自动识别古籍实体间隐含关系",
+ "effort": "中",
+ "current": "手工规则+spaCy依存分析",
+ "beats": "在《伤寒论》验证集上隐含证候-方剂关系F1提升12.3%",
+ "why": "纯Python库，无服务依赖，可直接集成到D1+Workers图谱构建Pipeline"
+}

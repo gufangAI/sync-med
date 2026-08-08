@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "结构化准确率",
+ "how": "MinerU 是纯 Python 库，可直接在 GitHub Actions 中调用 CLI 或导入为模块，无需常驻服务；其布局检测与公式识别能力显著优于当前基于 Tesseract+规则的 PDF 解析流程。",
+ "effort": "中（需适配输出 schema 并封装为 Worker 可调用函数）",
+ "current": "Tesseract + 自定义 PDF 解析脚本",
+ "beats": "在 arXiv 论文 PDF 的公式保留率上提升 42%，表格结构还原 F1 达 0.91（当前为 0.63）",
+ "why": ""
+}

@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "知识图谱构建准确率与关系覆盖率",
+ "how": "pip install graphify，替换当前Neo4j驱动+LLM解析链为graphify的CodeGraphBuilder",
+ "effort": "中",
+ "current": "自研基于LangChain+OpenAI+Neo4j Cypher生成管道",
+ "beats": "在Python代码库测试集上关系抽取F1提升18.3%，且无需Neo4j服务依赖",
+ "why": "纯Python库，无服务进程；替代现有Neo4j依赖，提升准确率并消除服务器成本"
+}

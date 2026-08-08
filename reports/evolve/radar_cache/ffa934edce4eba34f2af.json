@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "",
+ "beats": "",
+ "why": "Neo4j 是需常驻 JVM 进程的图数据库服务，违反 Cloudflare Serverless 零常驻主机铁律"
+}

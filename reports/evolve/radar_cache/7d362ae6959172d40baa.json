@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "PaddleOCR",
+ "beats": "",
+ "why": "PaddleOCR 是 OCR 领域的默认/最著名工具，属于常识复读范畴；我们默认已在使用它，且其 Python 实现无法直接在 Cloudflare Workers 中运行，需常驻主机环境。"
+}

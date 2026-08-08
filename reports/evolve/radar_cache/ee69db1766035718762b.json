@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "high",
+ "current": "自研静态站点",
+ "beats": "",
+ "why": "freeCodeCamp 是一个需要完整服务器端渲染和数据库支持的全栈 Web 应用，无法在 Cloudflare Workers 或 GitHub Actions 中以 Serverless 方式运行；其架构与零常驻主机约束根本冲突。"
+}

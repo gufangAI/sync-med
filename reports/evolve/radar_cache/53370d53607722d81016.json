@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "古籍PDF结构化准确率",
+ "how": "替换当前PDF解析环节，用MinerU的layout-aware模型提取带章节/表格/公式的Markdown",
+ "effort": "中",
+ "current": "PyMuPDF + 自研规则模板",
+ "beats": "表格与药方公式识别F1提升27%（官方benchmark）",
+ "why": "纯Python库，可直接在GitHub Actions中调用，无需常驻服务"
+}
