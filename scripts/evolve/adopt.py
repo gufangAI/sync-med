@@ -282,7 +282,9 @@ def judge(r, sys_body=None):
                              max_tokens=500)
             o = parse_json(txt)
         except Exception as e:
-            return None, f"解析失败 {type(e).__name__}(重试后仍失败)"
+            # 带上肇事模型名:重放验证连败三轮才发现失败日志里看不出是哪家在偷懒
+            # (占位符/解析失败都是网关派的模型质量问题,不点名就没法治)
+            return None, f"解析失败 {type(e).__name__}(重试后仍失败)[model={model}]"
     # ── 占位符闸(2026-08-07 立·全池实测 26% 的 skip 是假判定)────────────
     # 创始人:「GitHub 这种好东西太多了,而我们的鹰眼就是瞎子」。用 Langflow 验尸:
     #   langflow(152826★) / dify(151261★) / Flowise(55132★) 三个都**采到了**,
@@ -298,7 +300,8 @@ def judge(r, sys_body=None):
         return (not s) or s in ("...", "…", "..", "n/a", "N/A", "todo", "TODO", "xxx", "XXX")
     blank = [k for k in ("module", "metric", "how", "why") if _placeholder(o.get(k))]
     if len(blank) >= 2:
-        return None, f"占位符判定(字段 {'/'.join(blank)} 是模板占位,模型没真判)—— 不入库,下轮重判"
+        return None, (f"占位符判定(字段 {'/'.join(blank)} 是模板占位,模型没真判)"
+                      f"[model={model}]—— 不入库,下轮重判")
 
     v = str(o.get("verdict") or "skip").lower()
     if v not in ("adopt", "watch", "skip"):
