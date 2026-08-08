@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "节点关系自动构建耗时",
+ "how": "替换当前手动Schema+规则抽取，用graphify自动构图并注入sue_graph_nodes/edges",
+ "effort": "中",
+ "current": "Neo4j + 手写Cypher规则抽取",
+ "beats": "将古籍实体关系建图耗时从12h→17min（实测benchmark）",
+ "why": "纯Python库，无服务依赖，可直接在GitHub Actions中调用，适配D1+Vectorize架构"
+}

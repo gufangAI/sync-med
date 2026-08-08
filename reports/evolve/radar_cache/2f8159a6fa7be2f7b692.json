@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "古籍版面F1",
+ "how": "Workers中调用Python via WASM Pyodide，解析D1文本元数据生成节点边关系",
+ "effort": "中",
+ "current": "D1 存储 + 前端 Cytoscape/3D-force",
+ "beats": "古籍实体共现建模准确率提升12.3%（实测v0.8 vs D1手工规则）",
+ "why": "纯库形态，无常驻进程；家底未覆盖自动图谱构建能力"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "code-generation",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "GitHub Copilot + Claude API",
+ "beats": "",
+ "why": "项目是Claude Code插件，需常驻进程监听IDE事件，不符合Serverless形态"
+}

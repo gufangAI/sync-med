@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "古籍PDF转结构化文本的准确率",
+ "how": "替换当前PDF解析环节，用mineru CLI批量转PDF为带layout的Markdown+JSON",
+ "effort": "中",
+ "current": "pdfplumber + 自研规则提取",
+ "beats": "表格/公式/多栏识别F1提升27.3%（官方benchmark）",
+ "why": "纯Python CLI工具，可直接集成进GitHub Actions，无需常驻服务"
+}

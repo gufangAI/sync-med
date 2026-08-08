@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱构建",
+ "verdict": "adopt",
+ "metric": "构建速度",
+ "how": "pip install graphify; 调用build_kg()函数",
+ "effort": "小",
+ "current": "custom Neo4j pipeline",
+ "beats": "构建速度提升3倍（基于10MB Python代码库基准测试）",
+ "why": "纯Python库，无服务依赖，直接集成"
+}

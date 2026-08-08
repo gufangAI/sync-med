@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR准确率（尤其古籍竖排/褪色/虫蛀）",
+ "how": "替换当前PaddleOCR为最新v2.7+，启用PP-OCRv4模型和古籍Finetune权重",
+ "effort": "小",
+ "current": "GitHub Actions跑PaddleOCR v2.6 + Tesseract",
+ "beats": "在ICDAR2019-LSVT古籍测试集上CER低1.8%",
+ "why": "原项目持续优化中文古籍OCR，支持竖排、印章掩码、低对比度增强"
+}

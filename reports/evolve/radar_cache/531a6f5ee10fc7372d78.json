@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "",
+ "beats": "",
+ "why": "违反红线一：Caddy 是常驻 Web 服务器，需长期运行进程，不兼容 Cloudflare Workers 无服务架构"
+}

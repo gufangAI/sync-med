@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "大",
+ "current": "",
+ "beats": "",
+ "why": "违反红线一：Elasticsearch 是常驻 Java 进程服务，无法部署在 Cloudflare Workers 环境"
+}

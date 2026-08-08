@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR准确率",
+ "how": "无法在Workers或Actions中直接运行C++二进制",
+ "effort": "大",
+ "current": "GitHub Actions 批量跑 PaddleOCR + Tesseract (ONNX/CPU)",
+ "beats": "无",
+ "why": "Tesseract需本地编译部署，不兼容Cloudflare Workers零常驻约束，且当前已用ONNX版Tesseract"
+}

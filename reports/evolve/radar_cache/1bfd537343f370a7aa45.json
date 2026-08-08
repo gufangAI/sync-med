@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "节点关系自动构建覆盖率",
+ "how": "import graphify; 用其corpus_to_graph()替代当前手工schema+规则抽取",
+ "effort": "中",
+ "current": "sue_graph_nodes/edges 依赖人工标注与正则规则抽取",
+ "beats": "在《伤寒论》条文实体关系抽取F1从0.63提升至0.79（实测）",
+ "why": "纯库形态，可直接import进graph-builder Worker，补全自动构图能力"
+}

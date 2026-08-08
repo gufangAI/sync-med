@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR准确率与多语种支持",
+ "how": "替换现有PaddleOCR为RapidOCR ONNX模型，复用GitHub Actions CPU环境",
+ "effort": "小",
+ "current": "PaddleOCR + Tesseract (ONNX/CPU)",
+ "beats": "在古籍异体字、竖排版、低清扫描件上字符级F1高2.3%（官方benchmark）",
+ "why": "纯ONNX推理，零依赖、无服务端，完美适配Actions CPU runner"
+}

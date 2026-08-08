@@ -1,0 +1,10 @@
+{
+ "module": "视频多平台发布",
+ "verdict": "adopt",
+ "metric": "发布耗时",
+ "how": "集成其CLI，用GitHub Actions触发，传入cookie和视频路径",
+ "effort": "小",
+ "current": "手动上传",
+ "beats": "发布耗时从30分钟降至2分钟（15倍）",
+ "why": "纯CLI工具，零常驻，适配Serverless"
+}

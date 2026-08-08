@@ -1,0 +1,10 @@
+{
+ "module": "",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "",
+ "beats": "",
+ "why": "违反红线一：Redis 是常驻数据库服务，需长期运行进程，不兼容 Cloudflare Workers 无服务器架构"
+}

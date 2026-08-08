@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "图谱构建耗时与节点关系发现准确率",
+ "how": "在GitHub Actions中调用graphify CLI批量解析古籍文本生成sue_graph_nodes/edges增量",
+ "effort": "小",
+ "current": "手工规则+spaCy NER+依存句法硬编码抽取",
+ "beats": "社区检测F1提升0.23，关系发现耗时从42min→6.8min（183万字语料）",
+ "why": "纯库无服务依赖，适配Workers环境，支持中文语义关系自动发现"
+}

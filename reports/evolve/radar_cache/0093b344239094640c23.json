@@ -1,0 +1,10 @@
+{
+ "module": "OCR",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "Tesseract + custom post-processing",
+ "beats": "",
+ "why": "PaddleOCR is a full-service OCR system requiring persistent server processes, incompatible with our serverless architecture."
+}

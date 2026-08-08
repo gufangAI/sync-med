@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "PaddleOCR",
+ "beats": "",
+ "why": "已在用PaddleOCR，tesseract无明确指标胜出（如竖排手写体识别率提升），且需本地部署daemon，不符合Serverless/Actions运行形态"
+}

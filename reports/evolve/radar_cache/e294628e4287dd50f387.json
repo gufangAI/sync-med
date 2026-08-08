@@ -1,0 +1,10 @@
+{
+ "module": "OCR",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "PaddleOCR",
+ "beats": "",
+ "why": "Tesseract 是常驻服务，需部署在有状态服务器上，不符合零常驻主机约束"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "小",
+ "current": "Tesseract 5.3.0 via Cloudflare Workers + WASM build",
+ "beats": "",
+ "why": "我们已用 wasm-tesseract 在 Workers 运行，无需新集成"
+}

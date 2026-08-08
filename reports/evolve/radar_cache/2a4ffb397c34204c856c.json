@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "古籍PDF转Markdown结构准确率",
+ "how": "替换现有PDF解析步骤，用mineru CLI在Actions中批量转PDF为带公式/表格的Markdown",
+ "effort": "小",
+ "current": "pdfplumber + custom layout heuristic",
+ "beats": "表格与数学公式识别F1提升27%（官方benchmark）",
+ "why": "纯Python CLI，无常驻服务，可直接pip install并在GitHub Actions中调用"
+}
