@@ -64,6 +64,20 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python scripts/evolve/trending.py --days 30 --report evolve_trending.json
 
+      # 【2026-08-09 接调度·根治 star_delta 全0】ranks.py 抓 OpenGithubs 飙升榜拿「月Star
+      #   增长量」这个 GitHub Search API 拿不到的信号,写进 gh_repo_pool.star_delta。此前它
+      #   建好从没接进任何 workflow → star_delta 全表 4603 个全0 → adopt 采集排序退化成纯
+      #   stars、每轮撞同批超级头部教程/框架被预筛砍99%、616个垂直候选永远轮不到。纯采集+
+      #   正则零AI调用、幂等(ON CONFLICT star_delta=MAX);失败不致命,下游垂直词排序兜底。
+      - name: 星速回填(ranks·让高增长垂直项目排上来)
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/evolve/ranks.py --years 2026 || echo 'ranks失败不致命,垂直词排序兜底'
+
       - name: 缺口驱动采集(从我们的短板出发定向抓,不捡热门)
         env:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
