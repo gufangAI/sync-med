@@ -5654,5 +5654,382 @@
       "age_days": 14.76,
       "reason": "\u6700\u65b0\u5165\u5e93\u8ddd\u4eca 14.8 \u5929,\u8d85\u8fc7 7 \u5929\u9608\u503c,\u7591\u4f3c\u5165\u5e93\u7ba1\u7ebf\u505c\u6446"
     }
+  },
+  {
+    "checked_at_bj": "2026-08-09 19:49:44",
+    "alert_count": 2,
+    "alerts": [
+      "ai_search",
+      "freshness"
+    ],
+    "cover": {
+      "name": "cover_real_ratio",
+      "ok": true,
+      "alert": false,
+      "total_sampled": 30,
+      "real_webp": 21,
+      "svg_generated": 0,
+      "svg_placeholder": 9,
+      "svg_other": 0,
+      "http_fail": 0,
+      "real_ratio": 0.7,
+      "source_dist": {
+        "dlink": 20,
+        "r2thumb": 1,
+        "fallback-svg": 9
+      },
+      "samples": [
+        {
+          "book_id": "fuji-RB00000805",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 5081,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi288-0002-146",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 4574,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "ndl-2555631",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 3320,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "ndl-2596428",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 4153,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi303-0003-02",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 1654,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi301-0090-14",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "r2thumb",
+          "x_cover_kind": "page",
+          "elapsed_ms": 635,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi105-0001-177",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 4439,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi080-0007-10",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 5306,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi303-0262-02",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 1914,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "ndl-2557322",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 3925,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "shi023-0003-39",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 2467,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi278-0206-09",
+          "status": 200,
+          "content_type": "image/svg+xml",
+          "x_source": "fallback-svg",
+          "x_cover_kind": "placeholder",
+          "elapsed_ms": 4211,
+          "kind": "svg_placeholder(\u771f\u964d\u7ea7)"
+        },
+        {
+          "book_id": "bie006-0001-10",
+          "status": 200,
+          "content_type": "image/svg+xml",
+          "x_source": "fallback-svg",
+          "x_cover_kind": "placeholder",
+          "elapsed_ms": 3656,
+          "kind": "svg_placeholder(\u771f\u964d\u7ea7)"
+        },
+        {
+          "book_id": "ndl-2555251",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 2613,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi301-0082-04",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 1714,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi366-0033-12",
+          "status": 200,
+          "content_type": "image/svg+xml",
+          "x_source": "fallback-svg",
+          "x_cover_kind": "placeholder",
+          "elapsed_ms": 680,
+          "kind": "svg_placeholder(\u771f\u964d\u7ea7)"
+        },
+        {
+          "book_id": "zi303-0235-02",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 4717,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi365-0005-44",
+          "status": 200,
+          "content_type": "image/svg+xml",
+          "x_source": "fallback-svg",
+          "x_cover_kind": "placeholder",
+          "elapsed_ms": 1311,
+          "kind": "svg_placeholder(\u771f\u964d\u7ea7)"
+        },
+        {
+          "book_id": "zi364-0128-48",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 3398,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi237-0012-03",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 1981,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi367-0130-01",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 3120,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi301-0025-20",
+          "status": 200,
+          "content_type": "image/svg+xml",
+          "x_source": "fallback-svg",
+          "x_cover_kind": "placeholder",
+          "elapsed_ms": 2876,
+          "kind": "svg_placeholder(\u771f\u964d\u7ea7)"
+        },
+        {
+          "book_id": "zi304-0132-07",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 1812,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi308-0101-28",
+          "status": 200,
+          "content_type": "image/svg+xml",
+          "x_source": "fallback-svg",
+          "x_cover_kind": "placeholder",
+          "elapsed_ms": 869,
+          "kind": "svg_placeholder(\u771f\u964d\u7ea7)"
+        },
+        {
+          "book_id": "zi305-0054-08",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 3408,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi302-0071-18",
+          "status": 200,
+          "content_type": "image/svg+xml",
+          "x_source": "fallback-svg",
+          "x_cover_kind": "placeholder",
+          "elapsed_ms": 3708,
+          "kind": "svg_placeholder(\u771f\u964d\u7ea7)"
+        },
+        {
+          "book_id": "zi288-0002-128",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 2525,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi298-0023-04",
+          "status": 200,
+          "content_type": "image/webp",
+          "x_source": "v2+dlink",
+          "x_cover_kind": "page",
+          "elapsed_ms": 4394,
+          "kind": "real_webp"
+        },
+        {
+          "book_id": "zi366-0071-03",
+          "status": 200,
+          "content_type": "image/svg+xml",
+          "x_source": "fallback-svg",
+          "x_cover_kind": "placeholder",
+          "elapsed_ms": 453,
+          "kind": "svg_placeholder(\u771f\u964d\u7ea7)"
+        },
+        {
+          "book_id": "zi365-0031-30",
+          "status": 200,
+          "content_type": "image/svg+xml",
+          "x_source": "fallback-svg",
+          "x_cover_kind": "placeholder",
+          "elapsed_ms": 883,
+          "kind": "svg_placeholder(\u771f\u964d\u7ea7)"
+        }
+      ]
+    },
+    "pages": {
+      "name": "page_availability",
+      "targets": {
+        "home": {
+          "label": "\u9996\u9875 /",
+          "url": "https://gufangai.com/",
+          "status_list": [
+            200,
+            200,
+            200
+          ],
+          "median_ms": 65,
+          "item_count": null,
+          "alert": false
+        },
+        "overseas": {
+          "label": "\u6d77\u5916\u533b\u4e66\u5217\u8868 /api/library/overseas?agg=1",
+          "url": "https://gufangai.com/api/library/overseas?agg=1",
+          "status_list": [
+            200,
+            200,
+            200
+          ],
+          "median_ms": 67,
+          "item_count": 35,
+          "alert": false
+        },
+        "overseas_guji": {
+          "label": "\u6d77\u5916\u53e4\u7c4d\u5217\u8868 /api/library/overseas-guji?agg=1",
+          "url": "https://gufangai.com/api/library/overseas-guji?agg=1",
+          "status_list": [
+            200,
+            200,
+            200
+          ],
+          "median_ms": 64,
+          "item_count": 35,
+          "alert": false
+        },
+        "daodu_list": {
+          "label": "AI\u5bfc\u8bfb\u5217\u8868 /api/daodu/list?limit=20",
+          "url": "https://gufangai.com/api/daodu/list?limit=20",
+          "status_list": [
+            200,
+            200,
+            200
+          ],
+          "median_ms": 535,
+          "item_count": 24,
+          "alert": false
+        }
+      },
+      "alert": false
+    },
+    "ai_search": {
+      "name": "ai_search",
+      "url": "https://gufangai.com/api/ai/search",
+      "status": null,
+      "elapsed_ms": 25051,
+      "alert": true,
+      "reason": "\u8bf7\u6c42\u5f02\u5e38: HTTPSConnectionPool(host='gufangai.com', port=443): Read timed out. (read timeout=25)"
+    },
+    "graph": {
+      "name": "graph",
+      "url": "https://gufangai.com/api/ai/graph",
+      "elapsed_ms": 2238,
+      "alert": false,
+      "nodes": 2372,
+      "links": 3200,
+      "prev_nodes": 2372,
+      "prev_links": 3200
+    },
+    "freshness": {
+      "name": "d1_freshness",
+      "alert": true,
+      "raw_value": "2026-07-25 16:47:11",
+      "latest_created_at": "2026-07-25T16:47:11+00:00",
+      "age_days": 14.79,
+      "reason": "\u6700\u65b0\u5165\u5e93\u8ddd\u4eca 14.8 \u5929,\u8d85\u8fc7 7 \u5929\u9608\u503c,\u7591\u4f3c\u5165\u5e93\u7ba1\u7ebf\u505c\u6446"
+    }
   }
 ]
