@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "updated": "2026-08-08",
+ "updated": "2026-08-09",
  "decisions": [
   {
    "source": "arsenal:x1xhlol/system-prompts-and-models-of-ai-tools",
@@ -232,6 +232,26 @@
    "date": "2026-08-08",
    "issue": 230,
    "topic": "新技术研判:volcengine/OpenViking(28023星)— 提供AI代理的自进化上下文数据库，包括记忆、知识RAG和技能",
+   "verdict_ok": true
+  },
+  {
+   "source": "arsenal:datawhalechina/happy-llm",
+   "decision": "watch",
+   "basis": "veto:1",
+   "fingerprint": "d45e0f0726a045e8",
+   "date": "2026-08-09",
+   "issue": 242,
+   "topic": "新技术研判:datawhalechina/happy-llm(32736星)— 从零开始构建大模型的教学资源",
+   "verdict_ok": true
+  },
+  {
+   "source": "arsenal:MCPBlender/blender-mcp",
+   "decision": "adopt",
+   "basis": "no-veto",
+   "fingerprint": "6b2bb88b4d1207c0",
+   "date": "2026-08-09",
+   "issue": 242,
+   "topic": "新技术研判:MCPBlender/blender-mcp(25642星)— 使用Claude AI控制Blender 3D建模。",
    "verdict_ok": true
   }
  ]
