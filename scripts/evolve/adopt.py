@@ -284,8 +284,14 @@ def judge(r, sys_body=None):
     name = str(r.get("repo") or r.get("full_name") or "").strip()
     desc = str(r.get("description") or "")[:400]
     topics = ",".join(r.get("topics") or [])[:200]
+    # 【2026-08-09 judge体检实锤】冠军稳定把 PaddleOCR/RapidOCR 判 adopt(该skip)——
+    #   家底盲区:SYS_ADOPT 说「下面会给出真实家底」,但候选消息里从没真注入家底清单,
+    #   于是模型不知道我们已在用它们,把已在家底的当新机会。这与对抗审查#3「闸考的东西
+    #   没喂进去」同源。把 STACK_LINES(scan_stack 扫出的真依赖/已落地台账)注入 user。
+    stack_ctx = (("\n\n【我们已在用的家底 —— 候选若命中其一即判 skip,这是家底不是新机会】\n"
+                  + "\n".join(STACK_LINES)) if STACK_LINES else "")
     user = (f"项目:{name}\n星数:{r.get('stars')}\n语言:{r.get('lang')}\n"
-            f"topics:{topics}\n简介:{desc}")
+            f"topics:{topics}\n简介:{desc}") + stack_ctx
     # 【2026-08-08 对抗审查】ask() 本身也会炸(网关全链失败 RuntimeError、urlopen
     #   超时裸抛)——此前只有 parse_json 在 try 里,一次 503 穿透 co_judge 和主循环
     #   炸掉整轮。judge 是本产线所有 ask 的唯一必经点,在这里单点收口:

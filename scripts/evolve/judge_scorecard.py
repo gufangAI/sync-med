@@ -33,13 +33,18 @@ sys.path.insert(0, os.path.join(HERE, "..", "content_factory"))
 
 from radar_set import EXAM, score_one                      # noqa: E402
 from radar_race import _ask_any, _parse_json               # noqa: E402
+import adopt                                                # noqa: E402
 from adopt import brain, JUDGE_SUPPLIER                     # noqa: E402
+from _stack import scan_stack                               # noqa: E402
 
 
 def judge_once(champ, q):
-    """用冠军大脑判一题,返回 verdict(失败返回 'ERR')。"""
+    """用冠军大脑判一题,返回 verdict(失败返回 'ERR')。
+    注入家底清单,与 adopt.judge 生产判定同条件(否则家底盲区会被误算成判定力问题)。"""
+    stack_ctx = (("\n\n【我们已在用的家底 —— 候选若命中其一即判 skip,这是家底不是新机会】\n"
+                  + "\n".join(adopt.STACK_LINES)) if adopt.STACK_LINES else "")
     user = (f"项目:{q['repo']}\n星数:{q['stars']}\n语言:{q['lang']}\n"
-            f"topics:\n简介:{q['desc']}")
+            f"topics:\n简介:{q['desc']}") + stack_ctx
     try:
         txt, _ = _ask_any(champ, user, JUDGE_SUPPLIER,
                           max_tokens=500, json_mode=True, temperature=0)
@@ -56,9 +61,12 @@ def main():
     ap.add_argument("--report", default="")
     a = ap.parse_args()
 
+    # 体检必须和生产判定同条件:生产 judge 会注入家底清单,体检也得填,否则测的不是
+    #   真实生产判定(家底盲区会被误算成判定力问题)。judge() 读的是 adopt 的 global。
+    adopt.STACK_NAMES, adopt.STACK_LINES = scan_stack()
     champ = brain()
-    print(f"judge 体检 · 卷子 {len(EXAM)} 题 · 每题 ×{a.repeat} · 应答者 {JUDGE_SUPPLIER}",
-          flush=True)
+    print(f"judge 体检 · 卷子 {len(EXAM)} 题 · 每题 ×{a.repeat} · 应答者 {JUDGE_SUPPLIER}"
+          f" · 家底 {len(adopt.STACK_NAMES)} 项已注入", flush=True)
 
     rows, unstable, wrong = [], [], []
     for q in EXAM:
