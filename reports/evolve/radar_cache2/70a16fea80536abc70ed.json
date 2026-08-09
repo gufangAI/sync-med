@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "adopt",
+ "metric": "代码生成效率",
+ "how": "集成 ponytail 以减少代码生成量，提高效率",
+ "effort": "中",
+ "current": "目前使用 tcm-rag-768 进行向量检索和代码生成",
+ "beats": "预计减少代码生成时间 20%",
+ "why": "ponytail 专注于减少代码量，与我们的目标一致"
+}

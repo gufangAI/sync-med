@@ -1,0 +1,10 @@
+{
+ "module": "检索路由",
+ "verdict": "skip",
+ "metric": "无",
+ "how": "无",
+ "effort": "无",
+ "current": "暂无",
+ "beats": "无",
+ "why": "Redis 是一个内存数据库，不适合 Cloudflare Serverless 运行形态，且其功能与检索路由模块不符。"
+}

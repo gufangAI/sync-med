@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "集成到现有OCR产线中",
+ "effort": "中",
+ "current": "目前使用的是云端 Actions 批量跑的 OCR 工具",
+ "beats": "在识别准确率上可能胜过现有工具",
+ "why": "Tesseract 是一个成熟的 OCR 引擎，具有广泛的社区支持和良好的识别准确率"
+}

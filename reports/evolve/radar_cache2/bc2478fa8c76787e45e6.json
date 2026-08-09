@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "OCR产线目前使用的是Tesseract OCR引擎，结合自定义的预处理和后处理脚本。",
+ "beats": "",
+ "why": "Redis是一个内存数据库，不适合用于OCR产线中的图像处理和文本识别任务。"
+}

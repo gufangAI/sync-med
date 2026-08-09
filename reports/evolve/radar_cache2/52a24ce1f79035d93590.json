@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "watch",
+ "metric": "知识图谱构建效率",
+ "how": "使用 graphify 库构建知识图谱，结合 sue_graph_nodes/edges 进行可视化",
+ "effort": "中",
+ "current": "目前使用 sue_graph_nodes/edges 构建",
+ "beats": "构建效率可能更高，具体需测试",
+ "why": "技术可接但增量不足：构建效率提升需验证"
+}

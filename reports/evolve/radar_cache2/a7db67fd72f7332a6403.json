@@ -1,0 +1,10 @@
+{
+ "module": "视频拼接模块",
+ "verdict": "adopt",
+ "metric": "视频拼接质量与效率",
+ "how": "使用 OpenMontage 进行视频剪辑和拼接，利用 ffmpeg 实现平滑过渡和节拍同步剪辑，无需 GPU 加速。",
+ "effort": "中",
+ "current": "目前使用自定义的视频拼接脚本，可能存在过渡效果不佳和节拍同步问题。",
+ "beats": "视频拼接的平滑度和节拍同步精度",
+ "why": "OpenMontage 提供了基于 ffmpeg 的强大视频处理能力，能够显著提升视频拼接效果。"
+}

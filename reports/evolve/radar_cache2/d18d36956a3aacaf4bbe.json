@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "图谱查询效率",
+ "how": "集成 Neo4j 作为图数据库",
+ "effort": "中",
+ "current": "目前使用 sue_graph_nodes/edges",
+ "beats": "查询速度和扩展性",
+ "why": "Neo4j 是业界领先的图数据库，性能优越"
+}
