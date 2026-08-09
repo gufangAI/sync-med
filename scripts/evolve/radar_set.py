@@ -28,7 +28,9 @@ ADOPTION = os.path.join(HERE, "..", "intel_radar", "adoption.txt")
 
 # v2 断代(2026-08-08 对抗审查后):考官 dashscope(付费,红线①)→zhipu 免费家、
 # 考卷调用 temperature 0.3→0、缓存键补全考官+题干+卷版。v1 时代分数与 v2 不可比。
-SCORER_VERSION = "radar-v2-2026-08-08"
+# v3 断代(2026-08-09 judge_scorecard 后):adopt 类修正 —— 已落地项(与家底逻辑矛盾)
+# 下沉 skip,adopt 只留未落地真机会(MinerU/LightRAG/codebase-memory-mcp)。答案变,断代。
+SCORER_VERSION = "radar-v3-2026-08-09"
 
 
 # ══════════════════════════════════════════════════════════════
@@ -88,60 +90,69 @@ EXAM = [
          why="同一轮四爬虫堆叠事故之二。采集线已有成熟自研抓取体系(worker 分流+对账),"
              "再堆一个通用爬虫不是改进,是同类堆叠。"),
 
-    # ── 丙类:真该采纳的(adoption.txt 里真落地了的)──────────────
-    #   这一类必须够多。第一版只放了 1 题,自检当场抓到:
-    #   **一个"什么都判 skip"的傻瓜策略拿 0.9227** —— 卷子是废的,
-    #   进化只会学到"一律说 skip"。类别必须平衡,否则退化策略就是最优解。
-    dict(repo="Graphify-Labs/graphify", stars=2100, lang="Python",
-         desc="Turn any codebase or corpus into a knowledge graph. Community detection, "
-              "surprise scoring, standalone HTML export. Pure library, no server required.",
+    # ── 丙类:该采纳但**尚未落地**的真机会(adopt)──────────────────────
+    #   【2026-08-09 judge_scorecard 挖出并修正的深层矛盾】此前丙类拿「adoption.txt 里真
+    #   落地了的」项目(graphify/OpenMontage/bookget…)当 adopt 样本,但那与生产家底逻辑
+    #   直接冲突:judge 注入家底清单后,已落地项被**正确**判 skip(已在用不是新机会),却和
+    #   考卷 want=adopt 打架 —— adopt 类一注入家底就 2/6→0/6。根本病:**已落地=生产该 skip**,
+    #   不该当 adopt 样本。改:adopt 题只留「系统真判过 adopt、但还没落地」的真机会(它们不
+    #   在家底,注入家底不影响其判定);已落地项下沉到 skip 类(见下,probe=already_have)。
+    dict(repo="opendatalab/MinerU", stars=25000, lang="Python",
+         desc="A high-quality tool for convert PDF to Markdown and JSON. "
+              "Layout detection, formula recognition, table extraction.",
          want="adopt", probe="",
-         why="**真落地了**:吸收其意外分与社群摘要思路,上线 /api/graph/overview 与 "
-             "/api/graph/insights,线上实测 8 个知识区覆盖 46560 节点、32 条跨区桥接。"
-             "纯库、无常驻服务 —— 这正是我们能吃下的形态。"),
-    dict(repo="calesthio/OpenMontage", stars=1200, lang="Python",
-         desc="Automatic video montage from clips. ffmpeg-based named transitions "
-              "(xfade), beat-synced cuts, no GPU required.",
+         why="**仍是候选、未落地**(_stack.py 家底闸实测「仍是候选」)。纯库、Actions 能跑,"
+             "OCR 产线正缺版面/表格结构化 —— 该 adopt,且不在家底,注入家底不影响判定。"),
+    dict(repo="HKUDS/LightRAG", stars=38649, lang="Python",
+         desc="Simple and Fast Retrieval-Augmented Generation. Dual-level retrieval "
+              "plus knowledge graph enhancement. Pure Python SDK, no server.",
          want="adopt", probe="",
-         why="**真落地了**(adoption.txt 2026-07-21):吸收其 ffmpeg xfade 具名转场,"
-             "接进 make_video.py 的 render_body_clips()。纯脚本 + ffmpeg,Actions 里跑得动。"),
-    dict(repo="dreammis/social-auto-upload", stars=4600, lang="Python",
-         desc="Automatically upload videos to douyin, xiaohongshu, bilibili, tiktok. "
-              "CLI tool, MIT licensed, cookie-based auth, no server.",
+         why="**系统 2026-08-09 真判 adopt**(星网 4A/0W/0S 全票)、**尚未落地**。RAG 向量检索"
+             "的真机会:双层检索+图增强补纯向量召回天花板。纯 SDK、Actions 跑、不在家底。"),
+    dict(repo="DeusData/codebase-memory-mcp", stars=38167, lang="TypeScript",
+         desc="Indexes codebases into a persistent knowledge graph for AI agents, "
+              "with MinHash/LSH entity resolution.",
          want="adopt", probe="",
-         why="**真落地了**(adoption.txt 2026-07-29):当内容工厂 → 抖音/小红书的投递适配器。"
-             "CLI 形态,不需要常驻。"),
+         why="**系统 2026-08-09 真判 adopt**(星网 3A/0W/1S)、**尚未落地**。知识图谱星图的真"
+             "机会:持久图+实体消解,正治我们星图重复节点。不在家底。"),
     # 【2026-08-06 出题当天就撤掉的一题 —— 留痕,别再犯】
     #   我曾把 BerriAI/litellm 标成 want="skip" / probe="already_have",理由写「已在家底」。
     #   跑完基线去核实,全仓 grep 只命中三处:模型自己的答案缓存、`land.py` 里**我自己写的举例**、
     #   和一个叫 `sk-litellm-local-dev` 的 key 名字。**litellm 根本没在我们系统里用。**
     #   我把「我写的举例」当成了家底证据 —— 正是「记忆是线索不是真相」那条铁律的原样重犯。
-    #   判定大脑判它 adopt(理由:替换现有网关层)不是错,**是我标错了答案**。
-    #   回归集里一道错答案比没有回归集更糟:它会把雷达往错的方向训。
-    #   所以撤题,不改标签硬留 —— 我手上没有它的真实判决,而**每一题都必须是真发生过的判定**。
-    dict(repo="opendatalab/MinerU", stars=25000, lang="Python",
-         desc="A high-quality tool for convert PDF to Markdown and JSON. "
-              "Layout detection, formula recognition, table extraction.",
-         want="adopt", probe="",
-         why="**仍是候选**(_stack.py 家底闸实测返回「仍是候选」)。纯库形态、"
-             "能在 Actions 里跑,而我们 OCR 产线正缺版面/表格结构化 —— 这题的正解是 adopt。"),
-    # ── 丙类扩题(2026-08-08:adopt 类 4 题太少,一题运气=类分 ±0.0625,──────
-    #   足以翻转晋升闸。扩到 6 题把单题权重降到 1/6。两题都是**真落地**且
-    #   名字不在任何提示词正文里 —— adopt 类的分只能靠判断力挣,没有白给分。
+    #   所以撤题 —— 我手上没有它的真实判决,而**每一题都必须是真发生过的判定**。
+
+    # ── 己类:已落地在用 → 生产遇到判 skip(家底非新机会,probe=already_have)──────
+    #   这些是 adoption.txt 里真落地了的。judge 在生产采集里再遇到它们(它们还在 GitHub 榜上)
+    #   正确答案是 skip:别重复采纳已在用的。放这里既保留「真发生过」的证据,又与家底逻辑一致
+    #   —— 正是它们此前被错标 adopt 导致注入家底后 adopt 类崩盘,现归位到该在的类别。
+    dict(repo="Graphify-Labs/graphify", stars=2100, lang="Python",
+         desc="Turn any codebase or corpus into a knowledge graph. Community detection, "
+              "surprise scoring, standalone HTML export. Pure library, no server required.",
+         want="skip", probe="already_have",
+         why="**已落地在用**(2026-08-05:/api/graph/overview+insights 上线,实测 8 区 46560 节点)。"
+             "生产再遇到它该 skip —— 已在家底不是新机会。"),
+    dict(repo="calesthio/OpenMontage", stars=1200, lang="Python",
+         desc="Automatic video montage from clips. ffmpeg-based named transitions "
+              "(xfade), beat-synced cuts, no GPU required.",
+         want="skip", probe="already_have",
+         why="**已落地在用**(2026-07-21:xfade 具名转场接进 make_video.py)。生产再遇到该 skip。"),
+    dict(repo="dreammis/social-auto-upload", stars=4600, lang="Python",
+         desc="Automatically upload videos to douyin, xiaohongshu, bilibili, tiktok. "
+              "CLI tool, MIT licensed, cookie-based auth, no server.",
+         want="skip", probe="already_have",
+         why="**已落地在用**(2026-07-29:内容工厂→抖音/小红书投递适配器)。生产再遇到该 skip。"),
     dict(repo="deweizhu/bookget", stars=1300, lang="Go",
          desc="Digital library book downloader supporting 50+ libraries: "
               "NDL Japan, Naikaku Bunko, Harvard-Yenching, CADAL, etc. CLI tool.",
-         want="adopt", probe="",
-         why="**真落地**(下载线主力工具之一,MEMORY-down 与 reference_bookget_official_apis "
-             "记录在案:内閣和書 fonds3682585 靠它下)。CLI 形态、官方 API 直连 —— "
-             "50+ 馆源覆盖是自研脚本比不了的。"),
+         want="skip", probe="already_have",
+         why="**已落地在用**(下载线主力,内閣和書 fonds3682585 靠它下)。生产再遇到该 skip。"),
     dict(repo="obra/superpowers", stars=2000, lang="TypeScript",
          desc="Skills, hooks and workflow discipline for Claude Code agents: "
               "TDD enforcement, debugging workflows, planning gates.",
-         want="adopt", probe="",
-         why="**真落地**(已装已启用于 .claude/settings.json,hooks 在生效;"
-             "protected_files_gate.py 就是学它的 hook 契约写的)。把 agent 纪律从"
-             "手写提醒变成代码层拦截 —— 2026-07-25 agent 改写铁律血案的正解。"),
+         want="skip", probe="already_have",
+         why="**已落地在用**(已装启用于 .claude/settings.json,protected_files_gate 学它写的)。"
+             "生产再遇到该 skip。"),
 
     # ── 丁类:试过但不采用的(adoption.txt 里 DROPPED)────────────
     dict(repo="DietrichGebert/ponytail", stars=95160, lang="TypeScript",
