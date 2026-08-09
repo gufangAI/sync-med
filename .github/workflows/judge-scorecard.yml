@@ -1,0 +1,65 @@
+# Judge 判定力体检 —— 量在位冠军判对率+一致性(整合队列#18·治判定力弱)
+# 「它出问题时谁在哪看见」:结果进固定 Issue,判定力掉了标红到手机。
+name: Judge Scorecard
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '50 4 * * 1'        # 每周一 UTC 04:50(北京 12:50),晋升周期后体检
+concurrency:
+  group: judge-scorecard
+  cancel-in-progress: false
+jobs:
+  scorecard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: judge 体检(冠军判对率+一致性)
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          GW_KEY:         ${{ secrets.GW_KEY }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/evolve/judge_scorecard.py --repeat 3 --report judge_scorecard.json
+      - name: 结果进固定 Issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f judge_scorecard.json ]; then
+            python - <<'PY' > sc.md
+          import json
+          d = json.load(open("judge_scorecard.json", encoding="utf-8"))
+          print(f"判对率 **{d['accuracy']:.4f}** · 平均一致性 **{d['avg_consistency']:.4f}** · 考生 `{d['supplier']}` · {d['exam_n']}题×{d['repeat']}")
+          print()
+          print("| 类 | 判对/总 |")
+          print("|---|---|")
+          for k, v in sorted(d['by_class'].items()):
+              print(f"| {k} | {v['correct']}/{v['total']} |")
+          if d.get('wrong'):
+              print(f"\n**判错({len(d['wrong'])})**: " + " · ".join(d['wrong']))
+          if d.get('unstable'):
+              print(f"\n**⚠️判定不稳({len(d['unstable'])},temp=0仍多结果)**: " + " · ".join(d['unstable']))
+              print("\n> 不稳题=判定力弱信号,反馈 radar_race 定向进化。")
+          PY
+          else
+            echo "> ⚠️ 体检脚本没产出，这轮失败。" > sc.md
+          fi
+          T='🩺 judge 判定力体检'
+          num=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "$T in:title" --json number --jq '.[0].number' 2>/dev/null || true)
+          { echo "## $(date -u +%Y-%m-%d) · run ${{ github.run_id }}"; echo ""; cat sc.md; } > body.md
+          if [ -n "$num" ]; then gh issue comment "$num" -R "$GITHUB_REPOSITORY" --body-file body.md
+          else gh issue create -R "$GITHUB_REPOSITORY" --title "$T" --body-file body.md; fi
+          cat sc.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: judge-scorecard
+          path: judge_scorecard.json
+          if-no-files-found: warn
