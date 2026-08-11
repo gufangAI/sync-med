@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "古籍扫描件转文字准确性",
+ "how": "集成到OCR产线中，作为PDF转文本的预处理工具",
+ "effort": "小",
+ "current": "目前使用Tesseract OCR进行文本提取",
+ "beats": "在PDF格式识别和布局检测上可能胜出",
+ "why": "该项目专注于PDF到Markdown和JSON的转换，可能提供更准确的文本提取和格式保留"
+}

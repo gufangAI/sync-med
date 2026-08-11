@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "字符错误率",
+ "how": "替换现有OCR引擎",
+ "effort": "中",
+ "current": "Tesseract OCR",
+ "beats": "在字符错误率上可能更优",
+ "why": "PaddleOCR基于PaddlePaddle，可能在性能上有所提升"
+}

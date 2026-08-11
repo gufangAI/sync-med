@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "暂无",
+ "beats": "",
+ "why": "Redis 是内存数据库，不适合用于 OCR 产线中的古籍扫描件转文字处理，OCR 需要处理大量图像数据，Redis 的持久化能力不足以满足需求。"
+}

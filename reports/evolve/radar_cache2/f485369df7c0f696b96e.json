@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "字符错误率",
+ "how": "替换现有OCR引擎，集成PaddleOCR进行古籍扫描件转文字",
+ "effort": "中",
+ "current": "Tesseract OCR",
+ "beats": "在字符错误率上可能有所改善",
+ "why": "PaddleOCR在多语言OCR领域表现良好"
+}

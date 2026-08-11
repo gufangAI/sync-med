@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "使用Tesseract OCR引擎进行古籍扫描件转文字",
+ "beats": "",
+ "why": "Redis是内存数据库，不适合用于OCR产线中的图像处理和文字识别任务"
+}
