@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "PDF转Markdown和JSON的准确率",
+ "how": "集成MinerU作为PDF转Markdown和JSON的工具",
+ "effort": "小",
+ "current": "PaddleOCR / RapidOCR / Surya / Tesseract",
+ "beats": "在PDF布局检测、公式识别和表格提取方面可能更准确",
+ "why": "可能提高PDF转文本的准确性，但需进一步评估其与现有工具的兼容性和性能"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "AI寻脉",
+ "verdict": "watch",
+ "metric": "代码生成效率",
+ "how": "集成 ponytail 插件以减少生成代码量",
+ "effort": "小",
+ "current": "RAG Grounding(Vectorize) + 结构化输出 JSON Schema 强制模式",
+ "beats": "代码生成量减少",
+ "why": "项目为 Claude Code 插件，可减少代码生成量，但需进一步评估其与现有技术的兼容性和性能提升"
+}

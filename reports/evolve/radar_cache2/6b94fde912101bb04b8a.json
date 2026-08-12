@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "知识图谱构建效率与准确性",
+ "how": "使用该库进行代码库索引，提高知识图谱的构建速度和准确性",
+ "effort": "中",
+ "current": "D1(`sue_graph_nodes/edges`) + 前端 Cytoscape.js / Graphology / 3d-force-graph",
+ "beats": "构建速度、准确性、MinHash/LSH 实体解析能力",
+ "why": "提供高效的代码库索引和实体解析，增强知识图谱的构建能力"
+}

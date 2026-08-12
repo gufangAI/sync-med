@@ -1,0 +1,10 @@
+{
+ "module": "采集下载线",
+ "verdict": "watch",
+ "metric": "下载效率和成功率",
+ "how": "集成到 GitHub Actions 工作流程中",
+ "effort": "小",
+ "current": "GitHub Actions: httpx / playwright / scrapy / requests",
+ "beats": "支持更多图书馆资源，可能提高下载成功率",
+ "why": "可能增加下载源，但需评估与现有工具的兼容性"
+}

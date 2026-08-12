@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "watch",
+ "metric": "PDF转换效率与准确性",
+ "how": "集成到PDF.js渲染流程中",
+ "effort": "中",
+ "current": "PDF.js / 自研 Canvas 分页渲染",
+ "beats": "转换速度和格式保留",
+ "why": "支持多种格式转换，可能提高转换效率"
+}

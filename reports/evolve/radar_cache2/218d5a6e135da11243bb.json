@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "集成到现有流程中，作为OCR工具之一",
+ "effort": "中",
+ "current": "GitHub Actions 批量跑 paddleocr / surya-ocr / marker / nougat / tesseract",
+ "beats": "在特定场景下可能提供更高的识别准确率",
+ "why": "提供更多可选的OCR引擎，可能提高整体识别效果"
+}

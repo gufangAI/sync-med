@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "adopt",
+ "metric": "Web服务器性能和安全性",
+ "how": "替换现有Nginx/Caddy作为Web服务器",
+ "effort": "中",
+ "current": "目前使用Cloudflare Pages(React) + Nginx/Caddy + PDF.js / 自研 Canvas 分页渲染",
+ "beats": "更快的性能，自动HTTPS，可扩展性",
+ "why": "Caddy提供更快的Web服务器性能和自动HTTPS，同时具有更好的可扩展性"
+}

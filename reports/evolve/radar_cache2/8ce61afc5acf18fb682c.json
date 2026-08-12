@@ -1,0 +1,10 @@
+{
+ "module": "采集下载线",
+ "verdict": "adopt",
+ "metric": "网页抓取速度和效率",
+ "how": "集成到 GitHub Actions 工作流程中，替代现有的爬虫工具",
+ "effort": "中",
+ "current": "GitHub Actions 批量跑 paddleocr / surya-ocr / marker / nougat / tesseract 等 CLI",
+ "beats": "在网页抓取速度和效率上可能胜过现有的 CLI 工具",
+ "why": "该项目专为 LLM 友好设计，可能提供更智能、更快的网页抓取能力"
+}

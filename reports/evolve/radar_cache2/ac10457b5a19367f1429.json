@@ -1,0 +1,10 @@
+{
+ "module": "采集下载线",
+ "verdict": "watch",
+ "metric": "网页抓取效率",
+ "how": "集成到 GitHub Actions 工作流程中",
+ "effort": "小",
+ "current": "httpx / playwright / scrapy / requests",
+ "beats": "抓取速度和效率",
+ "why": "项目开源，但未明确说明是否完全符合 Serverless 形态和无高危家底黑名单"
+}

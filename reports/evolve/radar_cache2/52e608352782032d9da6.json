@@ -1,0 +1,10 @@
+{
+ "module": "AI寻脉",
+ "verdict": "adopt",
+ "metric": "代码生成效率",
+ "how": "集成 ponytail 插件以减少生成代码量",
+ "effort": "小",
+ "current": "目前使用 Workers AI(Llama 3.1/DeepSeek) + Vectorize RAG grounding + Zod/JSON Schema 结构化输出",
+ "beats": "减少代码生成量，提高生成效率",
+ "why": "ponytail 插件专门用于限制生成代码量，有助于提高代码生成的效率"
+}

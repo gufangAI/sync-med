@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "skip",
+ "metric": "图谱查询效率",
+ "how": "无具体接法，Elasticsearch 用于搜索而非图谱构建",
+ "effort": "小",
+ "current": "D1(`sue_graph_nodes/edges`) + 前端 Cytoscape.js / Graphology / 3d-force-graph",
+ "beats": "无",
+ "why": "Elasticsearch 是搜索引擎，非图谱构建工具"
+}

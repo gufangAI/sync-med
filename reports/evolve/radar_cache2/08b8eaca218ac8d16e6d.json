@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "adopt",
+ "metric": "视频剪辑效率",
+ "how": "集成OpenMontage进行视频剪辑，提高视频制作效率",
+ "effort": "中",
+ "current": "目前使用PDF.js / 自研 Canvas 分页渲染",
+ "beats": "视频剪辑速度和效果",
+ "why": "OpenMontage提供高效的视频剪辑功能，无需GPU，可提升用户体验"
+}

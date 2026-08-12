@@ -1,0 +1,10 @@
+{
+ "module": "采集下载线",
+ "verdict": "adopt",
+ "metric": "下载效率和成功率",
+ "how": "集成到 GitHub Actions 工作流程中，利用其并行处理能力提高下载效率",
+ "effort": "中",
+ "current": "GitHub Actions + playwright/httpx/scrapy/自研脚本 → R2 归档",
+ "beats": "在下载速度和成功率上可能优于现有工具",
+ "why": "支持多个图书馆，下载速度快，成功率可能更高"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR识别准确率",
+ "how": "集成到现有流程中",
+ "effort": "小",
+ "current": "paddleocr / surya-ocr / marker / nougat / tesseract",
+ "beats": "无",
+ "why": "已在家底:OCR产线/tesseract"
+}

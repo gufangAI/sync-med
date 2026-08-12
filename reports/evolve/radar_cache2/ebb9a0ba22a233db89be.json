@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR识别准确率",
+ "how": "集成RapidOCR作为OCR产线的一部分",
+ "effort": "小",
+ "current": "PaddleOCR / RapidOCR / Surya / Tesseract",
+ "beats": "在识别准确率上可能有所提升",
+ "why": "RapidOCR是一个基于ONNXRuntime的OCR工具包，可能提供更好的性能，但需要进一步评估其与现有工具的兼容性和集成难度"
+}

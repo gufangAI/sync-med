@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR识别准确率",
+ "how": "集成PaddleOCR进行图像识别",
+ "effort": "中",
+ "current": "GitHub Actions 批量跑 paddleocr/surya-ocr/marker/nougat/tesseract",
+ "beats": "在识别准确率和速度上可能胜过现有工具",
+ "why": "已在家底:OCR产线/OCR引擎"
+}

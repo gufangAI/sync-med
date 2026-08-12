@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "集成RapidOCR作为OCR工具，替代现有的paddleocr、surya-ocr等",
+ "effort": "中",
+ "current": "GitHub Actions 批量跑 paddleocr / surya-ocr / marker / nougat / tesseract 等 CLI",
+ "beats": "在识别准确率上可能优于现有工具",
+ "why": "RapidOCR基于ONNXRuntime，可能提供更优的识别效果"
+}

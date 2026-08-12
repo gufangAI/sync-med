@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "watch",
+ "metric": "知识图谱构建效率",
+ "how": "集成到现有知识图谱构建流程中",
+ "effort": "中",
+ "current": "D1(`sue_graph_nodes/edges`) + 前端 Cytoscape.js / Graphology / 3d-force-graph",
+ "beats": "知识图谱构建速度",
+ "why": "支持MinHash/LSH实体解析，可能提高构建效率"
+}

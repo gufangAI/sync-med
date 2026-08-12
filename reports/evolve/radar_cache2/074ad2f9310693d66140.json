@@ -1,0 +1,10 @@
+{
+ "module": "AI寻脉",
+ "verdict": "watch",
+ "metric": "检索召回率",
+ "how": "使用 LightRAG 进行向量检索增强",
+ "effort": "小",
+ "current": "RAG Grounding(Vectorize) + 结构化输出 JSON Schema 强制模式",
+ "beats": "召回率可能提高",
+ "why": "LightRAG 是纯 Python SDK，无需服务器，与现有技术栈兼容性好"
+}

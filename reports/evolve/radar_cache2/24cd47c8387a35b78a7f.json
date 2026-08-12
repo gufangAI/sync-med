@@ -1,0 +1,10 @@
+{
+ "module": "采集下载线",
+ "verdict": "watch",
+ "metric": "视频上传效率",
+ "how": "集成到 GitHub Actions 中实现自动化上传",
+ "effort": "小",
+ "current": "GitHub Actions: httpx / playwright / scrapy / requests",
+ "beats": "上传速度和稳定性",
+ "why": "项目为 CLI 工具，无需服务器，可能提高上传效率"
+}

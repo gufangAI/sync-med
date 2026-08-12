@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "adopt",
+ "metric": "检索召回率",
+ "how": "使用LightRAG进行双级检索和知识图谱增强",
+ "effort": "中",
+ "current": "目前使用Vectorize(tcm-rag-768索引) + bge-m3/gte-base进行RAG grounding",
+ "beats": "在检索召回率上可能更高，且支持知识图谱增强",
+ "why": "LightRAG是一个纯Python SDK，无需服务器，且提供了双级检索和知识图谱增强功能，可能比现有方案更高效"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "检索路由",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "Cloudflare Workers 原生路由 + D1/Vectorize/R2 绑定",
+ "beats": "",
+ "why": "需常驻主机,不符合 Serverless 形态"
+}

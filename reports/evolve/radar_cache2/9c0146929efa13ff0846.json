@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "watch",
+ "metric": "知识图谱构建效率",
+ "how": "集成Graphify-Labs库进行知识图谱构建",
+ "effort": "中",
+ "current": "D1(`sue_graph_nodes/edges`) + 前端Cytoscape.js/Graphology/3d-force-graph",
+ "beats": "知识图谱构建速度和灵活性",
+ "why": "Graphify-Labs提供纯库形式，无需额外服务器，可能提高构建效率"
+}

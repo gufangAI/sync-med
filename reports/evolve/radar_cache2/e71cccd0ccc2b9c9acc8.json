@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "集成PaddleOCR作为OCR产线的主要识别工具",
+ "effort": "中",
+ "current": "GitHub Actions 批量跑 paddleocr / surya-ocr / marker / nougat / tesseract",
+ "beats": "在识别准确率和速度上",
+ "why": "PaddleOCR是一个功能强大的多语言OCR工具包，能够提供更高的识别准确率"
+}

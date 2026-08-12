@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "PDF转换准确率",
+ "how": "集成MinerU进行PDF到Markdown和JSON的转换，提高转换准确率和效率",
+ "effort": "中",
+ "current": "目前使用GitHub Actions批量跑paddleocr、surya-ocr、marker、nougat、tesseract等CLI进行PDF到文本的转换",
+ "beats": "在公式识别、表格提取等方面具有优势，可能提高转换的准确率",
+ "why": "MinerU在PDF转换方面具有独特优势，能够提高我们的转换准确率和效率"
+}
