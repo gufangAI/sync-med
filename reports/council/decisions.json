@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "updated": "2026-08-12",
+ "updated": "2026-08-13",
  "decisions": [
   {
    "source": "arsenal:x1xhlol/system-prompts-and-models-of-ai-tools",
@@ -312,6 +312,26 @@
    "date": "2026-08-12",
    "issue": 279,
    "topic": "新技术研判:academic/awesome-datascience(29796星)— 提供数据科学学习与应用的资源",
+   "verdict_ok": true
+  },
+  {
+   "source": "arsenal:thedaviddias/Front-End-Checklist",
+   "decision": "hold",
+   "basis": "referee-failed",
+   "fingerprint": "723cfe8a4c0e9328",
+   "date": "2026-08-13",
+   "issue": 287,
+   "topic": "新技术研判:thedaviddias/Front-End-Checklist(73503星)— 提供现代前端开发清单",
+   "verdict_ok": false
+  },
+  {
+   "source": "arsenal:posquit0/Awesome-CV",
+   "decision": "watch",
+   "basis": "veto:2",
+   "fingerprint": "b8870f94e0063923",
+   "date": "2026-08-13",
+   "issue": 287,
+   "topic": "新技术研判:posquit0/Awesome-CV(28269星)— 提供LaTeX简历模板",
    "verdict_ok": true
   }
  ]
