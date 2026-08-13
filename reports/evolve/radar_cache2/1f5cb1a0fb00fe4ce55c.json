@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "识别准确率",
+ "how": "集成PaddleOCR进行古籍扫描件文字识别",
+ "effort": "中",
+ "current": "Tesseract OCR",
+ "beats": "预计识别准确率提升",
+ "why": "PaddleOCR性能优越，且基于PaddlePaddle"
+}

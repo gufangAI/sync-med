@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "使用Cloudflare Vectorize进行向量存储和检索",
+ "beats": "",
+ "why": "Redis需要常驻服务器，不适合Serverless架构"
+}
