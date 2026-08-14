@@ -1,0 +1,8 @@
+name: 测试中文名
+on:
+  workflow_dispatch:
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
