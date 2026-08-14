@@ -11,6 +11,15 @@ concurrency:
   group: roundtable-watch
   cancel-in-progress: false
 
+# 2026-08-15 补 permissions：哨兵一直在正确检测到「内容工厂产帖停滞」，
+#   但写 Issue 时被 GITHUB_TOKEN 默认权限拒掉：
+#   `HttpError: Resource not accessible by integration`。
+#   报错让整个 job 失败 → 哨兵自己也变成红灯 → 既喊不出问题，又多了一个假故障。
+#   对照 fleet-watch.yml（能正常写 Issue）：它显式声明了 issues: write。
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   watch:
     runs-on: ubuntu-latest
