@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "updated": "2026-08-13",
+ "updated": "2026-08-14",
  "decisions": [
   {
    "source": "arsenal:x1xhlol/system-prompts-and-models-of-ai-tools",
@@ -333,6 +333,26 @@
    "issue": 287,
    "topic": "新技术研判:posquit0/Awesome-CV(28269星)— 提供LaTeX简历模板",
    "verdict_ok": true
+  },
+  {
+   "source": "arsenal:ultraworkers/claw-code",
+   "decision": "watch",
+   "basis": "veto:1",
+   "fingerprint": "2260e659e0cea0da",
+   "date": "2026-08-14",
+   "issue": 299,
+   "topic": "新技术研判:ultraworkers/claw-code(195073星)— 构建无人类干预的Rust博物馆展览",
+   "verdict_ok": true
+  },
+  {
+   "source": "arsenal:DigitalPlatDev/FreeDomain",
+   "decision": "hold",
+   "basis": "referee-failed",
+   "fingerprint": "64a68d29380815e6",
+   "date": "2026-08-14",
+   "issue": 299,
+   "topic": "新技术研判:DigitalPlatDev/FreeDomain(192428星)— 免费域名注册和 DNS 学习资源",
+   "verdict_ok": false
   }
  ]
 }
