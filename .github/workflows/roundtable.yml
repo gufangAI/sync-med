@@ -30,6 +30,7 @@ jobs:
         run: python tools/roundtable/roundtable.py --count ${{ github.event.inputs.count || 1 }}
         env:
           CF_D1_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          GATEWAY_KEY: ${{ secrets.GATEWAY_KEY }}
       - name: 失败上报 Issue(哨兵)
         if: failure()
         uses: actions/github-script@v7
