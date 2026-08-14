@@ -1,0 +1,83 @@
+name: OCR 铺量
+# 【为什么另起一条而不改 ocr.yml】ocr.yml 每次 run 都从 shard 0 起跑、跑完前几个分片就结束，
+#   后面 248 个分片永远轮不到（实测：256 个分片累计 320 万页，已完成 44，零产出分片 248 个）。
+#   本 workflow 换三件事：
+#   ① 每个 job 限量 —— GitHub 单 job 上限 6 小时 ≈ 2,150 页 @10s/页，不限量则单分片
+#      13,040 页要跑 36 小时，必被杀，ledger 也存不下来 → 这正是 248 个分片 ocrd=0 的机械原因。
+#   ② 显式恢复/保存 ledger 缓存 —— 下一轮从上次停的地方继续，而不是每轮重做同样那批页。
+#   ③ 分片窗口按 base 轮换 —— 不永远盯着 shard 0。
+#
+# 【并发口径·实测不是拍的】200 页跑了 1998 秒 = 每 job 约 0.1 QPS（瓶颈是 OCR 计算不是 API）。
+#   20 个 job 才 2 QPS，远在 123 官方 5 QPS 之下。且 token 已跨 job 共享（R2），
+#   不会再撞 `401 tokens number has exceeded the limit` —— 那才是此前 5% 成功率的真因。
+#
+# 【已验收】同一分片 200 页：原始 10/200(5%) → manifest 重建后 152/200(76%)
+#   → 加重试+限速+token共享后 **199/200(99.5%)**，缺页仅 1，质量闸拒 0。
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: '本轮跑几个分片（并发）'
+        default: '8'
+      base:
+        description: '起始分片号（轮换用）'
+        default: '0'
+      pilot:
+        description: '每个 job 最多处理多少页'
+        default: '1200'
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      m: ${{ steps.g.outputs.m }}
+    steps:
+      - id: g
+        run: python -c "import json,os;b=int(os.environ['B']);n=int(os.environ['N']);print('m='+json.dumps([(b+i)%256 for i in range(n)]))" >> "$GITHUB_OUTPUT"
+        env:
+          B: ${{ github.event.inputs.base }}
+          N: ${{ github.event.inputs.shards }}
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        shard: ${{ fromJson(needs.prep.outputs.m) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet rapidocr-onnxruntime boto3 requests pillow "numpy<2"
+      - name: 恢复 ledger（决定能不能续跑，丢了就从头做）
+        uses: actions/cache/restore@v4
+        with:
+          path: ledger.json
+          key: ocrbulk-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: ocrbulk-s${{ matrix.shard }}-
+      - name: OCR
+        run: |
+          T0=$(date -u +%s)
+          python ocr.py
+          echo "=== shard ${{ matrix.shard }} 墙钟(秒): $(( $(date -u +%s) - T0 )) ==="
+        env:
+          SHARD: ${{ matrix.shard }}
+          TOTAL: '256'
+          PILOT: ${{ github.event.inputs.pilot }}
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          PAN_CLIENT_ID: ${{ secrets.PAN_CLIENT_ID }}
+          PAN_CLIENT_SECRET: ${{ secrets.PAN_CLIENT_SECRET }}
+      - name: 保存 ledger
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ledger.json
+          key: ocrbulk-s${{ matrix.shard }}-${{ github.run_id }}
