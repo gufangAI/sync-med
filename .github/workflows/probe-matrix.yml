@@ -1,0 +1,19 @@
+name: probe-matrix
+on:
+  workflow_dispatch:
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      m: ${{ steps.g.outputs.m }}
+    steps:
+      - id: g
+        run: echo 'm=[0,1]' >> "$GITHUB_OUTPUT"
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shard: ${{ fromJson(needs.prep.outputs.m) }}
+    steps:
+      - run: echo ${{ matrix.shard }}
