@@ -1,0 +1,74 @@
+name: ocr-bulk
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: shard count for this round
+        default: '8'
+      base:
+        description: first shard number
+        default: '0'
+      pilot:
+        description: max pages per job
+        default: '1200'
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      m: ${{ steps.g.outputs.m }}
+    steps:
+      - id: g
+        env:
+          B: ${{ github.event.inputs.base }}
+          N: ${{ github.event.inputs.shards }}
+        run: |
+          python - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, os
+          b = int(os.environ['B']); n = int(os.environ['N'])
+          print('m=' + json.dumps([(b + i) % 256 for i in range(n)]))
+          EOF
+  run:
+    needs: prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        shard: ${{ fromJson(needs.prep.outputs.m) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet rapidocr-onnxruntime boto3 requests pillow "numpy<2"
+      - name: restore ledger
+        uses: actions/cache/restore@v4
+        with:
+          path: ledger.json
+          key: ocrbulk-s${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: ocrbulk-s${{ matrix.shard }}-
+      - name: ocr
+        env:
+          SHARD: ${{ matrix.shard }}
+          TOTAL: '256'
+          PILOT: ${{ github.event.inputs.pilot }}
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          PAN_CLIENT_ID: ${{ secrets.PAN_CLIENT_ID }}
+          PAN_CLIENT_SECRET: ${{ secrets.PAN_CLIENT_SECRET }}
+        run: |
+          T0=$(date -u +%s)
+          python ocr.py
+          echo "shard ${{ matrix.shard }} wall seconds: $(( $(date -u +%s) - T0 ))"
+      - name: save ledger
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ledger.json
+          key: ocrbulk-s${{ matrix.shard }}-${{ github.run_id }}
