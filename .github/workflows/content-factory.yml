@@ -71,7 +71,7 @@ jobs:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
-          GATEWAY_KEY:   ${{ secrets.GATEWAY_KEY }}
+          GW_KEY:        ${{ secrets.GW_KEY }}
           CF_WORKERS:     ${{ github.event.inputs.workers || '6' }}
           # 留空时脚本用默认 0.30。A/B 分流比例可临时调 —— 挑战者卡在样本闸时
           #   设 1 让这一轮全给它,当轮就凑够 25 条交给裁决判,不用等好几轮随机。
@@ -92,7 +92,7 @@ jobs:
           CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
-          GATEWAY_KEY:   ${{ secrets.GATEWAY_KEY }}
+          GW_KEY:        ${{ secrets.GW_KEY }}
           CF_WORKERS:     ${{ github.event.inputs.workers || '6' }}
           PYTHONIOENCODING: utf-8
         run: python scripts/content_factory/reviewer.py --target ${{ matrix.target }} --limit 60
