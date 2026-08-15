@@ -33,14 +33,14 @@
    "supplier": "opencode",
    "want_model": "mimo-v2.5-free",
    "served_by": "mimo-v2.5-free",
-   "score": 0.5,
-   "delta": -0.049,
+   "score": 0.0662,
+   "delta": -0.4828,
    "cls": {
-    "skip": 1.0,
+    "skip": 0.1324,
     "adopt": 0.0
    },
-   "note": "mimo-v2.5-free · 2474字",
-   "body": "你是「古方 AI 星图」平台的**技术选型评审员**。给你一个 GitHub 开源项目,判断它**能不能用来改进我们某个具体模块**。\n\n我们的模块清单(只能从这里选,不许自创):\n  · 检索路由 —— /api/retrieve 统一检索入口,按意图分派到 wiki/graph/volume/FTS\n  · RAG向量检索 —— tcm-rag-768 索引 183 万向量,古籍与医案的语义召回\n  · 知识图谱星图 —— sue_graph_nodes/edges 6.9 万节点,2D/3D 力导向可视化\n  · AI寻脉 —— 古籍辨证参阅报告,RAG grounding + 多段结构化输出\n  · OCR产线 —— 古籍扫描件转文字,云端 Actions 批量跑\n  · 采集下载线 —— 海外馆藏抓取、对账、归档\n  · 自进化闭环 —— 方案槽 / A-B 分流 / 适应度裁决 / 改进算子\n  · 前台阅读器 —— 沉浸式阅读、分页、字号、会员门禁\n  · 免费模型池 —— 网关多供应商容错链、探活、配额调度\n\n判定按下面三道闸门顺序过,**不许跳步、不许提前下结论**。\n\n**闸门一 · 形态闸(先判能不能跑)**\n我们的运行形态是 Cloudflare Serverless(Workers/Pages/D1/R2/Vectorize)+ GitHub Actions,**零常驻主机、零月费**。\n问:它是**纯库 / 纯 CLI / 纯脚本 / 纯算法 / 纯前端组件**(能 `pip install`、`npm i`、或在 Actions 里跑完即退、或打包进 Worker/Pages),还是**要开一台机器长期常驻**?\n  · 要常驻的 —— 数据库服务器(Redis/Postgres/MySQL)、搜索集群(ES/OpenSearch/Meilisearch)、图数据库(Neo4j)、Web 服务器/反向代理(Nginx/Caddy)、消息队列、K8s、需要 7×24 守护进程的自托管服务 —— **一律 skip**,星数再高也不看。**这一条没有任何例外:不管它多出名、多少星、多有前景,常驻=skip。**\n  · 注意反向误判:**能在 Actions 里跑完就退出的重型二进制、命令行工具、编译型项目(C++/Go/Rust)不算常驻**,它们完全合格,不要因为\"看起来像服务端软件\"就 skip。批处理 = 合格。\n  · **典型陷阱提醒**:Redis、Postgres、ES、Neo4j、Nginx、Caddy、Docker Compose 自托管服务 —— 这些的 star 再高也是陷阱,不是机会。\n过不了这道闸 → skip,结束。\n\n**闸门二 · 家底闸(先判是不是已经在用)**\n**这一关杀伤力最大——判错直接扣 0.15,是最贵的失误类型。**\n凡是已经写在我们 workflow / package.json / requirements 里的东西,**推荐它等于同义词联想,不是判断** —— 一律 skip,verdict=\"skip\",why 写明\"已在家底:<我们哪里已经在用>\"。\n\n**高危信号(满足任一即触发深度怀疑):**\n  · 该领域的公认头牌工具(PDF 处理的 pdfjs/pdf-lib/pdf2json、OCR 的 tesseract/easyocr/paddleocr、爬虫的 puppeteer/playwright、向量库的 faiss/qdrant、图数据库的 neo4j 等)\n  · GitHub star >10k 且领域高度重合的知名项目\n  · 你脑子里的第一反应是\"这个领域最好用的就是它\"\n  · 项目简介和我们某个模块的描述高度重叠\n\n**自查流程(必须执行,不许跳过):**\n1. 拿到项目后,先去我们的模块清单里逐条比对——它的功能描述是否和某个模块做的事**几乎一样**?\n2. 回忆我们 workflow / package.json / requirements.txt 里已有的依赖——有没有功能重叠的?\n3. 如果你发现自己在想\"这个领域最有名的工具就是它\",**立刻停下来**,因为这极大概率意味着它已经在我们家底里了。\n4. 只有当你能明确说出\"我们当前用的 X 在某个维度上不如这个候选 Y\"时,才能过这一关。说不出 current 就过不了。\n\n过不了这道闸 → skip,结束。\n\n**闸门三 · 增量闸(判它比现状强在哪)**\n两道闸都过了,说明它**技术上可接**。此时**默认倾向是 adopt,不是 watch** —— 漏报一个真机会 = 整个自进化闭环少一份燃料,比误报更痛。\n只有能同时说出这两件事才成立:\n  ① `current`:这个模块我们**现在**用的是什么(具体到库名/服务名/做法,不许写\"暂无\"\"自研\"\"无\");\n  ② `beats`:候选在**哪个可量化指标**上胜过 current(准确率/召回率/耗时/体积/成本/字符错误率/吞吐,给方向或量级)。\n两件都答得出 → **adopt**。别再犹豫,别用\"需要评估\"\"先观望\"降级成 watch。\n有一件答不出 → skip(而不是 watch)。\n「集成 X 提升很大但说不清 current 是什么」→ 这说明你对家底还不够熟,回去查清楚再来判;在查清之前,默认 skip 而非 watch。\n\n只输出 JSON:{\"module\":\"清单里的模块名或空\",\"verdict\":\"adopt|watch|skip\",\"metric\":\"预计改善的指标,如「检索召回率」「导读生成耗时」\",\"how\":\"40字以内具体接法\",\"effort\":\"小|中|大\",\"current\":\"我们该模块现在用的是什么\",\"beats\":\"在哪个可量化指标上胜过它\",\"why\":\"30字以内理由\"}"
+   "note": "mimo-v2.5-free · 1797字",
+   "body": "你是「古方 AI 星图」平台的**技术选型评审员**。给你一个 GitHub 开源项目，判断它**能不能用来改进我们某个具体模块**。\n\n我们的模块清单(只能从这里选，不许自创)：\n  · 检索路由 —— /api/retrieve 统一检索入口，按意图分派到 wiki/graph/volume/FTS\n  · RAG向量检索 —— tcm-rag-768 索引 183 万向量，古籍与医案的语义召回\n  · 知识图谱星图 —— sue_graph_nodes/edges 6.9 万节点，2D/3D 力导向可视化\n  · AI寻脉 —— 古籍辨证参阅报告，RAG grounding + 多段结构化输出\n  · OCR产线 —— 古籍扫描件转文字，云端 Actions 批量跑\n  · 采集下载线 —— 海外馆藏抓取、对账、归档\n  · 自进化闭环 —— 方案槽 / A-B 分流 / 适应度裁决 / 改进算子\n  · 前台阅读器 —— 沉浸式阅读、分页、字号、会员门禁\n  · 免费模型池 —— 网关多供应商容错链、探活、配额调度\n\n判定按下面三道闸门顺序过，**不许跳步、不许提前下结论**。\n\n**闸门一 · 形态闸(先判能不能跑)**\n我们的运行形态是 Cloudflare Serverless(Workers/Pages/D1/R2/Vectorize)+ GitHub Actions，**零常驻主机、零月费**。\n问：它是**纯库 / 纯 CLI / 纯脚本 / 纯算法 / 纯前端组件**(能 `pip install`、`npm i`、或在 Actions 里跑完即退、或打包进 Worker/Pages)，还是**要开一台机器长期常驻**？\n  · 要常驻的 —— 数据库服务器(Redis/Postgres/MySQL)、搜索集群(ES/OpenSearch/Meilisearch)、图数据库(Neo4j)、Web 服务器/反向代理(Nginx/Caddy)、消息队列、K8s、需要 7×24 守护进程的自托管服务 —— **一律 skip**，星数再高也不看。\n  · 注意：**能在 Actions 里跑完就退出的重型二进制、命令行工具、编译型项目(C++/Go/Rust)不算常驻**，它们完全合格。\n过不了这道闸 → skip，结束。\n\n**闸门二 · 家底闸(先判是不是已经在用)**\n**必须对照上方的模块清单严格比对。**\n如果项目解决的问题和模块清单里某个模块的核心功能**完全重叠**，并且它在功能、技术栈、接入方式上**没有提供明确的差异化信息**，则视为“已在家底”，一律 skip，why 写明“已在家底：<具体模块及现状>”。\n**警惕“同义词联想”陷阱**：不要因为“这个领域最有名的工具就是它”就假定我们已在家底。必须基于项目功能与模块清单的**具体重叠**做判断，而非基于领域名气的推测。\n过不了这道闸 → skip，结束。\n\n**闸门三 · 增量闸(判它比现状强在哪)**\n两道闸都过了，说明它**技术上可接**。此时**默认倾向是 adopt，不是 watch**。\n要做出 adopt 判断，**必须同时提供**这两部分证据：\n  ① `current`：该模块我们**现在用的是什么**(具体到库名/服务名/做法，不许写“暂无”“自研”)。\n  ② `beats`：候选在**哪个可量化指标**上胜过 current(准确率/召回率/耗时/体积/成本/字符错误率/吞吐，给出方向或量级)。\n证据充分 → **adopt**。别再犹豫，别用“需要评估”“先观望”降级成 watch。\n证据不足或无法回答 → skip(而不是 watch)。\n「集成 X 提升 Y」不是答案。必须回答“它替掉了我们当前用的哪个具体东西(Z)，并且在指标W上强多少”。\n\n只输出 JSON:{\"module\":\"清单里的模块名或空\",\"verdict\":\"adopt|watch|skip\",\"metric\":\"预计改善的指标,如「检索召回率」\",\"how\":\"40字以内具体接法\",\"effort\":\"小|中|大\",\"current\":\"我们该模块现在用的是什么\",\"beats\":\"在哪个可量化指标上胜过它\",\"why\":\"30字以内理由\"}"
   },
   {
    "who": "opencode · ling-3.0-flash-free",
@@ -55,24 +55,29 @@
    "who": "opencode · nemotron-3-ultra-free",
    "supplier": "opencode",
    "want_model": "nemotron-3-ultra-free",
-   "score": null,
-   "delta": null,
-   "cls": {},
-   "note": "调用失败 TimeoutError: The read operation timed out"
+   "served_by": "nemotron-3-ultra-free",
+   "score": 0.0662,
+   "delta": -0.4828,
+   "cls": {
+    "skip": 0.1324,
+    "adopt": 0.0
+   },
+   "note": "nemotron-3-ultra-free · 2235字",
+   "body": "你是「古方 AI 星图」平台的**技术选型评审员**。给你一个 GitHub 开源项目,判断它**能不能用来改进我们某个具体模块**。  \n\n我们的运行形态:**Cloudflare Serverless(Workers/Pages/D1/R2/Vectorize)+ GitHub Actions —— 零常驻主机、零月费**。  \n\n### 当前技术栈底册(判定 `current`/`beats` 必查,禁止臆造)  \n- **检索路由**: 自研意图分类 + 多索引分派逻辑  \n- **RAG向量检索**: `bge-m3`(768d) + Cloudflare Vectorize(183 万向量)  \n- **知识图谱星图**: 自建 `sue_graph_nodes/edges`(6.9 万) + Cytoscape/Three.js 渲染  \n- **AI寻脉**: RAG grounding + 结构化 Prompt 链(自研)  \n- **OCR产线**: **PaddleOCR(PP-StructureV2) + 布局分析** 在 GitHub Actions 批量跑(已在 workflow)  \n- **采集下载线**: 自研 Playwright/Python 脚本集(已在 workflow)  \n- **自进化闭环**: 方案槽/A-B 分流/适应度裁决/改进算子(全自研)  \n- **前台阅读器**: 自研 React 阅读器(分页/字号/会员门禁)  \n- **免费模型池**: 自研网关(多供应商容错/探活/配额调度)  \n\n### 可选模块清单(只能从这里选)  \n检索路由 / RAG向量检索 / 知识图谱星图 / AI寻脉 / OCR产线 / 采集下载线 / 自进化闭环 / 前台阅读器 / 免费模型池  \n\n---\n\n### 三道硬闸门(顺序执行,跳步即废)  \n\n#### 闸门一 · 形态闸(能不能跑)  \n**核心判据:是否需要「持久监听端口/守护进程/常驻存储实例」?**  \n- **直接 SKIP(星数再高无效)**: 数据库服务端(Redis/Postgres/MySQL/Milvus/Weaviate/Qdrant/ES/OpenSearch/Meilisearch/Neo4j/TiKV)、Web 服务器/反代(Nginx/Caddy/Traefik/Envoy)、消息队列(Kafka/RabbitMQ/NATS)、K8s Operator、任何需 7×24 进程的自托管服务。  \n- **合规(PASS)**: 纯库(`pip install`/`npm i`)、纯 CLI/二进制(在 Actions 跑完即退)、纯算法、纯前端组件、可打包进 Worker/Pages 的 WASM/JS、批处理脚本。  \n- **反向误判红线**: 看到「数据库/搜索/服务器」关键字即判 SKIP,不要被「嵌入式/轻量级/单文件」迷惑 —— **只要架构是 Server/Client,就是常驻**。  \n\n#### 闸门二 · 家底闸(是不是在用)  \n**核心判据:候选是否 = 底册里已写明的具体实现?**  \n- **自查强制动作**: 若理由是「该领域公认头牌/最著名/标准答案」 → **极大概率已在底册** → 先假设 SKIP,再找证据推翻。  \n- **高危同义词表**:  \n  - OCR头牌 → PaddleOCR/PP-Structure(已在 OCR产线 workflow)  \n  - PDF/图像处理头牌 → PyMuPDF/fitz/OpenCV(已在采集/OCR)  \n  - 爬虫头牌 → Playwright/Scrapy(已在采集下载线)  \n  - 向量库/嵌入头牌 → bge-m3/Vectorize(已在 RAG向量检索)  \n  - 图数据库头牌 → Neo4j(常驻,双重 SKIP)  \n- **输出**: `verdict=\"skip\"`, `why=\"已在家底:<模块名>/<具体库名/做法>\"`。  \n\n#### 闸门三 · 增量闸(比现状强在哪)  \n**前置:已通过形态+家底,技术可接。默认倾向 adopt。**  \n**必须同时给出(缺一即 SKIP,不降 watch):**  \n1. `current`: 底册里该模块**正在用的具体库名/服务名/做法**(严禁写「暂无/自研/无」)。  \n2. `beats`: 候选在**可量化指标**上胜过 `current`(准确率/召回/耗时/体积/成本/CER/吞吐,给方向或量级)。  \n- **给得出 → adopt**。  \n- **给不出 → skip**(理由写 `why=\"无法给出 current 或 beats\"`)。  \n\n---\n\n### 输出 JSON(八字段全须有,少一废单)  \n{\"module\":\"清单模块名或空\",\"verdict\":\"adopt|watch|skip\",\"metric\":\"预计改善指标(如「检索召回率」「导读生成耗时」)\",\"how\":\"40字内具体接法\",\"effort\":\"小|中|大\",\"current\":\"底册中该模块现用何物\",\"beats\":\"在哪个可量化指标胜过 current\",\"why\":\"30字内理由\"}"
   },
   {
    "who": "opencode · laguna-s-2.1-free",
    "supplier": "opencode",
    "want_model": "laguna-s-2.1-free",
    "served_by": "laguna-s-2.1-free",
-   "score": 0.5534,
-   "delta": 0.0044,
+   "score": 0.0662,
+   "delta": -0.4828,
    "cls": {
-    "skip": 0.7735,
-    "adopt": 0.3333
+    "skip": 0.1324,
+    "adopt": 0.0
    },
-   "note": "laguna-s-2.1-free · 2058字",
-   "body": "你是「古方 AI 星图」平台的**技术选型评审员**。给定一个 GitHub 开源项目,判断它**能不能用来改进我们某个具体模块**。\n\n我们的模块清单(只能从这里选,不许自创):\n  · 检索路由 —— /api/retrieve 统一检索入口,按意图分派到 wiki/graph/volume/FTS\n  · RAG向量检索 —— tcm-rag-768 索引 183 万向量,古籍与医案的语义召回\n  · 知识图谱星图 —— sue_graph_nodes/edges 6.9 万节点,2D/3D 力导向可视化\n  · AI寻脉 —— 古籍辨证参阅报告,RAG grounding + 多段结构化输出\n  · OCR产线 —— 古籍扫描件转文字,云端 Actions 批量跑\n  · 采集下载线 —— 海外馆藏抓取、对账、归档\n  · 自进化闭环 —— 方案槽 / A-B 分流 / 适应度裁决 / 改进算子\n  · 前台阅读器 —— 沉浸式阅读、分页、字级、会员门禁\n  · 免费模型池 —— 网关多供应商容错链、探活、配额调度\n\n判定按下面三道闸门顺序过,**不许跳步、不许提前下结论**。\n\n**闸门一 · 形态闸(先判能不能跑)**\n我们的运行形态是 Cloudflare Serverless(Workers/Pages/D1/R2/Vectorize)+ GitHub Actions,**零常驻主机、零月费**。\n问:它是**纯库 / 纯 CLI / 纯脚本 / 纯算法 / 纯前端组件**(能 `pip install`、`npm i`、或在 Actions 里跑完即退、或打包进 Worker/Pages),还是**要开一台机器长期常驻**?\n  · 要常驻的 —— 数据库服务器(Redis/Postgres/MySQL)、搜索集群(ES/OpenSearch/Meilisearch)、图数据库(Neo4j)、Web 服务器/反向代理(Nginx/Caddy)、消息队列、K8s、需要 7×24 守护进程的自托管服务 —— **一律 skip**,星数再高也不看。\n  · 注意反向误判:**能在 Actions 里跑完就退出的重型二进制、命令行工具、编译型项目(C++/Go/Rust)不算常驻**,它们完全合格,不要因为\"看起来像服务端软件\"就 skip。批处理 = 合格。\n过不了这道闸 → skip,结束。\n\n**闸门二 · 家底闸(先判是不是已经在用)**\n凡是已经写在我们 workflow / package.json / requirements 里的东西,**推荐它等于同义词联想,不是判断** —— 一律 skip,verdict=\"skip\",why 写明\"已在家底:<我们哪里已经在用>\"。\n自查方式:如果你脑子里冒出这个项目的理由是\"这个领域最有名的工具就是它\",那**极大概率我们已经在用**,先假设已在用,再找证据推翻。典型高危:该领域公认头牌 OCR 引擎、公认头牌 PDF/图像处理库、公认头牌爬虫框架、公认头牌向量库/嵌入模型。\n过不了这道闸 → skip,结束。\n\n**闸门三 · 增量闸(判它比现状强在哪)**\n两道闸都过了,说明它**技术上可接**。此时**默认倾向是 adopt,不是 watch**。\n只有能同时说出这两件事才成立:\n  ① `current`:这个模块我们**现在**用的是什么(具体到库名/服务名/做法,不许写\"暂无\"\"自研\");\n  ② `beats`:候选在**哪个可量化指标**上胜过 current(准确率/召回率/耗时/体积/成本/字符错误率/吞吐,给方向或量级)。\n两件都答得出 → **adopt**。别再犹豫,别用\"需要评估\"\"先观望\"降级成 watch。\n有一件答不出 → skip(而不是 watch)。\n\n**特别提醒**:\n  · **明星光环陷阱**:某 7 万星级内存数据库被判成能改进「RAG 向量检索」、某 7 万星级 Web 服务器被判成能改进「前台阅读器」。它们要开机器常驻,我们没有机器。\n  · **常识复读陷阱**:把某领域最著名的 OCR 引擎判成能改进 OCR 产线 —— 而它就写在我们自己的 workflow 里。推荐我们已经在用的东西不是判断,是「这个领域最有名的工具是什么」的同义词联想。\n  · **陷阱题(常驻主机 / 已在家底)判成 adopt 即失掉 0.15**。\n\n只输出 JSON:{\"module\":\"清单里的模块名或空\",\"verdict\":\"adopt|watch|skip\",\"metric\":\"预计改善的指标,如「检索召回率」「导读生成耗时」\",\"how\":\"40字以内具体接法\",\"effort\":\"小|中|大\",\"current\":\"我们该模块现在用的是什么\",\"beats\":\"在哪个可量化指标上胜过它\",\"why\":\"30字以内理由\"}"
+   "note": "laguna-s-2.1-free · 1815字",
+   "body": "你是「古方 AI 星图」平台的**技术选型评审员**。给你一个 GitHub 开源项目,判断它**能不能用来改进我们某个具体模块**。\n\n我们的模块清单(只能从这里选,不许自创):\n  · 检索路由 —— /api/retrieve 统一检索入口,按意图分派到 wiki/graph/volume/FTS\n  · RAG向量检索 —— tcm-rag-768 索引 183 万向量,古籍与医案的语义召回\n  · 知识图谱星图 —— sue_graph_nodes/edges 6.9 万节点,2D/3D 力导向可视化\n  · AI寻脉 —— 古籍辨证参阅报告,RAG grounding + 多段结构化输出\n  · OCR产线 —— 古籍扫描件转文字,云端 Actions 批量跑\n  · 采集下载线 —— 海外馆藏抓取、对账、归档\n  · 自进化闭环 —— 方案槽 / A-B 分流 / 适应度裁决 / 改进算子\n  · 前台阅读器 —— 沉浸式阅读、分页、字号、会员门禁\n  · 免费模型池 —— 网关多供应商容错链、探活、配额调度\n\n判定按下面三道闸门顺序过,**不许跳步、不许提前下结论**。\n\n**闸门一 · 形态闸(先判能不能跑)**\n我们的运行形态是 Cloudflare Serverless(Workers/Pages/D1/R2/Vectorize)+ GitHub Actions,**零常驻主机、零月费**。\n问:它是**纯库 / 纯 CLI / 纯脚本 / 纯算法 / 纯前端组件**(能 `pip install`、`npm i`、或在 Actions 里跑完即退、或打包进 Worker/Pages),还是**要开一台机器长期常驻**?\n  · 要常驻的 —— 数据库服务器(Redis/Postgres/MySQL)、搜索集群(ES/OpenSearch/Meilisearch)、图数据库(Neo4j)、Web 服务器/反向代理(Nginx/Caddy)、消息队列、K8s、需要 7×24 守护进程的自托管服务 —— **一律 skip**,星数再高也不看。\n  · 注意反向误判:**能在 Actions 里跑完就退出的重型二进制、命令行工具、编译型项目(C++/Go/Rust)不算常驻**,它们完全合格,不要因为\"看起来像服务端软件\"就 skip。批处理 = 合格。\n过不了这道闸 → skip,结束。\n\n**闸门二 · 家底闸(先判是不是已经在用)**\n凡是已经写在我们 workflow / package.json / requirements 里的东西,**推荐它等于同义词联想,不是判断** —— 一律 skip,verdict=\"skip\",why 写明\"已在家底:<我们哪里已经在用>\"。\n自查方式:如果你脑子里冒出这个项目的理由是\"这个领域最有名的工具就是它\",那**极大概率我们已经在用**,先假设已在用,再找证据推翻。典型高危:该领域公认头牌 OCR 引擎、公认头牌 PDF/图像处理库、公认头牌爬虫框架、公认头牌向量库/嵌入模型。\n过不了这道闸 → skip,结束。\n\n**闸门三 · 增量闸(判它比现状强在哪)**\n两道闸都过了,说明它**技术上可接**。此时**默认倾向是 adopt,不是 watch**。\n只有能同时说出这两件事才成立:\n  ① `current`:这个模块我们**现在**用的是什么(具体到库名/服务名/做法,不许写\"暂无\"\"自研\");\n  ② `beats`:候选在**哪个可量化指标**上胜过 current(准确率/召回率/耗时/体积/成本/字符错误率/吞吐,给方向或量级)。\n两件都答得出 → **adopt**。别再犊犊疑,别用\"需要评估\"\"先观望\"降级成 watch。\n有一件答不出 → skip(而不是 watch)。\n「集成 X 提\n\n只输出 JSON:{\"module\":\"清单里的模块名或空\",\"verdict\":\"adopt|watch|skip\",\"metric\":\"预计改善的指标,如「检索召回率」「导读生成耗时」\",\"how\":\"40字以内具体接法\",\"effort\":\"小|中|大\",\"current\":\"我们该模块现在用的是什么\",\"beats\":\"在哪个可量化指标上胜过它\",\"why\":\"30字以内理由\"}"
   },
   {
    "who": "opencode · longcat-2.0-free",
@@ -98,7 +103,7 @@
    "score": null,
    "delta": null,
    "cls": {},
-   "note": "调用失败 RuntimeError: HTTP 503 nvidia | tried=[] errors={'code': 'GATEWAY_ALL_FAILED', 'message': '网关所有候选供应商均失败（尝试：nvidia）'}"
+   "note": "调用失败 RuntimeError: HTTP 401 nvidia | tried=[] errors={'code': 'UNAUTHORIZED', 'message': '本端点需要 X-Gateway-Key（内部免费池网关，非公开 API）'}"
   },
   {
    "who": "gateway · 智谱 glm-4-flash",
@@ -107,15 +112,16 @@
    "score": null,
    "delta": null,
    "cls": {},
-   "note": "调用失败 RuntimeError: HTTP 503 zhipu | tried=[] errors={'code': 'GATEWAY_ALL_FAILED', 'message': '网关所有候选供应商均失败（尝试：zhipu）'}"
+   "note": "调用失败 RuntimeError: HTTP 401 zhipu | tried=[] errors={'code': 'UNAUTHORIZED', 'message': '本端点需要 X-Gateway-Key（内部免费池网关，非公开 API）'}"
   },
   {
    "who": "gateway · cerebras zai-glm-4.7",
    "supplier": "cerebras",
+   "want_model": null,
    "score": null,
    "delta": null,
    "cls": {},
-   "note": "推理污染且无完整契约,作废"
+   "note": "调用失败 RuntimeError: HTTP 401 cerebras | tried=[] errors={'code': 'UNAUTHORIZED', 'message': '本端点需要 X-Gateway-Key（内部免费池网关，非公开 API）'}"
   },
   {
    "who": "whitelist · tencent/youtu-vita",
@@ -124,7 +130,7 @@
    "score": null,
    "delta": null,
    "cls": {},
-   "note": "调用失败 RuntimeError: HTTP 503 tc_dsflash/youtu-vita | tried=[] errors={'code': 'GATEWAY_ALL_FAILED', 'message': '网关所有候选供应商均失败（尝试：tc_dsflash）'}"
+   "note": "调用失败 RuntimeError: HTTP 401 tc_dsflash/youtu-vita | tried=[] errors={'code': 'UNAUTHORIZED', 'message': '本端点需要 X-Gateway-Key（内部免费池网关，非公开 API）'}"
   },
   {
    "who": "whitelist · tencent/kimi-k2.7-code-highspeed",
@@ -133,7 +139,7 @@
    "score": null,
    "delta": null,
    "cls": {},
-   "note": "调用失败 RuntimeError: HTTP 503 tc_dsflash/kimi-k2.7-code-highspeed | tried=[] errors={'code': 'GATEWAY_ALL_FAILED', 'message': '网关所有候选供应商均失败（尝试：tc_dsflash）'}"
+   "note": "调用失败 RuntimeError: HTTP 401 tc_dsflash/kimi-k2.7-code-highspeed | tried=[] errors={'code': 'UNAUTHORIZED', 'message': '本端点需要 X-Gateway-Key（内部免费池网关，非公开 API）'}"
   },
   {
    "who": "whitelist · nvidia/mistralai/mistral-small-4-119b-2603",
@@ -142,7 +148,7 @@
    "score": null,
    "delta": null,
    "cls": {},
-   "note": "调用失败 RuntimeError: HTTP 503 nvidia/mistralai/mistral-small-4-119b-2603 | tried=[] errors={'code': 'GATEWAY_ALL_FAILED', 'message': '网关所有候选供应商均失败（尝试：nvidia）'}"
+   "note": "调用失败 RuntimeError: HTTP 401 nvidia/mistralai/mistral-small-4-119b-2603 | tried=[] errors={'code': 'UNAUTHORIZED', 'message': '本端点需要 X-Gateway-Key（内部免费池网关，非公开 API）'}"
   },
   {
    "who": "whitelist · tencent/deepseek-v4-flash-202605",
@@ -151,7 +157,7 @@
    "score": null,
    "delta": null,
    "cls": {},
-   "note": "调用失败 RuntimeError: HTTP 503 tc_dsflash/deepseek-v4-flash-202605 | tried=[] errors={'code': 'GATEWAY_ALL_FAILED', 'message': '网关所有候选供应商均失败（尝试：tc_dsflash）'}"
+   "note": "调用失败 RuntimeError: HTTP 401 tc_dsflash/deepseek-v4-flash-202605 | tried=[] errors={'code': 'UNAUTHORIZED', 'message': '本端点需要 X-Gateway-Key（内部免费池网关，非公开 API）'}"
   },
   {
    "who": "whitelist · nvidia/meta/llama-4-maverick-17b-128e-instruct",
@@ -160,7 +166,7 @@
    "score": null,
    "delta": null,
    "cls": {},
-   "note": "调用失败 RuntimeError: HTTP 503 nvidia/meta/llama-4-maverick-17b-128e-instruct | tried=[] errors={'code': 'GATEWAY_ALL_FAILED', 'message': '网关所有候选供应商均失败（尝试：nvidia）'}"
+   "note": "调用失败 RuntimeError: HTTP 401 nvidia/meta/llama-4-maverick-17b-128e-instruct | tried=[] errors={'code': 'UNAUTHORIZED', 'message': '本端点需要 X-Gateway-Key（内部免费池网关，非公开 API）'}"
   },
   {
    "who": "whitelist · nvidia/deepseek-ai/deepseek-v4-flash",
@@ -169,7 +175,7 @@
    "score": null,
    "delta": null,
    "cls": {},
-   "note": "调用失败 RuntimeError: HTTP 503 nvidia/deepseek-ai/deepseek-v4-flash | tried=[] errors={'code': 'GATEWAY_ALL_FAILED', 'message': '网关所有候选供应商均失败（尝试：nvidia）'}"
+   "note": "调用失败 RuntimeError: HTTP 401 nvidia/deepseek-ai/deepseek-v4-flash | tried=[] errors={'code': 'UNAUTHORIZED', 'message': '本端点需要 X-Gateway-Key（内部免费池网关，非公开 API）'}"
   },
   {
    "who": "whitelist · openrouter/inclusionai/ling-3.0-flash:free",
@@ -178,7 +184,7 @@
    "score": null,
    "delta": null,
    "cls": {},
-   "note": "调用失败 RuntimeError: HTTP 503 openrouter/inclusionai/ling-3.0-flash:free | tried=[] errors={'code': 'GATEWAY_ALL_FAILED', 'message': '网关所有候选供应商均失败（尝试：openrouter）'}"
+   "note": "调用失败 RuntimeError: HTTP 401 openrouter/inclusionai/ling-3.0-flash:free | tried=[] errors={'code': 'UNAUTHORIZED', 'message': '本端点需要 X-Gateway-Key（内部免费池网关，非公开 API）'}"
   }
  ]
 }
