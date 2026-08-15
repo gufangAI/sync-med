@@ -1,0 +1,10 @@
+{
+ "module": "检索路由 —— /api/retrieve",
+ "verdict": "adopt",
+ "metric": "检索召回率",
+ "how": "集成Elasticsearch作为后端搜索引擎，优化检索性能",
+ "effort": "中",
+ "current": "目前使用的是自定义的搜索引擎或数据库查询",
+ "beats": "在检索速度和召回率上",
+ "why": "Elasticsearch是成熟的分布式搜索引擎，性能优越"
+}

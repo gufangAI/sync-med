@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "使用 `pytesseract` 在 Actions 里单线程调用",
+ "beats": "",
+ "why": "PaddlePaddle/PaddleOCR 已在我们的 requirements 文件中"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "adopt",
+ "metric": "检索召回率",
+ "how": "替换 tcm-rag-768",
+ "effort": "中",
+ "current": "tcm-rag-768",
+ "beats": "预计召回率提升",
+ "why": "提供双级检索和知识图谱增强"
+}

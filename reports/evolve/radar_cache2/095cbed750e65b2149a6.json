@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "古籍扫描件处理速度",
+ "how": "使用Caddy作为静态文件服务器，优化资源加载速度",
+ "effort": "小",
+ "current": "目前使用的是Nginx",
+ "beats": "资源加载速度",
+ "why": "Caddy在性能和扩展性上表现良好"
+}

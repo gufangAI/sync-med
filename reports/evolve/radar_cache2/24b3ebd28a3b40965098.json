@@ -1,0 +1,10 @@
+{
+ "module": "检索路由 —— /api/retrieve 统一入口，按意图分派 wiki/graph/volume/FTS",
+ "verdict": "watch",
+ "metric": "检索召回率",
+ "how": "整合项目中的资源列表，丰富检索入口的链接资源",
+ "effort": "小",
+ "current": "目前使用的是自定义的链接资源列表",
+ "beats": "资源丰富度和更新频率",
+ "why": "项目提供大量高质量资源列表，可提升检索入口的全面性和时效性"
+}

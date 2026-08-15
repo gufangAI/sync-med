@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "古籍扫描件处理速度",
+ "how": "使用Redis缓存频繁访问的数据",
+ "effort": "小",
+ "current": "目前使用的是云端Actions批量处理",
+ "beats": "处理速度",
+ "why": "Redis内存数据库可以显著提高数据访问速度"
+}

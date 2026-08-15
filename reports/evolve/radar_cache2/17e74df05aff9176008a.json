@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "古籍扫描件转文字准确性",
+ "how": "使用MinerU进行PDF到Markdown和JSON的转换，提高OCR识别准确性",
+ "effort": "中",
+ "current": "目前使用云端Actions批量处理",
+ "beats": "转换后的格式更易于后续处理和分析",
+ "why": "MinerU支持布局检测、公式识别和表格提取，有助于提高转换质量"
+}

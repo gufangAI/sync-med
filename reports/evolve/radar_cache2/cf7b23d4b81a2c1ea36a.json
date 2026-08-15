@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "古籍扫描件转文字，使用自研的 OCR 识别技术",
+ "beats": "",
+ "why": "RapidOCR 是一个 OCR 工具包，但我们的 OCR产线已经自研了一套技术，且没有证据表明 RapidOCR 在我们的具体应用场景中比现有技术有显著优势。"
+}

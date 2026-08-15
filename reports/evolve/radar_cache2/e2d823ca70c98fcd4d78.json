@@ -1,0 +1,10 @@
+{
+ "module": "检索路由 —— /api/retrieve 统一检索入口，按意图分派到 wiki/graph/volume/FTS",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "",
+ "beats": "",
+ "why": "Redis 是内存数据库，不适合作为检索路由的后端存储"
+}
