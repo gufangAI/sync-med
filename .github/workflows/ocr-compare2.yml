@@ -42,6 +42,7 @@ jobs:
               d.text((520, 60 + i * 70), ch, fill="black")
           im.save("/tmp/smoke.png")
           PY
+          mkdir -p /tmp/ndlsmoke     # ocr.py 不自建输出目录,不存在就直接 "Output Directory is not found."
           cd ndlocr-lite/src
           python ocr.py --sourceimg /tmp/smoke.png --output /tmp/ndlsmoke
           test -f /tmp/ndlsmoke/smoke.json || { echo "❌ NDL 未产出 JSON,对比无意义,中止"; exit 1; }
