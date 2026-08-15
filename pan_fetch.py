@@ -24,6 +24,7 @@ import os
 import time
 import json as _json
 import random as _random
+import datetime as _dtmod          # 解析 token 的 expiredAt，见 token() 里那段
 from collections import OrderedDict
 
 import requests
@@ -135,7 +136,29 @@ def token():
     if not tv:
         raise PanUnavailable("token refused: %s" % str(r.text)[:120])
     _tok["v"] = tv
-    _tok["exp"] = now + 3000        # tokens last ~1h; refresh early
+    # 2026-08-15 修：此前这里写死 `now + 3000`，注释是「tokens last ~1h」—— **那是猜的**。
+    #   实测 123 返回的 expiredAt 是 **90 天**后（2026-08-15 量：expiredAt=2026-11-13），
+    #   相差 2602 倍。后果不是"多申请几次"那么轻：token 每 50 分钟换新，而旧的在服务端
+    #   还活着 90 天，于是**账号上的活 token 只增不减**，超过账号上限后
+    #   `download_info` 会拿 `401 tokens number has exceeded the limit` 拒掉——
+    #   报错报在业务接口上，看起来完全不像 token 的问题。
+    #   08-15 v3 批实证：shard 16 在开跑第 50 分钟整开始爆 145 次 401（其余三片各 0），
+    #   正是四个 job 的 3000 秒同时到点、一起换新 token 把账号顶穿。
+    #   平台前台 pan123.js 第 25 行 20 天前就写着「access_token(3个月有效 → 存20天)」，
+    #   我今早抄了它的共享缓存思路，**偏偏没抄这个有效期**。
+    #   现在一律以 API 自己给的 expiredAt 为准，留 1 天余量；解析不了才退守 20 天
+    #   （与前台同口径，仍远大于任何单次 job 的时长，不会在跑批中途换新）。
+    exp = 0.0
+    try:
+        _ea = d.get("expiredAt")
+        if _ea:
+            _dt = _dtmod.datetime.fromisoformat(str(_ea).replace("Z", "+00:00"))
+            exp = _dt.timestamp() - 86400
+    except Exception:
+        exp = 0.0
+    if exp <= now:
+        exp = now + 20 * 86400
+    _tok["exp"] = exp
     _shared_token_put(tv, _tok["exp"])
     return tv
 
