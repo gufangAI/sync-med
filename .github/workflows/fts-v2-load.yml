@@ -1,0 +1,51 @@
+name: fts-v2-load
+# Full-text index loader: R2 chunks.json -> D1 books_fts_v2 (bigram FTS5).
+# Additive build: writes ONLY the two new v2 tables; legacy books_fts untouched.
+# Switch-over to v2 happens separately, gated on 8 acceptance checks.
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: total shards
+        default: "4"
+      shard:
+        description: single shard to run (empty = all via matrix)
+        default: ""
+      limit_keys:
+        description: max volumes per shard (0 = unlimited; use small for pilot)
+        default: "0"
+concurrency:
+  group: fts-v2-load-${{ github.event.inputs.shard }}
+  cancel-in-progress: false
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: skip-unselected
+        if: ${{ github.event.inputs.shard != '' && github.event.inputs.shard != format('{0}', matrix.shard) }}
+        run: echo "shard ${{ matrix.shard }} not selected, skipping" && exit 0
+      - name: deps
+        if: ${{ github.event.inputs.shard == '' || github.event.inputs.shard == format('{0}', matrix.shard) }}
+        run: pip install --quiet requests boto3 opencc-python-reimplemented
+      - name: load
+        if: ${{ github.event.inputs.shard == '' || github.event.inputs.shard == format('{0}', matrix.shard) }}
+        env:
+          GY_CF_ACCOUNT: ${{ secrets.GY_CF_ACCOUNT }}
+          GY_D1_TOKEN: ${{ secrets.GY_D1_TOKEN }}
+          GY_R2_ENDPOINT: ${{ secrets.GY_R2_ENDPOINT }}
+          GY_R2_AK: ${{ secrets.GY_R2_AK }}
+          GY_R2_SK: ${{ secrets.GY_R2_SK }}
+          GY_R2_BUCKET: ${{ secrets.GY_R2_BUCKET }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ github.event.inputs.shards }}
+          LIMIT_KEYS: ${{ github.event.inputs.limit_keys }}
+        run: python fts_v2_load.py
