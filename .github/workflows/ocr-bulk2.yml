@@ -1,16 +1,40 @@
 name: ocr-bulk
+# 【v2 → v3 改三处，都是 2026-08-15 首批 8 分片实测出来的】
+#
+# ① 并发降到 4，并把限速按并发算准。
+#    首批用 shards=8 + pan_fetch 默认 MIN_GAP=0.25（=4 QPS/进程），
+#    实际总速率 8×4=32 QPS，而 123 官方上限 5 —— 日志实证：
+#    `pan download_info 失败: code=429 msg=操作频繁，请稍后再试 (已重试 4 次)`。
+#    单 job 试点成功率 99.5%，8 并发掉到 86.3%（shard 10：1036/1200）。
+#    正确算法是**总量除以并发**：N 个 job 时每个限 5/N QPS。
+#    这里取 4 并发 + MIN_GAP=1.0（=1 QPS/进程，总 4 QPS，在 5 之下留余量）。
+#    我此前算过「每 job 0.1 QPS，20 个才 2 QPS」—— 那是把限速值当成了实际速率，错的。
+#
+# ② 加 concurrency，防止 cron 触发时与上一轮重叠。
+#    重叠 = 并发翻倍 = 429 加剧。cancel-in-progress: false 让它排队而不是互相杀。
+#    ⚠️ 上游 sync.yml 正因为「一个 pending 卡死 + cancel-in-progress:false」而全线堵死
+#    （实测 7 次 cancelled + 1 次永久 pending，jobs 数 0）。所以这里必须配 timeout，
+#    让 job 不可能永久占住 group。
+#
+# ③ 加 cron。没有它，这条线跑完一批就停 —— 那正是它此前 248/256 分片零产出的形态之一。
+#    分片窗口按 run_number 滚动，不永远盯着同一段。
 on:
+  schedule:
+    - cron: '23 */6 * * *'      # 每 6 小时。避开 :00/:30 的全球拥堵点
   workflow_dispatch:
     inputs:
       shards:
-        description: shard count for this round
-        default: '8'
+        description: shard count (>4 will hit 123 rate limit)
+        default: '4'
       base:
-        description: first shard number
-        default: '0'
+        description: first shard number (blank = rotate by run_number)
+        default: ''
       pilot:
         description: max pages per job
-        default: '1200'
+        default: '1500'
+concurrency:
+  group: ocr-bulk
+  cancel-in-progress: false
 jobs:
   prep:
     runs-on: ubuntu-latest
@@ -21,11 +45,15 @@ jobs:
         env:
           B: ${{ github.event.inputs.base }}
           N: ${{ github.event.inputs.shards }}
+          RUN: ${{ github.run_number }}
         run: |
           python - <<'EOF' >> "$GITHUB_OUTPUT"
           import json, os
-          b = int(os.environ['B']); n = int(os.environ['N'])
-          print('m=' + json.dumps([(b + i) % 256 for i in range(n)]))
+          n = int(os.environ.get('N') or 4)
+          b = os.environ.get('B') or ''
+          # cron 触发时 inputs 为空 → 用 run_number 滚动窗口，保证每轮换一段分片
+          base = int(b) if b.strip() else (int(os.environ['RUN']) * n) % 256
+          print('m=' + json.dumps([(base + i) % 256 for i in range(n)]))
           EOF
   run:
     needs: prep
@@ -33,7 +61,7 @@ jobs:
     timeout-minutes: 330
     strategy:
       fail-fast: false
-      max-parallel: 20
+      max-parallel: 4
       matrix:
         shard: ${{ fromJson(needs.prep.outputs.m) }}
     steps:
@@ -52,7 +80,8 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}
           TOTAL: '256'
-          PILOT: ${{ github.event.inputs.pilot }}
+          PILOT: ${{ github.event.inputs.pilot || '1500' }}
+          PAN_MIN_GAP: '1.0'
           S_EP: ${{ secrets.S_EP }}
           S_AK: ${{ secrets.S_AK }}
           S_SK: ${{ secrets.S_SK }}
