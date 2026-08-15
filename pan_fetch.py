@@ -167,6 +167,43 @@ def _headers():
     return {"Platform": "open_platform", "Authorization": "Bearer " + token()}
 
 
+def _is_token_exhausted(j):
+    """这个 token 自己用超了(≠ 账号令牌数超限)。
+
+    2026-08-16 决定性实验：同一时刻、同一接口、同一目录，只换 token ——
+      缓存里的老 token → `401 tokens number has exceeded the limit`
+      当场新申请的     → `code=0 ok`
+    所以这句报错说的是**「这个 token 用超了」**，不是「账号持有的令牌数超了」。
+
+    这条纠正了此前三次误判：
+      ① 以为是有效期写死导致令牌累积 —— 有效期确实是猜的、确实该修，但与本 401 无关；
+      ② 以为是共享缓存没被复用 —— **恰恰相反，是复用得太久**；
+      ③ 以为是跨产线抢账号配额 —— 本地/云端差异只因本地那次恰好新申请了 token。
+    上游那条每 6 小时成功的产线之所以从没踩坑，正是因为**它每次都新申请、从不复用**。
+
+    结论：**有效期与使用配额是两个独立限制**。只看 expiredAt 不够，
+    必须在用超时作废缓存重取。
+    """
+    if not isinstance(j, dict):
+        return False
+    if j.get("code") != 401:
+        return False
+    m = str(j.get("message") or "").lower()
+    return "token" in m and ("exceed" in m or "limit" in m)
+
+
+def _force_refresh_token():
+    """作废进程内与共享缓存的 token，下一次 token() 会真去申请一个新的。"""
+    _tok["v"], _tok["exp"] = None, 0
+    c, bk = _s3()
+    if c:
+        try:
+            c.put_object(Bucket=bk, Key=TOK_KEY,
+                         Body=_json.dumps({"v": "", "exp": 0}).encode())
+        except Exception:
+            pass
+
+
 def dir_index(pan_dir_id):
     """filename -> fileId for one folder. Listed once, then cached.
 
@@ -179,12 +216,22 @@ def dir_index(pan_dir_id):
         _dirs.move_to_end(key)
         return _dirs[key]
     idx, last_id, first = {}, 0, None
-    for _ in range(LIST_PAGES_MAX):
+    _retried = False
+    for _ in range(LIST_PAGES_MAX * 2):     # 换钥重试会重来一轮,循环上限相应放宽
         r = requests.get(PAN + "/api/v2/file/list",
                          params={"parentFileId": pan_dir_id, "limit": 100,
                                  "lastFileId": last_id},
                          headers=_headers(), timeout=TIMEOUT)
         j = r.json() or {}
+        # 2026-08-16：这个 token 自己用超了 → 作废缓存、换一把新钥，整个列举重来一次。
+        #   不重试的话，本轮所有页都会被记成"缺页"，把一次可恢复的鉴权问题
+        #   伪装成数据问题——那正是 01:27 那批 12 页全废的形态。
+        if _is_token_exhausted(j) and not _retried:
+            _retried = True
+            print("pan token 用超,换钥重试: folder=%s" % key, flush=True)
+            _force_refresh_token()
+            idx, last_id, first = {}, 0, None
+            continue
         if first is None:
             first = j
         d = j.get("data") or {}
