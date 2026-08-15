@@ -136,6 +136,7 @@ mine = []
 for _i, (bid, pc) in enumerate(books):
     if _i % TOTAL == SHARD:
         mine += [f"book/{bid}/page_{n:04d}.webp" for n in range(1, pc + 1)]
+shard_pages = len(mine)   # PILOT 截断**之前**的该 shard 完整页数，用于算真进度分母
 _pilot = os.environ.get("PILOT", "").strip()
 if _pilot:
     # Spread the trial across the shard rather than taking the first N pages.
@@ -268,9 +269,16 @@ json.dump(sorted(ledger), open(LEDGER, "w", encoding="utf-8"), ensure_ascii=Fals
 # 判退明细台账(每 shard 一次 GET + 一次 PUT,零 LIST)。
 # 汇总台账里的 rej 只是个数字;要知道被判退的是【哪几页】只能靠它。
 ocr_reject_log.flush(s3, BUCKET, "ocr", SHARD, rejects)
+# 2026-08-15 加 cum：此前台账只有 total/ocrd，而它们是**本轮 mine 切片内**的数
+#   （mine 被 PILOT 限过量），不是累计进度。后果实证：首批 8 分片各做 1200 页写下
+#   ocrd=1036，随后一次 4 分片 × 30 页的验证跑把同样的 key **覆盖**成 ocrd=27 ——
+#   于是外部看到的"总进度"从 9,297 页掉到 4,856 页，像是页凭空少了。
+#   累计量一直在手边：ledger 装着该 shard 历史上完成的全部 txtkey，len() 就是累计数。
+#   total_all 同理给出该 shard 的完整页数（不受 PILOT 截断），这样 cum/total_all 才是真进度。
 s3.put_object(Bucket=BUCKET, Key=f"_ledger/ocr_{SHARD}.json",
               Body=json.dumps({"shard": SHARD, "total": len(mine), "ocrd": skipped + done,
                                "new": done, "rej": rejected,
+                               "cum": len(ledger), "total_all": shard_pages,
                                "miss_nopdid": miss_nopdid, "miss_nopage": miss_nopage}).encode())
 # The misses are printed with the counts: a shard that reads from the pan and
 # produces nothing must say WHY. A bare "0 new" is exactly the silent zero that
