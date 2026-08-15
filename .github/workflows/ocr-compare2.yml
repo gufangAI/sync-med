@@ -27,8 +27,29 @@ jobs:
       - run: git clone --depth 1 https://github.com/ndl-lab/ndlocr-lite
       - name: deps
         run: |
-          pip install --quiet -r ndlocr-lite/requirements.txt || true
+          # 原来这行带 `|| true` —— 首跑 NDL 侧全 0 字时,它把装依赖的真相一起吞了,
+          # 害得 15 分钟跑完才发现链路根本没起来。装不上就当场失败,别假装能跑。
+          pip install --quiet -r ndlocr-lite/requirements.txt
           pip install --quiet rapidocr-onnxruntime requests boto3 pillow "numpy<2"
+      - name: ndl-smoke
+        # 起跑前先证明 NDL 链路真能出字。不做这一步,任何"对比结果"都可能只是单路独跑。
+        run: |
+          python - <<'PY'
+          from PIL import Image, ImageDraw
+          im = Image.new("RGB", (640, 900), "white")
+          d = ImageDraw.Draw(im)
+          for i, ch in enumerate("一二三四五六七八九十"):
+              d.text((520, 60 + i * 70), ch, fill="black")
+          im.save("/tmp/smoke.png")
+          PY
+          cd ndlocr-lite/src
+          python ocr.py --sourceimg /tmp/smoke.png --output /tmp/ndlsmoke
+          test -f /tmp/ndlsmoke/smoke.json || { echo "❌ NDL 未产出 JSON,对比无意义,中止"; exit 1; }
+          python -c "
+          import json; d=json.load(open('/tmp/ndlsmoke/smoke.json',encoding='utf-8'))
+          b=[x for p in (d.get('contents') or []) for x in (p if isinstance(p,list) else [p])]
+          print(f'✅ NDL 链路通: {len(b)} 行, 首行={b[0].get(chr(116)+chr(101)+chr(120)+chr(116)) if b else None}')
+          "
       - name: compare
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
