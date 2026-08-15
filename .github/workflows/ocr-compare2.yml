@@ -1,0 +1,50 @@
+name: ocr-compare2
+# 竖排古籍 OCR 双路对比 · NDLOCR-Lite vs RapidOCR
+#   立此因(2026-08-16 创始人):「多 OCR 比较,才是更好的;若是可以多个整合优点为一个,
+#   那就是我们自己的了」。
+#   与既有 ocr_compare.yml 的关系 —— **加法不是替换,原 workflow 一字未动**:
+#     · 原来那条比的是 NDL vs 某 VLM 路线,需额外密钥;
+#     · 本条比 NDL vs **RapidOCR(现役主线,实测 98.7%)**,零额外密钥,
+#       回答的是真问题:**竖排古籍该用谁**。
+on:
+  workflow_dispatch:
+    inputs:
+      books:
+        description: comma-separated book_ids (empty = auto pick 2)
+        default: ""
+      n_pages:
+        description: pages per book
+        default: "6"
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: git clone --depth 1 https://github.com/ndl-lab/ndlocr-lite
+      - name: deps
+        run: |
+          pip install --quiet -r ndlocr-lite/requirements.txt || true
+          pip install --quiet rapidocr-onnxruntime requests boto3 pillow "numpy<2"
+      - name: compare
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          PAN_CLIENT_ID: ${{ secrets.PAN_CLIENT_ID }}
+          PAN_CLIENT_SECRET: ${{ secrets.PAN_CLIENT_SECRET }}
+          S_EP: ${{ secrets.S_EP }}
+          S_AK: ${{ secrets.S_AK }}
+          S_SK: ${{ secrets.S_SK }}
+          S_BUCKET: ${{ secrets.S_BUCKET }}
+          BOOKS: ${{ github.event.inputs.books }}
+          N_PAGES: ${{ github.event.inputs.n_pages }}
+        run: python compare_ocr2.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compare2
+          path: compare2_result.json
