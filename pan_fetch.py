@@ -202,8 +202,20 @@ def dir_index(pan_dir_id):
         # caller -- both just return no page. Say which one it was, with the
         # API's own code/message, or the next person debugging a zero-output
         # run has nothing to go on.
+        _code = (first or {}).get("code")
+        _msg  = str((first or {}).get("message") or "")
         print("pan dir_index empty: folder=%s api code=%s msg=%s" % (
-            key, (first or {}).get("code"), str((first or {}).get("message"))[:120]), flush=True)
+            key, _code, _msg[:120]), flush=True)
+        # 2026-08-16 修：**配额/鉴权被拒的空结果绝不进缓存。**
+        #   原来无论什么原因导致 idx 为空，都会 `_dirs[key] = idx` 缓存下来。
+        #   于是一次配额拒绝（`401 tokens number has exceeded the limit`）之后，
+        #   即使配额已恢复，同一目录仍永远命中那份空缓存 ——
+        #   **一次瞬时故障被放大成该目录在本进程内的永久失效**。
+        #   实证 2026-08-16 01:27：另一条产线在 10 分钟前对同一账号做批量整理，
+        #   本批 12 页全部"取图失败"，而 5 分钟后同样的目录手工调用 code=0 正常。
+        #   判据：**只有"确认目录真的空"才配缓存；说不清原因的一律不缓存，留给下次重试。**
+        if _code not in (0, None) or "token" in _msg.lower() or "limit" in _msg.lower():
+            return idx        # 不写 _dirs，下次调用会重新请求
     _dirs[key] = idx
     while len(_dirs) > MAX_DIRS_CACHED:
         _dirs.popitem(last=False)       # evict oldest folder, not this one
