@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "updated": "2026-08-14",
+ "updated": "2026-08-15",
  "decisions": [
   {
    "source": "arsenal:x1xhlol/system-prompts-and-models-of-ai-tools",
@@ -353,6 +353,26 @@
    "issue": 299,
    "topic": "新技术研判:DigitalPlatDev/FreeDomain(192428星)— 免费域名注册和 DNS 学习资源",
    "verdict_ok": false
+  },
+  {
+   "source": "arsenal:mindsdb/mindshub",
+   "decision": "watch",
+   "basis": "veto:2",
+   "fingerprint": "0f205f0a8ef3a5aa",
+   "date": "2026-08-15",
+   "issue": 313,
+   "topic": "新技术研判:mindsdb/mindshub(39564星)— 提供统一工作空间，让开源模型为你完成任务",
+   "verdict_ok": true
+  },
+  {
+   "source": "arsenal:sunface/rust-course",
+   "decision": "watch",
+   "basis": "veto:1",
+   "fingerprint": "f9121ed87fbdedd4",
+   "date": "2026-08-15",
+   "issue": 313,
+   "topic": "新技术研判:sunface/rust-course(30787星)— 提供 Rust 编程语言的中文学习教程和书籍",
+   "verdict_ok": true
   }
  ]
 }
