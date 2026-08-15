@@ -47,22 +47,34 @@ def norm(s):
 
 
 # ── 路线 A：NDLOCR-Lite（竖排专训，逐块置信度）─────────────────────
+#
+# 2026-08-16 修正（首跑 100 页 NDL 侧全 0 字，靠本函数返回的 ndl_note 一次定位）：
+#   ① 原调用写的是 **NDLOCR v2 的 CLI**（main.py infer <img> <out> -x -s json），
+#      lite 版根本没有 main.py —— 报 "can't open file .../src/main.py"。
+#      lite 的真实入口是 `ocr.py --sourceimg <图> --output <目录>`（README 实证）。
+#   ② 就算路径改对，原解析也会崩：lite 的 JSON 是 `{"contents": [[行,行,…]]}`,
+#      **contents 外面还套一层**，直接 for 会拿到内层 list，`.get` 抛 AttributeError。
+#   权重（4 个 ONNX 共 ~157MB）随仓 clone 即带，非 LFS，不需另外下载。
 def ndl_ocr(img_path, tag):
-    out = f"/tmp/ndl_{tag}"
-    r = subprocess.run([sys.executable, "main.py", "infer", os.path.abspath(img_path), out,
-                        "-x", "-s", "json"], cwd=OCR_SRC, capture_output=True, text=True, timeout=600)
-    jf = None
-    for root, _, files in os.walk(out):
-        for f in files:
-            if f.endswith(".json"):
-                jf = os.path.join(root, f); break
-    if not jf:
-        return None, f"ndl 无输出: {r.stderr[-140:]}"
+    out = os.path.abspath(f"/tmp/ndl_{tag}")
+    os.makedirs(out, exist_ok=True)
+    stem = os.path.splitext(os.path.basename(img_path))[0]
+    r = subprocess.run([sys.executable, "ocr.py", "--sourceimg", os.path.abspath(img_path),
+                        "--output", out],
+                       cwd=OCR_SRC, capture_output=True, text=True, timeout=900)
+    jf = os.path.join(out, stem + ".json")
+    if not os.path.exists(jf):
+        tail = (r.stderr or r.stdout or "")[-200:]
+        return None, f"ndl 无输出(rc={r.returncode}): {tail}"
     data = json.load(open(jf, encoding="utf-8"))
-    blocks = data if isinstance(data, list) else data.get("contents", [])
+    # contents 是 [[行,行,…]]（单图路径）或 [[…],[…]]（多页路径）——一律拍平
+    blocks = []
+    for page in (data.get("contents") or []):
+        blocks.extend(page if isinstance(page, list) else [page])
     kept = [b.get("text", "") for b in blocks
             if (b.get("confidence") or 0) >= CONF_MIN and cjk_ratio(b.get("text") or "") >= CJK_MIN]
-    return "\n".join(kept), f"blocks={len(blocks)} kept={len(kept)}"
+    vert = sum(1 for b in blocks if str(b.get("isVertical")).lower() == "true")
+    return "\n".join(kept), f"blocks={len(blocks)} kept={len(kept)} vertical={vert}"
 
 
 # ── 路线 B：RapidOCR（我们现役主线）────────────────────────────
