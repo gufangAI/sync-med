@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "skip",
+ "metric": null,
+ "how": null,
+ "effort": null,
+ "current": "tcm-rag-768 索引 183 万向量",
+ "beats": null,
+ "why": "声称能优化 RAG 向量检索但本身是内存数据库/向量数据库/搜索引擎，需要常驻主机，我们没有。"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "adopt",
+ "metric": "检索召回率",
+ "how": "使用LightRAG进行向量检索增强",
+ "effort": "中",
+ "current": "tcm-rag-768",
+ "beats": "更高的召回率，特别是对于知识图谱相关的查询",
+ "why": "LightRAG提供双级检索和知识图谱增强，纯Python SDK，无需常驻主机"
+}
