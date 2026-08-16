@@ -34,6 +34,59 @@ SELF = {'workflow-sentry.yml', 'fleet-watch.yml', 'intake-sentry.yml', 'gateway-
 STALE_HOURS = 48   # 有 cron 却 48 小时没跑过 = 触发器可能断了（execution-watchdog 第五条：停摆先查触发）
 
 
+# ── 绿勾零产出探针（2026-08-16 · 改善计划2.3）──────────────────────────
+# conclusion=success 只证明"进程没崩"，不证明"有产出"。血证就在本仓：
+# roundtable(百家论道) 自 08-09 起连续绿勾、每天 24 跑，content_gen_runs 里
+# inserted 全 0（gateway 401），没有任何人被惊动 —— 和 pan-register 同一类病。
+# 注册纪律（上线前实测出来的两条，违反即误报）：
+#   1. 只准注册**验过活体**的探针：历史行数>0 且能指认生产者 workflow。
+#      （差点注册 ocr_processing_log —— 该表有史以来 0 行，挂上=永远喊狼来了）
+#   2. 探针 SQL 必须逐表核对时间列类型：intel_items.captured_at 是 TEXT，
+#      content_gen_runs.started_at 是 epoch 整数 —— 整数与 datetime() 文本比较恒假。
+# 产出=0 与 run 红绿**解耦**：绿勾、红叉、被 cancel、cron 被禁 —— 24h 零产出一律报。
+OUTPUT_PROBES = [
+    # (产线名, 生产者workflow, 24h产出计数SQL —— 返回一行一列 n)
+    ('鹰眼情报采集', 'intel-radar.yml',
+     "SELECT COUNT(*) AS n FROM intel_items WHERE captured_at >= datetime('now','-24 hours')"),
+    ('百家论道内容工厂', 'roundtable.yml',
+     "SELECT COALESCE(SUM(inserted),0) AS n FROM content_gen_runs "
+     "WHERE started_at >= CAST(strftime('%s','now','-24 hours') AS INTEGER)"),
+]
+
+
+def _d1_query(sql):
+    """D1 只读探针。凭据缺失/查询失败返回 None（哨兵自身不能因探针挂了而挂）。"""
+    acc = os.environ.get('CF_ACCOUNT_ID'); db = os.environ.get('D1_DATABASE_ID')
+    tok = os.environ.get('D1_API_TOKEN')
+    if not (acc and db and tok):
+        return None
+    try:
+        req = urllib.request.Request(
+            f'https://api.cloudflare.com/client/v4/accounts/{acc}/d1/database/{db}/query',
+            data=json.dumps({'sql': sql}).encode(),
+            headers={'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json'})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            d = json.loads(r.read())
+        return d['result'][0]['results'][0]['n'] if d.get('success') else None
+    except Exception:
+        return None
+
+
+def check_output_probes():
+    """返回产出=0 的 [(产线名, workflow)]；探针读不到(None)只打日志不报，宁漏不误。"""
+    zero = []
+    for name, wf, sql in OUTPUT_PROBES:
+        n = _d1_query(sql)
+        if n is None:
+            print(f'  ⚪ 探针读不到: {name}（凭据缺失或查询失败，跳过不误报）')
+        elif n == 0:
+            zero.append((name, wf))
+            print(f'  ⚫ 绿勾零产出: {name} ({wf}) · 24h 产出 = 0')
+        else:
+            print(f'  ✅ {name} 24h 产出 {n}')
+    return zero
+
+
 def gh(path, method='GET', payload=None):
     req = urllib.request.Request(
         f'https://api.github.com{path}',
@@ -136,18 +189,23 @@ def main():
             stale.append((w['name'], fname, hours, limit))
 
     print(f'扫描 {len(wfs)} 个 workflow · 最近一次失败 {len(failed)} 个 · 疑似停摆 {len(stale)} 个')
+    zero_out = check_output_probes()
     for n, f, h, _ in failed:
         print(f'  ❌ {f:28} {n[:30]}  {h}h 前')
 
-    if not failed:
-        print('无失败产线，不开 Issue')
+    if not failed and not zero_out:
+        print('无失败产线、产出探针全活，不开 Issue')
         return
 
-    title = f'🏭 产线失败 · {len(failed)} 条'
+    title = f'🏭 产线失败/零产出 · 失败 {len(failed)} · 零产出 {len(zero_out)}'
     lines = ['> 兜底哨兵：盯的是 fleet-watch 覆盖范围之外、且自身没有告警出口的 workflow。', '',
              '## 🔴 最近一次运行失败', '']
     for n, f, h, url in failed:
         lines.append(f'- **{n}** (`{f}`) · {h} 小时前 · [查看运行]({url})')
+    if zero_out:
+        lines += ['', '## ⚫ 绿勾零产出（run 在跑/在绿，24 小时产出为 0）', '']
+        for name, wf in zero_out:
+            lines.append(f'- **{name}** (`{wf}`) · 24h 产出=0 —— 绿勾只证明进程没崩，先查产线自己的日志与下游表')
     if stale:
         lines += ['', '## 🟡 超出各自 cron 周期未运行（触发器可能断了）', '']
         for n, f, h, lim in stale:
