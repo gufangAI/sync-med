@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR识别准确率",
+ "how": "集成RapidOCR作为OCR模块，提升古籍扫描件转文字的准确率",
+ "effort": "中",
+ "current": "目前使用的是云端 Actions 批量跑的 OCR 工具",
+ "beats": "在OCR识别准确率上",
+ "why": "RapidOCR基于ONNXRuntime，性能优越，且为纯库形式，无需常驻主机"
+}

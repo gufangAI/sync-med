@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "skip",
+ "metric": "阅读体验",
+ "how": "使用Caddy作为静态文件服务器",
+ "effort": "小",
+ "current": "目前使用的是Nginx或自研静态文件服务",
+ "beats": "无",
+ "why": "Caddy主要用于HTTPS和自动配置，对阅读器核心功能影响不大"
+}

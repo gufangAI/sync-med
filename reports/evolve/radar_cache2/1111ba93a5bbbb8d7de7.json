@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR识别准确率与效率",
+ "how": "集成PaddleOCR进行古籍扫描件文字识别，优化现有OCR产线",
+ "effort": "中",
+ "current": "目前使用的是云端 Actions 批量跑的 OCR 工具",
+ "beats": "在识别准确率和效率上可能胜过现有工具",
+ "why": "PaddleOCR 是基于 PaddlePaddle 的多语言 OCR 工具，性能优越"
+}

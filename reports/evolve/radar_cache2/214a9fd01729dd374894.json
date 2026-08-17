@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "watch",
+ "metric": "图谱构建效率，节点/边处理速度",
+ "how": "利用Neo4j的图数据库特性优化图谱存储和查询",
+ "effort": "中",
+ "current": "目前使用的是sue_graph_nodes/edges",
+ "beats": "在节点/边处理速度上可能胜过现有方案",
+ "why": "Neo4j是图数据库领域的领先者，优化图处理性能"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "watch",
+ "metric": "PDF转Markdown质量",
+ "how": "集成到阅读器中处理PDF文件",
+ "effort": "小",
+ "current": "目前使用PDF.js进行PDF渲染和转换",
+ "beats": "转换质量、布局识别、公式识别",
+ "why": "潜在提升转换质量，但需验证实际效果"
+}

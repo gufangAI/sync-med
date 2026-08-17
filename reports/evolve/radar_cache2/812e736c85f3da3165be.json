@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR 字符识别准确率",
+ "how": "集成到现有 OCR 产线中",
+ "effort": "中",
+ "current": "目前使用的 OCR 引擎（如 Tesseract 4.00）",
+ "beats": "在字符识别准确率上预计胜过 current",
+ "why": "评估其性能是否优于现有方案"
+}

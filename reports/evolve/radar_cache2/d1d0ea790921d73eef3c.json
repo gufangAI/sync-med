@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "古籍扫描件转文字准确性",
+ "how": "使用MinerU进行PDF转Markdown，提高OCR识别的准确性",
+ "effort": "中",
+ "current": "目前使用通用OCR工具",
+ "beats": "在公式识别和表格提取上可能胜过现有工具",
+ "why": "MinerU在PDF转换方面具有高准确性和丰富的格式识别功能"
+}

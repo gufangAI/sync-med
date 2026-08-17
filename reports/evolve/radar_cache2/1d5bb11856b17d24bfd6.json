@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR处理速度",
+ "how": "使用Redis进行缓存优化",
+ "effort": "小",
+ "current": "目前使用的是云端Actions批量处理",
+ "beats": "无",
+ "why": "Redis需要常驻服务器，不符合零常驻约束"
+}

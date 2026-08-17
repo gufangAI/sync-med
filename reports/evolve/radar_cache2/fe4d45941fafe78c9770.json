@@ -1,0 +1,10 @@
+{
+ "module": "检索路由",
+ "verdict": "skip",
+ "metric": "检索速度",
+ "how": "无需接入",
+ "effort": "小",
+ "current": "目前使用的是基于内存的数据库，如 Redis",
+ "beats": "无",
+ "why": "已在家底：作为内存数据库，Redis 已在我们的架构中使用"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "检索路由 —— /api/retrieve 统一检索入口,按意图分派到 wiki/graph/volume/FTS",
+ "verdict": "skip",
+ "metric": "检索召回率",
+ "how": "集成Elasticsearch作为后端搜索引擎",
+ "effort": "大",
+ "current": "目前使用的是自定义的检索系统或第三方搜索引擎",
+ "beats": "在检索速度和扩展性上可能胜过现有系统",
+ "why": "Elasticsearch是常驻服务，不符合零常驻约束"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "检索路由",
+ "verdict": "watch",
+ "metric": "检索召回率",
+ "how": "集成 Elasticsearch 作为后端搜索引擎",
+ "effort": "中",
+ "current": "当前使用 Meilisearch 作为后端搜索引擎",
+ "beats": "在检索速度和复杂查询处理上预计胜过 Meilisearch",
+ "why": "Elasticsearch 在大规模数据检索方面有优势"
+}

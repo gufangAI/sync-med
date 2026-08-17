@@ -1,0 +1,10 @@
+{
+ "module": "Elasticsearch",
+ "verdict": "adopt",
+ "metric": "搜索性能、可扩展性、RESTful API",
+ "how": "集成到现有架构中，替代当前搜索引擎",
+ "effort": "中",
+ "current": "目前使用Apache Solr",
+ "beats": "在搜索性能、可扩展性和RESTful API支持上",
+ "why": "Elasticsearch在处理大规模数据集和复杂查询方面表现更优"
+}

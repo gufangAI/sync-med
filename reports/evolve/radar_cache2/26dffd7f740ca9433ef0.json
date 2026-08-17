@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "adopt",
+ "metric": "检索速度和准确性",
+ "how": "通过pip安装后集成到现有系统中",
+ "effort": "中",
+ "current": "tcm-rag-768",
+ "beats": "LightRAG提供更快的检索速度和更高的准确性，同时支持知识图谱增强",
+ "why": "LightRAG是一个纯Python SDK，无需服务器，符合我们的无机器运行形态要求"
+}

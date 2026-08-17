@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索 - tcm-rag-768 索引 183 万向量，古籍与医案的语义召回",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "目前使用的是基于磁盘的数据库系统，如Redis或Memcached，用于存储和检索向量数据。",
+ "beats": "",
+ "why": "Redis是一个内存数据库，不适合在Cloudflare Serverless环境中运行，因为它需要持续运行的进程来保持数据在内存中。"
+}

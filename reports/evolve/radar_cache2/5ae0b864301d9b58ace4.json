@@ -1,0 +1,10 @@
+{
+ "module": "HTTP/1-2-3 web server",
+ "verdict": "adopt",
+ "metric": "HTTPS 自动化效率",
+ "how": "集成 Caddy 服务器",
+ "effort": "小",
+ "current": "目前使用 Nginx 作为 HTTP/1-2-3 web 服务器",
+ "beats": "HTTPS 自动化配置和更新",
+ "why": "Caddy 提供更便捷的 HTTPS 自动化，减少手动配置工作量"
+}

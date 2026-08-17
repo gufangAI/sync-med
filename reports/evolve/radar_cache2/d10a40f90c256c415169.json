@@ -1,0 +1,10 @@
+{
+ "module": "Redis",
+ "verdict": "adopt",
+ "metric": "数据持久化性能",
+ "how": "作为内存数据库，Redis在数据持久化方面具有优势",
+ "effort": "小",
+ "current": "目前我们使用的是Memcached",
+ "beats": "在数据持久化性能和键值存储的多样性上",
+ "why": "Redis支持更丰富的数据类型和更优的数据持久化策略"
+}

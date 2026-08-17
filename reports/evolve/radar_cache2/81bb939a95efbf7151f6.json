@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "古籍扫描件转文字准确性",
+ "how": "集成PDF转Markdown和JSON功能，提高文本提取质量",
+ "effort": "中",
+ "current": "使用现有OCR技术进行文字识别",
+ "beats": "在PDF格式识别和布局检测上可能胜出",
+ "why": "MinerU支持多种PDF格式转换，可能提升古籍文本提取的准确性"
+}

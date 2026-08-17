@@ -1,0 +1,10 @@
+{
+ "module": "PDF to Markdown and JSON conversion",
+ "verdict": "adopt",
+ "metric": "conversion accuracy and efficiency",
+ "how": "Integrate as a part of our document processing pipeline",
+ "effort": "medium",
+ "current": "Our current toolset includes Pandoc for PDF conversion and custom scripts for Markdown and JSON formatting",
+ "beats": "MinerU offers advanced layout detection and formula recognition, potentially improving conversion accuracy and reducing manual post-processing",
+ "why": "MinerU provides enhanced features like layout detection and formula recognition, which are not available in our current setup"
+}

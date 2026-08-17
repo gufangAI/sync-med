@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR识别准确率",
+ "how": "使用Redis缓存常见古籍扫描件识别结果，减少重复计算",
+ "effort": "小",
+ "current": "目前使用的是云端Actions批量处理",
+ "beats": "减少处理时间，提高效率",
+ "why": "Redis内存数据库速度快，适合缓存频繁访问的数据"
+}

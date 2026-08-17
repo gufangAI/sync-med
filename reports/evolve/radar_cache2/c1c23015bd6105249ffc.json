@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR识别准确率",
+ "how": "集成Tesseract进行古籍扫描件文字识别",
+ "effort": "中",
+ "current": "目前使用的是云端Actions批量跑的OCR技术",
+ "beats": "在识别准确率和处理速度上可能胜过现有技术",
+ "why": "Tesseract是一个成熟的OCR引擎，拥有广泛的社区支持和优化"
+}

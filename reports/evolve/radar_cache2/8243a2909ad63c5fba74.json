@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR识别准确率与速度",
+ "how": "集成RapidOCR作为OCR产线后端，提高古籍扫描件转文字的效率",
+ "effort": "中",
+ "current": "目前使用的是云端 Actions 批量跑的OCR工具",
+ "beats": "在识别准确率和处理速度上可能胜过现有工具",
+ "why": "RapidOCR基于ONNXRuntime，性能优越，支持多种编程语言"
+}

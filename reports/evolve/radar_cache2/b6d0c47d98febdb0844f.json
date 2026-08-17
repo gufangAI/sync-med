@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "skip",
+ "metric": "图谱构建效率",
+ "how": "使用 Neo4j 进行图谱存储和查询",
+ "effort": "中",
+ "current": "目前使用 sue_graph_nodes/edges",
+ "beats": "无",
+ "why": "Neo4j 需要常驻服务器，不符合零常驻约束"
+}
