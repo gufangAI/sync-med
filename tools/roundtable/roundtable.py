@@ -161,7 +161,14 @@ def gateway_chat(messages, temperature=0.7, max_tokens=800):
         try:
             req = urllib.request.Request(f"{BASE}/api/gateway/chat", data=body,
                                          headers={"Content-Type": "application/json",
-                                                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 roundtable-engine"},
+                                                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 roundtable-engine",
+                                                  # 2026-08-15 补：本函数此前**完全不发副钥**（全文 grep GATEWAY_KEY/GW_KEY 均为 0），
+                                                  #   而网关 2026-08-09 起 ENFORCE=1，于是 run 日志里连着 5 天
+                                                  #   `! gateway 第1/2/3次: HTTP Error 401` ×3 组 →「=== 完成 0/1 篇 ===」。
+                                                  #   写法与 scripts/content_factory/_ai.py:100 保持一致：**有钥带钥、无钥照跑**，
+                                                  #   这样在没配 secret 的环境（本地/fork）也不会因为多一个空头而变成 400。
+                                                  **({"X-Gateway-Key": os.environ.get("GW_KEY", "")}
+                                                     if os.environ.get("GW_KEY") else {})},
                                          method="POST")
             with urllib.request.urlopen(req, timeout=150) as resp:
                 d = json.loads(resp.read().decode("utf-8"))
