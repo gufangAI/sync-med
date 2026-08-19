@@ -1,0 +1,10 @@
+{
+ "module": "AI寻脉",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "古籍辨证参阅报告, RAG grounding + 多段结构化输出",
+ "beats": "",
+ "why": "该项目是一个 TypeScript 编写的 Claude Code 代理的技能、钩子和工作流程纪律工具，包括 TDD 执行、调试工作流程和规划门。它似乎是一个开发工具，而不是用于改进我们现有模块的具体功能。AI寻脉模块专注于古籍辨证参阅报告的生成，而该项目与我们的模块没有直接关联。此外，该项目需要长期监听端口的网络服务进程，这与我们的 Cloudflare Serverless 运行形态不符。"
+}

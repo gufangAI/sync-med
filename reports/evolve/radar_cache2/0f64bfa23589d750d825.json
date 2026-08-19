@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "集成Tesseract作为OCR引擎",
+ "effort": "中",
+ "current": "PaddleOCR/Tesseract Actions",
+ "beats": "识别准确率更高，支持更多语言",
+ "why": "Tesseract是OCR领域的标准答案，准确率更高"
+}

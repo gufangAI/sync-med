@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "集成PaddleOCR作为OCR产线的主要识别工具",
+ "effort": "中",
+ "current": "PaddleOCR/Tesseract Actions",
+ "beats": "识别准确率更高，支持更多语言",
+ "why": "PaddleOCR是OCR领域的知名库，准确率高"
+}

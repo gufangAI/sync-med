@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "skip",
+ "metric": "知识图谱构建效率",
+ "how": "",
+ "effort": "",
+ "current": "6.9万节点可视化",
+ "beats": "",
+ "why": "Graphify-Labs/graphify 是一个纯库，不需要常驻服务器，符合 Cloudflare Serverless 环境要求，但它是用于将代码库或语料库转换为知识图谱的工具，而我们现有的知识图谱星图模块已经能够满足我们的需求，且Graphify-Labs/graphify 并没有提供比现有方案更具体的、可量化的优势。"
+}

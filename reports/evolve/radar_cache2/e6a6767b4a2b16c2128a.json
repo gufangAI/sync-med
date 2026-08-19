@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR字错率",
+ "how": "",
+ "effort": "",
+ "current": "Tesseract OCR",
+ "beats": "",
+ "why": "PaddlePaddle/PaddleOCR需要常驻服务器，不符合Cloudflare Serverless环境要求。"
+}

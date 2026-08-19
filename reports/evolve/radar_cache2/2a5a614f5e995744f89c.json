@@ -1,0 +1,10 @@
+{
+ "module": "AI寻脉",
+ "verdict": "skip",
+ "metric": "无",
+ "how": "无",
+ "effort": "无",
+ "current": "自研的RAG + 结构化报告生成方案",
+ "beats": "无",
+ "why": "该项目提供的是 Claude Code 代理的技能、钩子和工作流程纪律，与我们的 AI 寻脉模块功能不匹配，且需要常驻服务器，不符合 Cloudflare Serverless 环境要求。"
+}

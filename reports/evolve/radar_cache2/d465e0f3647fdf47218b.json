@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "PDF转文字准确率",
+ "how": "集成到古籍扫描件转文字流程中",
+ "effort": "中",
+ "current": "PaddleOCR/Tesseract Actions",
+ "beats": "PDF布局识别和表格提取能力",
+ "why": "提高古籍扫描件转文字的准确性和效率"
+}
