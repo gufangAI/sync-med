@@ -1,0 +1,10 @@
+{
+ "module": "codebase-memory-mcp",
+ "verdict": "watch",
+ "metric": "知识图谱构建效率",
+ "how": "优化MinHash/LSH算法",
+ "effort": "中",
+ "current": "当前使用MinHash/LSH进行实体解析",
+ "beats": "构建时间",
+ "why": "提高知识图谱构建速度，提升AI效率"
+}

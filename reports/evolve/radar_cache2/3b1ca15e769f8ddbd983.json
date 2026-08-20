@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "知识图谱构建效率",
+ "how": "使用 graphify 库构建知识图谱，提高构建效率",
+ "effort": "中",
+ "current": "目前使用 sue_graph_nodes/edges 构建",
+ "beats": "构建速度更快，功能更丰富",
+ "why": "Graphify-Labs 是构建知识图谱的纯库，无需长期运行服务进程，且功能全面，可提高构建效率。"
+}

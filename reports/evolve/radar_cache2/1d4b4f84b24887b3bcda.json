@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "字符识别准确率",
+ "how": "集成PaddleOCR进行古籍扫描件文字识别",
+ "effort": "中",
+ "current": "目前使用自研OCR技术",
+ "beats": "PaddleOCR在字符识别准确率上可能更优",
+ "why": "PaddleOCR是开源且性能优异的OCR工具"
+}

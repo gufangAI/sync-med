@@ -1,0 +1,10 @@
+{
+ "module": "caddyserver/caddy",
+ "verdict": "adopt",
+ "metric": "性能和可扩展性",
+ "how": "集成到现有项目中，进行性能测试",
+ "effort": "中",
+ "current": "目前使用的是Nginx",
+ "beats": "启动速度和资源消耗",
+ "why": "Caddy提供自动HTTPS和快速启动，适合现代Web应用需求"
+}

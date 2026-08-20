@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "字符识别准确率",
+ "how": "集成到现有流程中，作为OCR步骤的一部分",
+ "effort": "中",
+ "current": "使用云端 Actions 批量跑的 OCR 工具",
+ "beats": "可能提供更高的字符识别准确率",
+ "why": "Tesseract 是 OCR 领域知名的开源工具，可能优于现有方案"
+}

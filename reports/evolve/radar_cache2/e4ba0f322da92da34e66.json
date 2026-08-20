@@ -1,0 +1,10 @@
+{
+ "module": "RapidOCR",
+ "verdict": "watch",
+ "metric": "OCR识别准确率",
+ "how": "集成ONNXRuntime进行模型推理",
+ "effort": "中",
+ "current": "基于ONNXRuntime的OCR工具包",
+ "beats": "识别速度和准确率",
+ "why": "支持多种编程语言，性能优越"
+}

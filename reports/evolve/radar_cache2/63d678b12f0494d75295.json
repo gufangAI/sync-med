@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "adopt",
+ "metric": "检索召回率",
+ "how": "集成LightRAG作为检索增强组件",
+ "effort": "中",
+ "current": "tcm-rag-768",
+ "beats": "召回率可能更高，支持知识图谱增强",
+ "why": "LightRAG速度快，支持知识图谱"
+}

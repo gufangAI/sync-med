@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "字符识别准确率",
+ "how": "集成RapidOCR作为OCR引擎，提高古籍扫描件转文字的准确率",
+ "effort": "中",
+ "current": "目前使用云端 Actions 批量跑的 OCR 工具",
+ "beats": "在字符识别准确率上可能优于现有工具",
+ "why": "RapidOCR 是基于 ONNXRuntime 的 OCR 工具，性能可能更优"
+}
