@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "watch",
+ "metric": "知识图谱构建效率",
+ "how": "集成Graphify-Labs库进行知识图谱构建",
+ "effort": "中",
+ "current": "目前使用sue_graph_nodes/edges库",
+ "beats": "在知识图谱构建效率上可能更优",
+ "why": "Graphify-Labs库专注于代码库和语料库转换为知识图谱，可能提供更高效的构建流程。"
+}
