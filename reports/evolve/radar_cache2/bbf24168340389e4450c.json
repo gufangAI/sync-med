@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "adopt",
+ "metric": "Web服务器性能和安全性",
+ "how": "在Caddy中配置静态文件服务，替代当前使用的Web服务器",
+ "effort": "中",
+ "current": "当前可能使用Nginx或Caddy作为Web服务器",
+ "beats": "Caddy的自动HTTPS配置和性能优化",
+ "why": "Caddy提供了更快的性能和自动HTTPS，可以提升用户体验和安全性"
+}

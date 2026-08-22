@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR识别准确率",
+ "how": "集成RapidOCR作为OCR引擎",
+ "effort": "中",
+ "current": "古籍扫描件转文字，使用自研OCR引擎",
+ "beats": "在识别准确率上",
+ "why": "RapidOCR基于ONNXRuntime，可能提供更优的识别效果"
+}

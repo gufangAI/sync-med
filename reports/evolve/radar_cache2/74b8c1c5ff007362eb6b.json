@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR字符识别准确率",
+ "how": "集成到现有PDF处理流程中，作为转换工具",
+ "effort": "小",
+ "current": "目前使用Tesseract OCR进行PDF到文本的转换",
+ "beats": "在公式识别和表格提取方面可能更准确或更高效",
+ "why": "虽然不是专门针对PDF到Markdown和JSON转换的，但在相关功能上可能有所改进"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR 字符错误率",
+ "how": "集成到 GitHub Actions 中运行",
+ "effort": "中",
+ "current": "Tesseract.js",
+ "beats": "PaddleOCR 在字符识别准确率上可能优于 Tesseract.js",
+ "why": "PaddleOCR 是基于 PaddlePaddle 的，可能在性能上有所提升"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR字符错误率",
+ "how": "通过GitHub Actions安装RapidOCR Python包，并在OCR产线模块中使用",
+ "effort": "中",
+ "current": "Tesseract OCR",
+ "beats": "在OCR字符错误率上可能优于Tesseract，提供更准确的识别结果",
+ "why": "RapidOCR基于ONNXRuntime，具有高性能和跨平台特性，且在GitHub上拥有较高的评价"
+}

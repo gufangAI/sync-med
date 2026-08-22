@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR 字符错误率",
+ "how": "集成到 GitHub Actions 中进行图像识别",
+ "effort": "小",
+ "current": "Tesseract.js",
+ "beats": "目前未明确优于 Tesseract.js 的具体指标",
+ "why": "项目活跃，社区支持良好，但未提供明确优于现有解决方案的证据"
+}

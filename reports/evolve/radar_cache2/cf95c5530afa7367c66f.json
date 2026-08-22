@@ -1,0 +1,10 @@
+{
+ "module": "检索路由",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "目前使用的是Elasticsearch作为检索路由的搜索引擎。",
+ "beats": "",
+ "why": "Redis已在家底，作为缓存层使用，不适合作为主要的检索路由搜索引擎。"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "watch",
+ "metric": "检索召回率",
+ "how": "集成到 GitHub Actions 中，作为查询增强工具",
+ "effort": "小",
+ "current": "目前使用 RAG向量检索的具体技术暂无",
+ "beats": "LightRAG在检索召回率上可能优于现有方案，但需具体测试",
+ "why": "LightRAG是一个简单且快速的检索增强生成工具，具有知识图谱增强功能，值得进一步评估"
+}

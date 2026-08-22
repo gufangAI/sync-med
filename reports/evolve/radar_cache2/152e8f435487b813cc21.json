@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "watch",
+ "metric": "知识图谱构建效率/知识图谱质量",
+ "how": "通过 GitHub Actions 集成代码库索引任务",
+ "effort": "小",
+ "current": "暂无",
+ "beats": "知识图谱构建速度/MinHash/LSH 实现效率",
+ "why": "项目为代码库索引工具，与知识图谱构建相关，但未明确指出对现有模块的改进效果"
+}

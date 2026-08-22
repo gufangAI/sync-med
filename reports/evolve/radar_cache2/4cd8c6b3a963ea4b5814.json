@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "watch",
+ "metric": "PDF转Markdown和JSON的准确性和效率",
+ "how": "集成到GitHub Actions工作流程中",
+ "effort": "小",
+ "current": "目前使用PDF.js进行PDF到Markdown的转换",
+ "beats": "MinerU可能提供更高级的布局检测和公式识别功能",
+ "why": "MinerU具有高质量转换能力，但需进一步评估其与现有解决方案的集成和性能"
+}

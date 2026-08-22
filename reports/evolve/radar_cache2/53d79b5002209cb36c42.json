@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "watch",
+ "metric": "知识图谱构建效率、实体解析准确率",
+ "how": "集成到 GitHub Actions 中，定期更新知识图谱",
+ "effort": "中",
+ "current": "目前使用的是基于 Tesseract.js 的 OCR 产线进行代码库索引",
+ "beats": "DeusData 的代码库记忆 MCP 在 MinHash/LSH 实体解析上可能具有更高的准确率和效率",
+ "why": "项目具有潜在的技术优势，但需要进一步评估其与现有解决方案的兼容性和集成难度"
+}

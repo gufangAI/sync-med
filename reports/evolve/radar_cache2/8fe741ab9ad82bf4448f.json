@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "adopt",
+ "metric": "知识图谱构建效率和质量",
+ "how": "通过 GitHub Actions 调用该库的 CLI 工具来构建知识图谱",
+ "effort": "中",
+ "current": "自研知识图谱构建工具",
+ "beats": "构建速度、社区检测准确性、HTML导出功能",
+ "why": "Graphify-Labs 项目在知识图谱构建方面具有丰富的功能，且为纯库形式，无需常驻进程，与平台架构兼容"
+}

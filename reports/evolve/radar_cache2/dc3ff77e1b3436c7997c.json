@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR 字符识别准确率",
+ "how": "通过 GitHub Actions 集成",
+ "effort": "小",
+ "current": "Tesseract.js",
+ "beats": "RapidOCR 在字符识别准确率上可能优于 Tesseract.js，但具体数据需测试",
+ "why": "RapidOCR 是基于 ONNXRuntime 的多语言 OCR 工具包，具有潜在优势"
+}

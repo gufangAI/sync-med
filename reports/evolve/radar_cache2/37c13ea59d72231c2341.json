@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "watch",
+ "metric": "知识图谱构建效率、社区检测准确性",
+ "how": "通过 GitHub Actions 集成，使用 Python 库进行知识图谱构建",
+ "effort": "小",
+ "current": "目前使用自研的知识图谱构建工具",
+ "beats": "如果 Graphify-Labs/graphify 在构建效率或社区检测准确性上有显著提升",
+ "why": "项目为纯库形式，符合环境要求，但需进一步评估其性能优势"
+}
