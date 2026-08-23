@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "暂无",
+ "beats": "",
+ "why": "Redis是内存数据库，不适合用于OCR产线中的古籍扫描件转文字处理，OCR产线需要处理图像识别和文本提取，而Redis主要用于缓存和快速访问数据。"
+}

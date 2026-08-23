@@ -1,0 +1,10 @@
+{
+ "module": "DeusData/codebase-memory-mcp",
+ "verdict": "watch",
+ "metric": "代码库索引效率，知识图谱质量",
+ "how": "集成MinHash/LSH算法进行实体解析",
+ "effort": "中",
+ "current": "未使用MinHash/LSH算法",
+ "beats": "索引速度提升，知识图谱准确性提高",
+ "why": "提升AI智能体对代码库的理解能力"
+}

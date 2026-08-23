@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "skip",
+ "metric": "Web服务器性能和安全性",
+ "how": "Caddy作为Web服务器，但与前台阅读器模块无关",
+ "effort": "小",
+ "current": "目前使用自研的Vue/React框架和自研组件",
+ "beats": "无",
+ "why": "Caddy是Web服务器，不适用于前台阅读器模块"
+}

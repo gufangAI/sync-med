@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "在 GitHub Actions 中集成 RapidOCR 进行批处理",
+ "effort": "中",
+ "current": "OCR产线当前使用 PaddleOCR 4.0 在 Actions 中批处理",
+ "beats": "在古籍繁体字识别准确率上，测试集 A 上比 PaddleOCR 高 5%",
+ "why": "RapidOCR 在特定场景下识别准确率更高，具有潜在价值"
+}

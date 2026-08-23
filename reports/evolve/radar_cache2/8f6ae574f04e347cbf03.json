@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR准确率与速度",
+ "how": "集成PaddleOCR替代现有OCR引擎",
+ "effort": "中",
+ "current": "PaddleOCR",
+ "beats": "在准确率和速度上",
+ "why": "PaddlePaddle优化了模型性能"
+}

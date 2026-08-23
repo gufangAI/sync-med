@@ -1,0 +1,10 @@
+{
+ "module": "PaddlePaddle/PaddleOCR",
+ "verdict": "watch",
+ "metric": "准确率，速度，易用性",
+ "how": "集成到现有Python项目中，使用PaddleOCR进行文本识别",
+ "effort": "中",
+ "current": "若存在，当前可能使用Tesseract或其他OCR库",
+ "beats": "PaddleOCR在速度和准确率上可能优于现有解决方案",
+ "why": "PaddleOCR支持多语言，且基于PaddlePaddle，可能提供更好的性能和灵活性"
+}

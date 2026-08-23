@@ -1,0 +1,10 @@
+{
+ "module": "caddyserver/caddy",
+ "verdict": "watch",
+ "metric": "性能、可扩展性、安全性",
+ "how": "集成Caddy作为反向代理和HTTPS终止器",
+ "effort": "中",
+ "current": "可能使用Nginx或Apache",
+ "beats": "更快的性能，自动HTTPS，更易配置",
+ "why": "提高网站性能和安全性，减少配置复杂度"
+}

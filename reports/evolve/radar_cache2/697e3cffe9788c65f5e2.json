@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "skip",
+ "metric": "无",
+ "how": "无",
+ "effort": "无",
+ "current": "sue_graph/D1+ForceGraph",
+ "beats": "无",
+ "why": "已使用sue_graph，且neo4j为图数据库，非客户端库，不符合平台运行形态。"
+}

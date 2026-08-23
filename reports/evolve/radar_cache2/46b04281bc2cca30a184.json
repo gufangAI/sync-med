@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "使用tesseract-ocr库替代现有OCR引擎",
+ "effort": "中",
+ "current": "PaddleOCR",
+ "beats": "在OCR识别准确率上胜过PaddleOCR",
+ "why": "tesseract-ocr是开源OCR引擎，社区支持度高，准确率较高"
+}

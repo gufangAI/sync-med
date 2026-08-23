@@ -1,0 +1,10 @@
+{
+ "module": "redis/redis",
+ "verdict": "adopt",
+ "metric": "性能、可扩展性、持久化",
+ "how": "集成Redis作为缓存层，优化数据访问速度",
+ "effort": "中",
+ "current": "无",
+ "beats": "内存存储，快速读写，支持多种数据结构",
+ "why": "提高应用性能，降低数据库负载"
+}

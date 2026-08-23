@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "使用RapidOCR替换PaddleOCR",
+ "effort": "中",
+ "current": "PaddleOCR",
+ "beats": "在多个编程语言上的兼容性和性能",
+ "why": "RapidOCR支持多种语言，性能更优"
+}

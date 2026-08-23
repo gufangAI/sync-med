@@ -1,0 +1,10 @@
+{
+ "module": "浏览器自动化模块",
+ "verdict": "adopt",
+ "metric": "自动化任务执行效率",
+ "how": "集成到 GitHub Actions 中进行网页自动化测试",
+ "effort": "中",
+ "current": "目前使用 Playwright 进行自动化测试，但可能存在一些局限性",
+ "beats": "browser-use 在执行复杂网页交互任务时可能更高效，支持更多浏览器和设备",
+ "why": "提高自动化测试的效率和覆盖范围"
+}
