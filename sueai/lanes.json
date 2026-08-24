@@ -64,7 +64,7 @@
       ],
       "verified": true,
       "status": "error",
-      "lastChecked": "2026-08-22",
+      "lastChecked": "2026-08-24",
       "lastError": "超时 60000ms（境外 lane 请确认已加 --use-env-proxy）",
       "metrics": {
         "latencyMs": 4934,
@@ -95,10 +95,10 @@
       ],
       "verified": true,
       "status": "error",
-      "lastChecked": "2026-08-22",
-      "lastError": "超时 60000ms（境外 lane 请确认已加 --use-env-proxy）",
+      "lastChecked": "2026-08-24",
+      "lastError": "HTTP 500 ",
       "metrics": {
-        "probeMs": 60002,
+        "probeMs": 40652,
         "gateDate": "2026-07-27",
         "gateCases": 6,
         "gatePass": 3,
@@ -126,11 +126,11 @@
       ],
       "verified": true,
       "status": "no_credit",
-      "lastChecked": "2026-08-22",
+      "lastChecked": "2026-08-24",
       "lastError": "HTTP 402 {\"message\":\"Payment required to access this resource. Visit your billing tab.\",\"type\":\"payment_required_error\",\"param\":\"quota\",\"code\":\"payme",
       "metrics": {
         "rateLimit": "tight",
-        "probeMs": 150
+        "probeMs": 185
       },
       "notes": "最快。在 Cloudflare 后面：默认 UA 吃 403（error 1010），必须带浏览器 UA。限流紧，并发压低。"
     },
@@ -150,7 +150,7 @@
       ],
       "verified": true,
       "status": "no_key",
-      "lastChecked": "2026-08-22",
+      "lastChecked": "2026-08-24",
       "lastError": "环境里没有 SILICONFLOW_KEY（也没有别名 SILICONFLOW_API_KEY）",
       "metrics": {
         "passRate72b": 0.69,
@@ -176,11 +176,11 @@
       ],
       "verified": true,
       "status": "active",
-      "lastChecked": "2026-08-22",
+      "lastChecked": "2026-08-24",
       "lastError": null,
       "metrics": {
         "latencyMs": 669,
-        "probeMs": 1137
+        "probeMs": 1315
       },
       "notes": "免费档，实测 669ms 返回正确。glm-5.x 是付费档，勿顺手升版本号。"
     },
@@ -199,10 +199,10 @@
       ],
       "verified": true,
       "status": "error",
-      "lastChecked": "2026-08-22",
-      "lastError": "HTTP 200 但无 content: {\"id\":\"7759a5cc7d5e455cad111fddcf348d45\",\"created\":1787371190,\"model\":\"agnes-2.0-flash\",\"object\":\"chat.completion\",\"choices\":[{\"finish_reaso",
+      "lastChecked": "2026-08-24",
+      "lastError": "HTTP 200 但无 content: {\"id\":\"47ea5f5090944a03b9e7a170ffe7f5d1\",\"created\":1787544516,\"model\":\"agnes-2.0-flash\",\"object\":\"chat.completion\",\"choices\":[{\"finish_reaso",
       "metrics": {
-        "probeMs": 819
+        "probeMs": 3029
       },
       "notes": "免费。粗活主力。"
     },
@@ -222,11 +222,11 @@
         "general"
       ],
       "verified": true,
-      "status": "no_credit",
-      "lastChecked": "2026-08-22",
-      "lastError": "429 持续（间隔 15s 两次均限流）: HTTP 429 限流（凭据有效，瞬时）: {\"error\":{\"message\":\"rpm exhausted\",\"type\":\"quota_exceeded_error\",\"code\":\"8\"}}",
+      "status": "error",
+      "lastChecked": "2026-08-24",
+      "lastError": "HTTP 200 但无 content: {\"id\":\"ec4a0608-2760-4371-9186-cd2eb67da7ed\",\"created\":1787544540,\"model\":\"deepseek-v4-flash\",\"object\":\"chat.completion\",\"choices\":[{\"index\"",
       "metrics": {
-        "probeMs": 1251
+        "probeMs": 2038
       },
       "notes": "商汤免费档转发 deepseek-v4-flash。"
     },
