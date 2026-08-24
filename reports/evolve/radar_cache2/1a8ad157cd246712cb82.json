@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR识别准确率",
+ "how": "集成RapidOCR作为OCR产线中的版面分析工具",
+ "effort": "中",
+ "current": "Tesseract OCR",
+ "beats": "在识别准确率上可能优于Tesseract，具体需测试",
+ "why": "RapidOCR基于ONNXRuntime，性能可能更优"
+}
