@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "adopt",
+ "metric": "检索召回率",
+ "how": "Worker 中 import 调用",
+ "effort": "中",
+ "current": "sentence-transformers",
+ "beats": "召回率 +5%",
+ "why": "LightRAG 提供双重检索级联和知识图谱增强"
+}
