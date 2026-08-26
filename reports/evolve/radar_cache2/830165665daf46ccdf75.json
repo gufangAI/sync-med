@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "watch",
+ "metric": "阅读体验流畅度",
+ "how": "使用Caddy作为静态文件服务器，提高资源加载速度",
+ "effort": "小",
+ "current": "目前使用Nginx作为静态文件服务器",
+ "beats": "资源加载速度更快，支持自动HTTPS",
+ "why": "Caddy提供更快的静态文件服务，且支持自动HTTPS，提升用户体验"
+}

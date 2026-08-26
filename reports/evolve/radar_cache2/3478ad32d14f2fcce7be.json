@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR识别准确率",
+ "how": "集成PaddleOCR作为OCR模块",
+ "effort": "中",
+ "current": "目前使用的是Tesseract OCR",
+ "beats": "在中文识别准确率上可能胜过Tesseract",
+ "why": "PaddleOCR在中文OCR任务上表现良好"
+}

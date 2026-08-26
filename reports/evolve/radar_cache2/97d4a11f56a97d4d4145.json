@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "OCR产线现在用的是 Tesseract + 自研后处理脚本",
+ "beats": "",
+ "why": "Redis 是内存数据库，与 OCR 文字识别和后处理需求不匹配"
+}
