@@ -35,6 +35,9 @@ jobs:
       - name: 巡查待处理申请
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          # 2026-08-28 补:脚本原本读 GUYAOFANG_DB_ID,而这里从没给过那个名字,
+          #   于是它每轮都走内置字面量 —— 配置两个来源、只维护一个。
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN:  ${{ secrets.D1_API_TOKEN }}
           GITHUB_TOKEN:  ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/intake_sentry.py

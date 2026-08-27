@@ -23,9 +23,27 @@ functions/api/feedback/submit.js 只往 D1 写一行就结束了 —— 没有�
 """
 import os, json, sys, urllib.request, datetime
 
+
+def _env_or_builtin(name, builtin, what):
+    """读环境变量；缺了就回落到内置生产默认值，**但要出声**。
+
+    2026-08-28 立此：原来是 os.environ.get(name, "<生产ID>") —— 漏配时静默
+    打到生产库，日志里一个字都没有。回落值不变，只是不再沉默。
+    """
+    v = os.environ.get(name, "").strip()
+    if v:
+        return v
+    print(f"[conf] WARNING 环境变量 {name} 未设置，回落到内置的{what}默认值。"
+          f"生产环境应由 secrets 提供；此处静默回落曾让配置有两个来源、只维护一个。",
+          flush=True)
+    return builtin
+
+
 ACCOUNT = os.environ['CF_ACCOUNT_ID']
 TOKEN   = os.environ['D1_API_TOKEN']
-DB_ID   = os.environ.get('GUYAOFANG_DB_ID', '2db89d3b-e988-4577-a9e3-fb7c563af72f')
+DB_ID   = (os.environ.get('D1_DATABASE_ID', '').strip()
+           or os.environ.get('GUYAOFANG_DB_ID', '').strip()
+           or _env_or_builtin('D1_DATABASE_ID', '2db89d3b-e988-4577-a9e3-fb7c563af72f', 'D1 库'))
 
 REPO     = os.environ.get('GITHUB_REPOSITORY', 'gufangAI/sync-med')
 GH_TOKEN = os.environ.get('GITHUB_TOKEN', '')
