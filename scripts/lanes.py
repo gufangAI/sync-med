@@ -40,10 +40,27 @@ Design notes:
 import json
 import os
 
-# The probe's own vocabulary (sueai/lanes.json "_status取值").
-# Anything not listed here is treated as UNKNOWN, i.e. kept.
+# Mirrors sueai/lanes.js LANE_STATUS exactly. That module is the JS-side access
+# layer for the same file, created 2026-07-27 after the same list had drifted
+# across three places (SiliconFlow returned HTTP 402 and only one copy knew).
+# Keeping a second, differently-shaped vocabulary here would rebuild that bug in
+# a new language.
+#
+# Two things copied deliberately, not paraphrased:
+#
+#   WHITELIST, NOT BLACKLIST. lanes.js decides usability as
+#       status === ACTIVE && hasCredential(lane)
+#   My first draft here listed the DEAD statuses instead. Same answer today,
+#   opposite answer tomorrow: add a sixth status and a blacklist calls it usable
+#   while lanes.js calls it unusable. That divergence is the exact failure both
+#   modules exist to prevent.
+#
+#   UNKNOWN STATUS IS AN ERROR, NOT A SHRUG. lanes.js throws on a status outside
+#   the enum. Python here cannot throw (callers must keep running when the source
+#   of truth is unreadable), so it says so loudly and treats the lane as unknown
+#   -- never silently as alive.
+LANE_STATUS = ("active", "no_credit", "no_key", "retired", "error")
 STATUS_LIVE = ("active",)
-STATUS_DEAD = ("error", "no_credit", "no_key", "retired", "disabled")
 
 _DEFAULT_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sueai", "lanes.json"
@@ -78,9 +95,28 @@ def status_map(path=None):
     return out
 
 
+def is_usable(status):
+    """Mirror of lanes.js usableLanes(): only ACTIVE counts.
+
+    Credential presence is the caller's business here -- direct_fleet checks its
+    own env keys -- so this is the status half of that predicate only.
+    """
+    return str(status or "").strip().lower() in STATUS_LIVE
+
+
+def is_known(status):
+    """False for a status outside lanes.js's enum. Such a lane is not judged."""
+    return str(status or "").strip().lower() in LANE_STATUS
+
+
 def is_dead(status):
-    """True only for a status the probe explicitly reports as unusable."""
-    return str(status or "").strip().lower() in STATUS_DEAD
+    """Explicitly reported as unusable, and the report is one we understand.
+
+    An unrecognised status is NOT dead -- it is unknown, and unknown lanes are
+    left alone (see filter_dead).
+    """
+    st = str(status or "").strip().lower()
+    return is_known(st) and not is_usable(st)
 
 
 def filter_dead(lanes, id_key="id", enforce=False, path=None, label="fleet"):
@@ -107,11 +143,20 @@ def filter_dead(lanes, id_key="id", enforce=False, path=None, label="fleet"):
         lid = lane.get(id_key)
         st = smap.get(lid)
         if st is None:
+            unknown.append(lid)                       # not in lanes.json at all
+        elif not is_known(st):
+            # lanes.js would throw here. We cannot, so we make noise and keep it:
+            # guessing "probably fine" about a status nobody defined is how the
+            # two sides drift apart again.
+            print("[lanes] WARNING lane %s has status %r, which is not in "
+                  "lanes.js LANE_STATUS %s -- treating as unknown, keeping it. "
+                  "If this status is real, add it in BOTH places."
+                  % (lid, st, list(LANE_STATUS)), flush=True)
             unknown.append(lid)
-        elif is_dead(st):
-            dead.append((lid, st))
-        else:
+        elif is_usable(st):
             live.append(lid)
+        else:
+            dead.append((lid, st))
 
     print("[lanes] %s vs probe: live=%d dead=%d unknown=%d"
           % (label, len(live), len(dead), len(unknown)), flush=True)
@@ -127,7 +172,7 @@ def filter_dead(lanes, id_key="id", enforce=False, path=None, label="fleet"):
                   "Set LANES_ENFORCE=1 to drop them." % len(dead), flush=True)
         return lanes
 
-    kept = [l for l in lanes if not is_dead(smap.get(l.get(id_key)))]
+    kept = [l for l in lanes if not is_dead(smap.get(l.get(id_key)))]  # unknown kept
     if not kept:
         # Dropping everything is worse than calling a dead lane: the job would
         # fail with "no lanes" instead of a real upstream error we can read.
@@ -144,5 +189,5 @@ if __name__ == "__main__":
         raise SystemExit("lanes.json unreadable")
     print("%-30s %s" % ("lane", "status"))
     for lid, st in smap.items():
-        mark = "DEAD" if is_dead(st) else ("live" if st in STATUS_LIVE else "?")
+        mark = "live" if is_usable(st) else ("DEAD" if is_known(st) else "?unknown")
         print("%-30s %-10s %s" % (lid, st, mark))
