@@ -141,7 +141,26 @@ def get_txt(bucket, key):
                 return None
             time.sleep(1)
 
-CJK = r"㐀-鿿"
+# Anchors and normalized length are Han-only here: this aligns Chinese classics,
+# and kana would be noise, not signal. HAN (ideographs + radicals, no kana) is the
+# right pattern -- cjk_charset documents why that exclusion is load-bearing.
+#
+# This used to be a literal `r"㐀-鿿"` (U+3400-U+9FFF, one range). cjk_charset.py
+# was created to end exactly that: five independent copies of the CJK table had
+# drifted apart, and its header says no caller may write a range literal again.
+# Five were converged on 2026-07-28; this one was missed.
+#
+# Measured against an independent judge (unicodedata names containing CJK +
+# IDEOGRAPH/RADICAL, 98,227 codepoints):
+#     old literal [㐀-鿿]   27,584 = 28.1%
+#     HAN                  98,175 = 99.9%
+#     missed by the literal 70,591 = 71.9%
+# Both sides of every comparison here run through cjk_only(), so widening the
+# table stays self-consistent: it only means real Han characters stop being
+# silently deleted before anchors are cut.
+from cjk_charset import char_class, HAN_BLOCKS
+
+CJK = char_class(HAN_BLOCKS)
 def cjk_only(s):
     return re.sub(f"[^{CJK}]", "", s)
 
