@@ -1,0 +1,11 @@
+# CJK 区间字面量的**存量基线** —— 棘轮用，只许缩不许涨。
+# 生成于 2026-08-28。每收敛一处，把对应数字改小一处；改大会被 CI 拦。
+# 收敛方式：改用 cjk_charset 的 char_class(HAN_BLOCKS) / HAN / CJK_TEXT。
+# 格式：<路径>	<允许处数>
+
+./align_full.py	1
+./ctext_migrate_rename.py	1
+./formula_mine.py	3
+./scripts/intel_radar/daily_report_v3.py	1
+./scripts/intel_radar/weekly_hunter_v1.py	1
+./scripts/pan_register.py	1
