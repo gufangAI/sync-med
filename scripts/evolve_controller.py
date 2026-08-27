@@ -315,21 +315,77 @@ def suggest_switch(o):
     }
 
 
-def open_issue(title, body):
-    if not GH_TOKEN:
-        print("  (无 GITHUB_TOKEN,跳过开 Issue)", flush=True)
-        return None
+# 常驻 Issue 的标题前缀。同一条产线永远复用这一个 Issue,不再每轮新开。
+STANDING_TITLE = "🧬 自进化控制器 · 待处理"
+
+
+def _gh(path, method="GET", payload=None):
+    """GitHub API,失败返回 None(开 Issue 从来不是致命路径,不许它拖垮主流程)。"""
     req = urllib.request.Request(
-        f"https://api.github.com/repos/{GH_REPO}/issues", method="POST",
-        data=json.dumps({"title": title, "body": body, "labels": ["self-evolve"]}).encode("utf-8"),
+        "https://api.github.com" + path, method=method,
+        data=json.dumps(payload).encode("utf-8") if payload is not None else None,
         headers={"Authorization": "Bearer " + GH_TOKEN, "Accept": "application/vnd.github+json",
                  "Content-Type": "application/json", "User-Agent": "evolve-controller"})
     try:
-        j = json.loads(urllib.request.urlopen(req, timeout=45).read())
-        return j.get("html_url")
+        return json.loads(urllib.request.urlopen(req, timeout=45).read())
     except Exception as e:
-        print(f"  开 Issue 失败: {str(e)[:120]}", flush=True)
+        print(f"  GitHub API 失败({method} {path[:48]}):{str(e)[:100]}", flush=True)
         return None
+
+
+def open_issue(title, body):
+    """维护**一个**常驻 Issue,而不是每轮开一个新的。
+
+    立此因(2026-08-27 全仓体检的实测):
+      本脚本挂在 `cron: '40 */6 * * *'` 上 = 一天四轮,每轮 POST 一个新 Issue。
+      实测结果:仓里 **91 个自进化控制器 Issue 全部 open、全部 0 条回复**,
+      标题清一色「N 项待处理」。同期整仓每天自动开 6~8 个 Issue。
+      出口不是没有,是**太多等于没有** —— 人不会去读第 91 个长得一样的通知。
+
+    仓内已有正确做法,这里照抄,不另发明:
+      `.github/workflows/lane-probe.yml:148-149` 的注释原话 ——
+      「Update the existing issue rather than filing a new one daily --
+        a fresh issue every morning is how alerts become wallpaper.」
+
+    行为:
+      找得到同前缀的 open Issue → 更新正文 + 追一条评论(评论才会触发通知,
+        只改 body 是静默的);标题带上最新时间与待处理数,一眼看得到新鲜度。
+      找不到 → 开一个新的(仍带 self-evolve label,和旧 Issue 可检索)。
+      没 token → 原样跳过。
+
+    ⚠️ 本函数只碰 GitHub Issue,不碰 D1、不碰生产数据。
+    """
+    if not GH_TOKEN:
+        print("  (无 GITHUB_TOKEN,跳过开 Issue)", flush=True)
+        return None
+
+    # 找现存的常驻 Issue。按 label + open 拉,再按标题前缀匹配 ——
+    # 不用 search API:它有独立限流且有索引延迟,刚开的 Issue 可能搜不到,
+    # 那会让"找不到就新建"退化回每轮一个新 Issue,正是要治的病。
+    found = None
+    lst = _gh(f"/repos/{GH_REPO}/issues?state=open&labels=self-evolve&per_page=100")
+    for it in (lst or []):
+        if it.get("pull_request"):
+            continue
+        if str(it.get("title", "")).startswith(STANDING_TITLE.split(" · ")[0]):
+            found = it
+            break
+
+    if found:
+        num = found["number"]
+        upd = _gh(f"/repos/{GH_REPO}/issues/{num}", "PATCH", {"title": title, "body": body})
+        # 只 PATCH body 不会给任何人发通知,那等于又变回"只写进日志"。
+        # 追一条评论才是真出口。
+        _gh(f"/repos/{GH_REPO}/issues/{num}/comments", "POST",
+            {"body": f"**{time.strftime('%Y-%m-%d %H:%M')} 轮**\n\n" + body})
+        print(f"  已更新常驻 Issue #{num}(不新开)", flush=True)
+        return (upd or found).get("html_url")
+
+    j = _gh(f"/repos/{GH_REPO}/issues", "POST",
+            {"title": title, "body": body, "labels": ["self-evolve"]})
+    if j:
+        print(f"  常驻 Issue 不存在,已新建 #{j.get('number')}", flush=True)
+    return (j or {}).get("html_url")
 
 
 def main():
@@ -420,8 +476,11 @@ def main():
         if args.dry_run:
             print("\n  (--dry-run,不开 Issue)")
         else:
-            url = open_issue(f"🧬 自进化控制器 · {time.strftime('%Y-%m-%d %H:%M')} · {len(issues)} 项待处理",
-                             "\n\n".join(body_parts))
+            # 标题带最新时间与待处理数(一眼看新鲜度),但**前缀固定** ——
+            # open_issue 靠这个前缀找到同一个常驻 Issue,不再每轮新开一个。
+            url = open_issue(
+                f"{STANDING_TITLE} · {len(issues)} 项 · 更新于 {time.strftime('%Y-%m-%d %H:%M')}",
+                "\n\n".join(body_parts))
             if url:
                 print(f"  已开 Issue: {url}")
     else:
