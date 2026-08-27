@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "watch",
+ "metric": "Web 服务器性能",
+ "how": "作为反向代理提高阅读器性能",
+ "effort": "小",
+ "current": "目前使用 Nginx 作为反向代理",
+ "beats": "性能和可扩展性",
+ "why": "Caddy 速度快且易于扩展，可能提升用户体验"
+}

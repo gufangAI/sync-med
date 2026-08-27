@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "skip",
+ "metric": null,
+ "how": null,
+ "effort": null,
+ "current": "tcm-rag-768 索引 183 万向量",
+ "beats": null,
+ "why": "Elasticsearch 是常驻服务，不符合零常驻主机要求。"
+}

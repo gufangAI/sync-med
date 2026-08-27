@@ -1,0 +1,10 @@
+{
+ "module": "PaddlePaddle/PaddleOCR",
+ "verdict": "adopt",
+ "metric": "文字识别准确率",
+ "how": "使用PaddlePaddle深度学习框架进行模型训练和推理",
+ "effort": "中",
+ "current": "基于TensorFlow的OCR工具",
+ "beats": "在文字识别准确率和速度上",
+ "why": "支持多语言，性能优越"
+}

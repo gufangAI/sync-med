@@ -1,0 +1,10 @@
+{
+ "module": "检索路由",
+ "verdict": "skip",
+ "metric": "检索性能",
+ "how": "无",
+ "effort": "无",
+ "current": "我们目前使用的是 Vectorize 进行向量检索",
+ "beats": "无",
+ "why": "Elasticsearch 需要长期常驻服务器，不符合平台约束"
+}

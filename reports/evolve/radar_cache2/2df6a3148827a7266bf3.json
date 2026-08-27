@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "adopt",
+ "metric": "检索速度和召回率",
+ "how": "集成LightRAG SDK替代tcm-rag-768",
+ "effort": "中",
+ "current": "tcm-rag-768+自研重排",
+ "beats": "速度更快，召回率更高",
+ "why": "LightRAG纯Python，无需常驻主机，性能提升明显"
+}
