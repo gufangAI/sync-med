@@ -24,26 +24,32 @@ functions/api/feedback/submit.js 只往 D1 写一行就结束了 —— 没有�
 import os, json, sys, urllib.request, datetime
 
 
-def _env_or_builtin(name, builtin, what):
-    """读环境变量；缺了就回落到内置生产默认值，**但要出声**。
+def _require_env(*names):
+    """读环境变量；缺任何一个就**停**，并说清缺哪个。
 
-    2026-08-28 立此：原来是 os.environ.get(name, "<生产ID>") —— 漏配时静默
-    打到生产库，日志里一个字都没有。回落值不变，只是不再沉默。
+    与 scripts/content_factory/_ai.py 同形态（那是本仓 10+ 脚本共用的入口）：
+    绝不把生产账号/库 ID 写成默认值。写了的后果不是"少个字段"——
+    是配置有两个来源、只维护一个：库 ID 变更时别的脚本跟 secret 走，
+    留字面量的那个静默留在旧库上，而日志里一个字都没有。
     """
-    v = os.environ.get(name, "").strip()
-    if v:
-        return v
-    print(f"[conf] WARNING 环境变量 {name} 未设置，回落到内置的{what}默认值。"
-          f"生产环境应由 secrets 提供；此处静默回落曾让配置有两个来源、只维护一个。",
-          flush=True)
-    return builtin
-
-
+    vals, missing = [], []
+    for n in names:
+        v = os.environ.get(n, "").strip()
+        (vals.append(v) if v else missing.append(n))
+        if not v:
+            vals.append("")
+    if missing:
+        sys.exit("缺环境变量:%s —— 生产由 secrets 提供;本地跑请显式设置。"
+                 "本脚本刻意不内置生产账号/库 ID 作默认值(见 _ai.py 同款理由)。"
+                 % ", ".join(missing))
+    return vals if len(names) > 1 else vals[0]
 ACCOUNT = os.environ['CF_ACCOUNT_ID']
 TOKEN   = os.environ['D1_API_TOKEN']
+# 全仓统一用 D1_DATABASE_ID;GUYAOFANG_DB_ID 是本文件独有的旧名,留作兼容。
+# 这个错配曾让本脚本每轮都走内置字面量:workflow 给的是前者,脚本读的是后者。
 DB_ID   = (os.environ.get('D1_DATABASE_ID', '').strip()
            or os.environ.get('GUYAOFANG_DB_ID', '').strip()
-           or _env_or_builtin('D1_DATABASE_ID', '2db89d3b-e988-4577-a9e3-fb7c563af72f', 'D1 库'))
+           or _require_env('D1_DATABASE_ID'))
 
 REPO     = os.environ.get('GITHUB_REPOSITORY', 'gufangAI/sync-med')
 GH_TOKEN = os.environ.get('GITHUB_TOKEN', '')
