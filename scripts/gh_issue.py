@@ -29,14 +29,20 @@
 ═══════════════════════════════════════════════════════════════════════════
 迁移清单（本文件是规范实现，上面四处应逐个换过来）
 
-    [ ] scripts/workflow_sentry.py
-    [ ] scripts/gateway_sentry.py
-    [ ] scripts/intake_sentry.py
-    [ ] scripts/team_report_audit.py
+    [ ] scripts/workflow_sentry.py     每 6 小时
+    [ ] scripts/gateway_sentry.py      每 2 小时  ← 频率最高，最不能每轮都吵
+    [ ] scripts/intake_sentry.py       每 4 小时
+    [ ] scripts/team_report_audit.py   每天
     [x] scripts/evolve_controller.py
 
 四个哨兵是**在跑的生产脚本**，迁移应各自单独一个 PR、各自验证，
 不在一次改动里一起动 —— 那正是"一次改一大片，出事说不清是哪一处"的老路。
+
+⚠️ **迁移时必须传 state=**，别直接用默认的"每轮都发评论"。上面那些频率
+照默认迁过去，光 gateway 一个就是 360 条/月堆在同一个 Issue 上，
+几天之内就会被静音 —— 那时的处境比现在更糟：现在只是"没人被通知"，
+那时是"所有人都主动屏蔽了它"。state 传一个能代表健康度的短签名即可
+（如 "ok" / "fail:3"），稳定时静默更新正文、变化时才出声。
 
 ═══════════════════════════════════════════════════════════════════════════
 边界
@@ -48,7 +54,14 @@
 """
 import json
 import os
+import re
 import urllib.request
+
+# 把"这一轮的状态"藏进正文里的一个 HTML 注释:渲染出来看不见，但下一轮取回正文就能读到。
+# 为什么不另找地方存：多一个存储就多一处会和 Issue 本身漂移的东西，而正文**必然**
+# 跟着 Issue 走 —— Issue 被删了状态也就该没了，这正是我们想要的语义。
+_STATE_MARK = "<!-- gh_issue-state: %s -->"
+_RE_STATE = re.compile(r"<!--\s*gh_issue-state:\s*(.*?)\s*-->", re.S)
 
 
 def _api(token, path, method="GET", payload=None, timeout=45):
@@ -68,7 +81,7 @@ def _api(token, path, method="GET", payload=None, timeout=45):
         return None
 
 
-def upsert(repo, label, title_prefix, title, body, token=None, notify=True):
+def upsert(repo, label, title_prefix, title, body, token=None, notify=True, state=None):
     """维护一个常驻 Issue。
 
     Args:
@@ -79,12 +92,28 @@ def upsert(repo, label, title_prefix, title, body, token=None, notify=True):
         title:         这一轮的完整标题
         body:          这一轮的完整正文
         token:         默认读 GITHUB_TOKEN
-        notify:        True 时在更新后追一条评论。**默认 True 是有原因的**：
-                       只 PATCH 正文不会给任何人发通知，那等于又变回
-                       "只写进日志"。只有确定不需要惊动人时才关掉。
+        notify:        允不允许发评论。False = 绝对静音。
+                       **默认 True 是有原因的**：只 PATCH 正文不会给任何人发通知，
+                       那等于又变回"只写进日志"。
+        state:         这一轮的**状态签名**（短字符串，如 "ok" / "fail:3"）。
+                       给了它就切换成"变了才出声"：签名和上一轮相同 → 静默更新正文；
+                       不同 → 更新 + 发评论。不给（None）= 每轮都发。
 
     Returns:
         Issue 的 html_url，或 None（无 token / API 失败）。
+
+    ── 为什么需要 state 这一档（2026-08-28）────────────────────────────────
+    四个待迁移哨兵的实际频率：
+        gateway-sentry   每 2 小时   → 12 条/天
+        intake-sentry    每 4 小时   →  6 条/天
+        workflow-sentry  每 6 小时   →  4 条/天
+        team-report-audit 每天       →  1 条/天
+    照"每轮都发评论"迁过去，光 gateway 一个就是 **360 条/月堆在同一个 Issue 上**。
+    那不是把哨兵救活，是把它变成另一种墙纸 —— 而且被静音之后比现在更死：
+    现在是"没人被通知"，那时是"所有人都主动屏蔽了这个 Issue"。
+
+    所以正确的判据不是"跑了没有"，是"**有没有变化 / 是不是坏的**"。
+    稳定绿的那些轮次照常更新正文（要查随时能查），但不吵人。
     """
     token = token or os.environ.get("GITHUB_TOKEN", "")
     if not token:
@@ -103,20 +132,36 @@ def upsert(repo, label, title_prefix, title, body, token=None, notify=True):
             found = it
             break
 
+    # 状态签名藏进正文,供下一轮比对
+    new_body = body if state is None else (body + "\n\n" + _STATE_MARK % state)
+
     if found is None:
         created = _api(token, "/repos/%s/issues" % repo, "POST",
-                       {"title": title, "body": body, "labels": [label]})
+                       {"title": title, "body": new_body, "labels": [label]})
         if created:
             print("  [gh_issue] 常驻 Issue 不存在,已新建 #%s" % created.get("number"),
                   flush=True)
+        # 新建本身就会通知订阅者,不再追评论
         return (created or {}).get("html_url")
 
     num = found["number"]
+    # 变了才出声。取不到旧签名(第一次带 state 跑 / 正文被人手改过)按"变了"处理 ——
+    # 宁可多吵一次,也不要在真出事那次因为读不到旧值而静音。
+    if state is None:
+        should_notify = notify
+        why = ""
+    else:
+        m = _RE_STATE.search(str(found.get("body") or ""))
+        prev = m.group(1) if m else None
+        changed = (prev != state)
+        should_notify = notify and changed
+        why = "(状态未变:%s)" % state if not changed else "(状态 %s → %s)" % (prev, state)
+
     updated = _api(token, "/repos/%s/issues/%d" % (repo, num), "PATCH",
-                   {"title": title, "body": body})
-    if notify:
+                   {"title": title, "body": new_body})
+    if should_notify:
         _api(token, "/repos/%s/issues/%d/comments" % (repo, num), "POST",
              {"body": body})
-    print("  [gh_issue] 已更新常驻 Issue #%d%s"
-          % (num, "" if notify else "(静默,未发通知)"), flush=True)
+    print("  [gh_issue] 已更新常驻 Issue #%d %s%s"
+          % (num, "已发通知" if should_notify else "静默", why), flush=True)
     return (updated or found).get("html_url")
