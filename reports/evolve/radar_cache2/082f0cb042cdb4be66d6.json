@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "字符错误率",
+ "how": "集成RapidOCR替代现有OCR引擎",
+ "effort": "中",
+ "current": "Tesseract、PaddleOCR等",
+ "beats": "字符错误率更低，识别速度更快",
+ "why": "RapidOCR基于ONNXRuntime，性能优越"
+}

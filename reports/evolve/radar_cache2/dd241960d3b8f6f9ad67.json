@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR转换准确率",
+ "how": "集成MinerU进行PDF转文本和结构化数据",
+ "effort": "中",
+ "current": "目前使用PyMuPDF进行PDF文本提取",
+ "beats": "在表格识别和公式识别上胜过PyMuPDF",
+ "why": "MinerU提供更高级的PDF解析功能"
+}

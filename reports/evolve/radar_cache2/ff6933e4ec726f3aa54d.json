@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "我们该模块现在用的是什么",
+ "beats": "",
+ "why": "Redis 是一个内存数据库，不适合用于 OCR 产线中的古籍扫描件转文字处理。"
+}

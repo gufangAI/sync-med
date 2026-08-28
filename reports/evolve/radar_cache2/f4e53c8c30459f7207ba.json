@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "skip",
+ "metric": "无",
+ "how": "无",
+ "effort": "无",
+ "current": "tcm-rag-768 索引 183 万向量",
+ "beats": "无",
+ "why": "Elasticsearch 是搜索引擎，不是向量检索库，与 RAG 向量检索功能不匹配"
+}
