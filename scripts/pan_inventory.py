@@ -30,7 +30,8 @@
 做:  递归枚举 → 每个"像一本书"的目录记一行 → 输出 JSONL 清单
      每行含: 账号 / 全路径 / 目录名 / 直接子文件数 / 扩展名分布 /
              形态判定(webp_pages / pdf / jpg / mixed / unknown) /
-             book_id 猜测(复用 pan_register.to_book_id 的同一套规则)
+             book_id 猜测 + name_ok(命名是否合规范) —— 规则来自 scripts/book_id.py,
+             那是全仓唯一一份;tests/test_book_id.py 钉着"只许有一份"
 
 不做: **不写 D1**。清单只落文件与 artifact。
      入库是下一步、单独一个 PR、要过版权闸 —— 这批里有大量国内馆藏与
@@ -61,30 +62,16 @@ import urllib.request
 BASE = os.environ.get("PAN_BASE", "https://open-api.123pan.com")
 SLEEP = float(os.environ.get("PAN_SLEEP", "0.25"))
 
-_CN_CAT_PREFIX = {"子": "zi", "史": "shi", "別": "bie", "别": "bie",
-                  "集": "ji", "經": "jing", "经": "jing"}
+# book_id 规范：**全仓唯一一份**在 scripts/book_id.py。
+# 这里原本抄了一份，创始人 2026-08-28「一定要规范命名规则，只有统一的一套」当场纠正。
+# book_id.py 是零依赖模块（不读环境变量、不联网），所以 import 它不会像
+# import pan_register 那样在 import 期 sys.exit —— 当初抄的理由本就不成立。
+from book_id import to_book_id, is_recognized          # noqa: E402
 
-# 目录名里常自带册数,例如「美国国会图书馆藏书【226.68GB·3861册】」。
-# 这不是清点结果(人手写的),只作为对照:真数出来的数字和名字里写的差多少,
+# 目录名里常自带册数，例如「美国国会图书馆藏书【226.68GB·3861册】」。
+# 这不是清点结果（人手写的），只作为对照：真数出来的和名字里写的差多少，
 # 本身就是一条值得看的信号。
 RE_DECLARED = re.compile(r"(\d[\d,]*)\s*(?:册|冊|种|種|部)")
-
-
-def to_book_id(name):
-    """与 scripts/pan_register.py 同一套规则 —— 故意复制而非 import:
-
-    pan_register 在 import 期就读 PAN_CID/PAN_SEC 等环境变量并可能 sys.exit,
-    清点脚本要能在没有那些变量时也跑(比如只做本地解析)。规则只有 10 行,
-    但**两处必须同步改** —— 若将来 pan_register 改了规则,这里也要改,
-    否则清点算出的"能对上 D1 的数"会和实际注册行为不一致。
-    """
-    tok = str(name).split()[0] if str(name).split() else str(name)
-    m = re.match(r"^([一-鿿])(\d{2,3}-\d{4}.*)$", tok)
-    if m and m.group(1) in _CN_CAT_PREFIX:
-        return _CN_CAT_PREFIX[m.group(1)] + m.group(2)
-    if re.match(r"^\d{3}-", tok):
-        return "zi" + tok
-    return tok
 
 
 def _post(path, payload):
@@ -173,6 +160,7 @@ def walk(token, account, node_id, path, depth, max_depth, out_fh, stats):
         rec = {"account": account, "path": path, "name": name,
                "shape": shape, "n_files": len(files), "n_subdirs": len(dirs),
                "exts": exts, "book_id_guess": to_book_id(name),
+               "name_ok": is_recognized(name),   # False = 命名不合规范，与"真的是新书"要分开处置
                "dir_id": node_id}
         out_fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
         out_fh.flush()

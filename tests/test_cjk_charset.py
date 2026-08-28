@@ -129,9 +129,12 @@ ALLOWED = {
     "scripts/intel_radar/weekly_hunter_v1.py": (
         {"U+4E00-U+9FFF"},
         "同上。"),
-    "scripts/pan_register.py": (
-        {"U+4E00-U+9FFF"},
-        "问的是【文件名前缀那一个汉字】(番号解析),不是文本判定。"),
+    # 2026-08-28 移除:pan_register 的 to_book_id 已收敛进 scripts/book_id.py
+    #   (创始人「一定要规范命名规则,只有统一的一套」),而 book_id.py 刻意不写区间 ——
+    #   类目前缀只有 CATALOG_PREFIX 那 7 个确定的字,直接拼进字符类即可,
+    #   比"匹配任意汉字再回头查集合"更精确,也不需要任何豁免。
+    #   本条豁免因此作废。若哪天 pan_register 又自带区间,上面那条
+    #   test_no_new_module_writes_its_own_cjk_range 会当场红。
 }
 
 
