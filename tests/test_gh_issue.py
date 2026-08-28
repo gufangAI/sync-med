@@ -149,6 +149,34 @@ class TestStateGate(unittest.TestCase):
                          "读不回来的话每轮都会当成变化，静音档就形同虚设")
 
 
+class TestCreateFlag(unittest.TestCase):
+    """create=False：有就更新，没有就算了 —— 报平安那一路专用。"""
+
+    def test_no_issue_and_create_false_does_nothing(self):
+        fake, url = run([], create=False, state="ok")
+        self.assertIsNone(url)
+        self.assertFalse(any(m == "POST" and p.endswith("/issues")
+                             for m, p, _ in fake.calls),
+                         "全绿时不该为了报平安凭空开一个 Issue —— 那是纯噪音")
+
+    def test_existing_issue_still_gets_the_recovery_notice(self):
+        """fail → ok 是一次状态变化，必须发出恢复通知。
+
+        原来那四份哨兵都没有这个能力：恢复后只是不再更新，
+        一个写着"挂了"的 Issue 就那么一直开着 —— 比不报还误导人。
+        """
+        listing = [{"number": 1, "title": "PFX x",
+                    "body": "旧正文\n\n<!-- gh_issue-state: head_down:nvidia -->",
+                    "html_url": "https://x/1"}]
+        fake, url = run(listing, create=False, state="ok")
+        self.assertTrue(fake.posted_comment(), "fail→ok 必须出声")
+        self.assertEqual(url, "https://x/1")
+
+    def test_create_true_is_the_default(self):
+        fake, url = run([])
+        self.assertEqual(url, "https://x/999")
+
+
 class TestPullRequestsAreNotIssues(unittest.TestCase):
     """③ GitHub 的 issues 列表里混着 PR。认错了会去 PATCH 别人 PR 的标题。"""
 

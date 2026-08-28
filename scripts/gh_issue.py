@@ -38,11 +38,18 @@
 四个哨兵是**在跑的生产脚本**，迁移应各自单独一个 PR、各自验证，
 不在一次改动里一起动 —— 那正是"一次改一大片，出事说不清是哪一处"的老路。
 
-⚠️ **迁移时必须传 state=**，别直接用默认的"每轮都发评论"。上面那些频率
-照默认迁过去，光 gateway 一个就是 360 条/月堆在同一个 Issue 上，
-几天之内就会被静音 —— 那时的处境比现在更糟：现在只是"没人被通知"，
-那时是"所有人都主动屏蔽了它"。state 传一个能代表健康度的短签名即可
-（如 "ok" / "fail:3"），稳定时静默更新正文、变化时才出声。
+⚠️ **迁移时必须传 state=**，别直接用默认的"每轮都发评论"。
+
+  （2026-08-28 更正我自己上一条 commit 里说过头的话：我当时写"光 gateway 一个
+    就是 360 条/月"，那是**故障持续不修**时的上限，不是常态 —— gateway_sentry
+    全绿时本来就直接 return、根本不碰 Issue。但方向没变，反而更该治：
+    一次持续三天的链头故障，按"每轮都发"就是 **36 条内容几乎相同的评论**，
+    而它们要传达的信息只有一条。真正需要出声的是"**状态变了**"那一刻。）
+
+state 传一个能代表健康度的短签名即可（如 `ok` / `head_down:nvidia`），
+稳定时静默更新正文、变化时才出声。恢复也是一次变化 —— fail→ok 会自动
+发一条"已恢复"，这是原来那四份都没有的能力（它们恢复后只是不再更新，
+一个写着"挂了"的 Issue 就那么一直开着，比不报还误导人）。
 
 ═══════════════════════════════════════════════════════════════════════════
 边界
@@ -81,7 +88,8 @@ def _api(token, path, method="GET", payload=None, timeout=45):
         return None
 
 
-def upsert(repo, label, title_prefix, title, body, token=None, notify=True, state=None):
+def upsert(repo, label, title_prefix, title, body, token=None, notify=True, state=None,
+           create=True):
     """维护一个常驻 Issue。
 
     Args:
@@ -98,6 +106,11 @@ def upsert(repo, label, title_prefix, title, body, token=None, notify=True, stat
         state:         这一轮的**状态签名**（短字符串，如 "ok" / "fail:3"）。
                        给了它就切换成"变了才出声"：签名和上一轮相同 → 静默更新正文；
                        不同 → 更新 + 发评论。不给（None）= 每轮都发。
+        create:        找不到常驻 Issue 时要不要新建。默认 True。
+                       传 False 用于**报平安那一路**：哨兵全绿时也想把 Issue 更新成
+                       "已恢复"（这样 fail→ok 能发出一条恢复通知），但绝不该为了
+                       报平安而凭空开一个 Issue —— 那就是纯噪音。
+                       所以"有就更新、没有就算了"。
 
     Returns:
         Issue 的 html_url，或 None（无 token / API 失败）。
@@ -136,6 +149,9 @@ def upsert(repo, label, title_prefix, title, body, token=None, notify=True, stat
     new_body = body if state is None else (body + "\n\n" + _STATE_MARK % state)
 
     if found is None:
+        if not create:
+            print("  [gh_issue] 没有常驻 Issue,且 create=False → 不新建", flush=True)
+            return None
         created = _api(token, "/repos/%s/issues" % repo, "POST",
                        {"title": title, "body": new_body, "labels": [label]})
         if created:
