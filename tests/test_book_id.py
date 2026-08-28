@@ -80,21 +80,30 @@ class TestNamingConvention(unittest.TestCase):
         self.assertEqual(book_id.to_book_id("301-0027-01"), "zi301-0027-01")
         self.assertTrue(book_id.is_recognized("301-0027-01"))
 
-    def test_two_digit_prefix_is_NOT_recognized(self):
-        """★ 这一条是 not-in-D1 那批的形态，别不小心把它'修好'。
+    def test_two_digit_prefix_falls_through_unchanged_and_that_is_correct(self):
+        """★ 两位数字前缀走兜底原样返回 —— 而这**正是对的**，别去"修"它。
 
-        实测样本 `01-0022680`（123 上真实存在的目录名）：两位数字开头，
-        规则①要中文前缀、规则②要三位数字，两条都不命中 → 原样返回 → D1 里没有。
-        2026-08-27 那轮 pan-register 报的 not-in-D1=14,273，大概率主要是这一类。
+        2026-08-28 实测更正：本条第一版写着「这一条是 not-in-D1 那批的形态」，
+        还推断 not-in-D1=14,273 大概率主要是这一类。**两句都错了**，因为我当时
+        没去 D1 数过。真数了以后：
 
-        **不要为了让它'能匹配'就放宽规则**：`01-0022680` 到底该对应哪本书，
-        目前没有证据。先用 pan-inventory 数出这类名字有多少、长什么样，
-        再决定是改名还是扩规则。猜一个映射比不映射更危险。
+            SELECT ... WHERE book_id GLOB '[0-9][0-9]-[0-9]*'  →  124 行
+            样本 01-0022566 / 01-0023045 …  collection=overseas, frontend_visible=1
+
+        也就是说 `01-00xxxxx` 是 D1 里**真实存在且前台正在展示**的 book_id 形态，
+        兜底原样返回恰好命中它。连同其他任意 slug（yxf07 / qyyl2 / bjqjy10），
+        **D1 里 23.8% 的 book_id 只能靠兜底这条路命中**。
+
+        所以这条测试守的是：**不要给两位数字前缀加映射**。加了反而会把一个
+        本来就对的 id 改成一个不存在的 id —— 那才是"这本的图挂到别的书上"。
+
+        至于 not-in-D1=14,273 到底是什么，现在**没有证据**，等 pan-inventory
+        真跑一遍数出来再说。不在这里替它编一个成因。
         """
         self.assertEqual(book_id.to_book_id("01-0022680"), "01-0022680")
         self.assertFalse(book_id.is_recognized("01-0022680"),
-                         "两位数字前缀不该被当成合规范命名 —— "
-                         "清点脚本靠 is_recognized 区分'命名不合规'与'真的是新书'")
+                         "两位数字前缀不符合两条书写规范 —— 但 is_recognized 只回答"
+                         "'合不合规范'，不回答'能不能对上 D1'（实测它能对上）")
 
     def test_first_token_before_space_is_the_id(self):
         """约定：目录名形如 '<book_id> <书名>'，取第一个空格前的整段。"""
@@ -104,6 +113,18 @@ class TestNamingConvention(unittest.TestCase):
         for name in ("道藏五千三百五卷", "GufangP", ""):
             with self.subTest(name=name):
                 self.assertFalse(book_id.is_recognized(name))
+
+    def test_real_in_D1_slugs_survive_passthrough_untouched(self):
+        """★ 兜底是一条正经路：D1 里 23.8% 的 book_id 只能靠它命中。
+
+        这四个都是 2026-08-28 从生产 D1 抽出来的真 book_id。任何"扩规则"的改动
+        只要动到它们，这条就红 —— 把一个本来正确的 id 改写成不存在的 id，
+        比不映射严重得多。
+        """
+        for real in ("01-0022566", "yxf07", "qyyl2", "bjqjy10"):
+            with self.subTest(book_id=real):
+                self.assertEqual(book_id.to_book_id(real), real,
+                                 "%s 是 D1 里真实存在的 book_id，必须原样通过" % real)
 
     def test_module_imports_clean_with_no_env_at_all(self):
         """零依赖是刻意的 —— 它得能在**任何**环境下被 import。

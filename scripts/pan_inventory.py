@@ -160,7 +160,10 @@ def walk(token, account, node_id, path, depth, max_depth, out_fh, stats):
         rec = {"account": account, "path": path, "name": name,
                "shape": shape, "n_files": len(files), "n_subdirs": len(dirs),
                "exts": exts, "book_id_guess": to_book_id(name),
-               "name_ok": is_recognized(name),   # False = 命名不合规范，与"真的是新书"要分开处置
+               # name_ok = 名字符不符合两条书写规范。**不等于"能不能对上 D1"**：
+               # 实测 D1 里 23.8% 的 book_id 走的是兜底那条路（见 book_id.py 文件头），
+               # 所以 name_ok=False 很可能只是"这本用的是另一种命名"，不是问题。
+               "name_ok": is_recognized(name),
                "dir_id": node_id}
         out_fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
         out_fh.flush()
