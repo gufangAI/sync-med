@@ -7,6 +7,20 @@ on:
     - cron: '25 */2 * * *'
   workflow_dispatch:
 
+# 2026-08-15 补 permissions：哨兵一直在正确检测到「内容工厂产帖停滞」，
+#   但写 Issue 时被 GITHUB_TOKEN 默认权限拒掉：
+#   `HttpError: Resource not accessible by integration`（run 33114029499 实证）。
+#   报错让整个 job 失败 → 哨兵自己也变成红灯 → 既喊不出问题，又多了一个假故障。
+#   而且它**只在有话要说的那一轮失败** —— 产帖正常时不写 Issue，所以是绿的；
+#   一旦停滞要报警就炸。查 run 历史会看到绿红交替，很容易被当成"偶发抖动"。
+#   对照 fleet-watch.yml（能正常写 Issue）：它显式声明了 issues: write。
+#
+#   ⚠️ 这段与 PR #309 内容相同。#309 开于 2026-08-14、至今 MERGEABLE 未合，
+#      期间哨兵一直在失败。若 #309 先合，这里会冲突，以 #309 为准即可。
+permissions:
+  contents: read
+  issues: write
+
 concurrency:
   group: roundtable-watch
   cancel-in-progress: false
