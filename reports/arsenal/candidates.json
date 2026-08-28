@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "generated": "2026-08-27",
+ "generated": "2026-08-28",
  "producer": "scripts/intel_radar/arsenal_radar.py",
  "consumer": "scripts/council (triage topic source)",
  "contract": "objective description and candidate options only; no adoption judgement, no score, no ranking",
@@ -41,302 +41,42 @@
  },
  "distill": {
   "seat": "zhipu",
-  "calls": 7,
-  "ok": 3
+  "calls": 6,
+  "ok": 2
  },
- "count": 28,
+ "count": 17,
  "candidates": [
   {
-   "repo": "leenkcool/Blue-Whale-Harness",
-   "url": "https://github.com/leenkcool/Blue-Whale-Harness",
-   "description": "DeepSeek-Harness-Plugins",
-   "stars": 185,
+   "repo": "EthanYoQ/agent-xiaohongshu-workbench",
+   "url": "https://github.com/EthanYoQ/agent-xiaohongshu-workbench",
+   "description": "小红书图文内容工作台：把账号定位、热点研究、选题、原创文稿、品牌配图、预览和人工确认组织成一条可控流程。",
+   "stars": 103,
    "topics": [
-    "deepseek-harness",
-    "deepseek-harness-plugin",
-    "deepseek-v4-pro",
-    "harness",
-    "harness-ai",
-    "plugin-marketplace",
-    "plugins"
+    "ai-agent",
+    "browser-automation",
+    "chinese-writing",
+    "codex",
+    "content-creation",
+    "content-marketing",
+    "content-workflow",
+    "creator-tools",
+    "desktop-app",
+    "electron",
+    "social-media",
+    "social-media-automation"
    ],
-   "lang": "HTML",
-   "created_at": "2026-08-13",
-   "pushed_at": "2026-08-27",
-   "age_days": 14,
-   "stars_per_day_lifetime": 13.21,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "auto publish douyin xiaohongshu in:name,description,readme stars:>100",
-    "sort": "stars",
-    "query_breadth": 33,
-    "position": 27
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供 DeepSeek-Harness 插件市场",
-   "evidence": "topics: deepseek-harness, deepseek-harness-plugin, harness, harness-ai, plugin-marketplace, plugins",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "MiracleTanC/Neo4j-KGBuilder",
-   "url": "https://github.com/MiracleTanC/Neo4j-KGBuilder",
-   "description": "Neo4j+springboot+vue+d3.js知识图谱构建和可视化",
-   "stars": 1351,
-   "topics": [],
-   "lang": "Vue",
-   "created_at": "2018-09-07",
-   "pushed_at": "2026-08-27",
-   "age_days": 2911,
-   "stars_per_day_lifetime": 0.46,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "知识图谱 in:name,description stars:>200 pushed:>2026-05-29",
-    "sort": "stars",
-    "query_breadth": 12,
-    "position": 2
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "构建和可视化 Neo4j 知识图谱",
-   "evidence": "topics: Neo4j+springboot+vue+d3.js知识图谱构建和可视化",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "Galaxy-Dawn/claude-scholar",
-   "url": "https://github.com/Galaxy-Dawn/claude-scholar",
-   "description": "Semi-automated research assistant for academic research and software development. Supports Claude Code, Codex CLI, Kimi Code CLI, and OpenCode across ideation, coding, experiments, writing, and publication.",
-   "stars": 5225,
-   "topics": [
-    "academic-research",
-    "ai-agents",
-    "claude",
-    "claude-code",
-    "codex-cli",
-    "developer-tools",
-    "kimi-code",
-    "mcp",
-    "openai-codex",
-    "opencode",
-    "paper-writing",
-    "zotero"
-   ],
-   "lang": "Python",
-   "created_at": "2026-01-27",
-   "pushed_at": "2026-08-27",
-   "age_days": 212,
-   "stars_per_day_lifetime": 24.65,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:mcp stars:>2000 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 27
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供学术研究和软件开发辅助工具",
-   "evidence": "topics: academic-research, ai-agents, claude, claude-code, codex-cli, developer-tools, kimi-code, mcp, openai-codex, ope",
-   "transfer_forms": [
-    "mcp",
-    "skill",
-    "architecture"
-   ],
-   "line_candidates": [
-    "modelpool"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "jiahuiqu17/paper-signal",
-   "url": "https://github.com/jiahuiqu17/paper-signal",
-   "description": "Subject-aware minimal-zine image production for Agent Skills: art direction, generation, series, evidence, and real-bitmap QA.",
-   "stars": 105,
-   "topics": [
-    "agent-skills",
-    "ai-design",
-    "codex-skills",
-    "editorial-design",
-    "image-generation",
-    "minimal-zine",
-    "visual-art",
-    "xiaohongshu"
-   ],
-   "lang": "Python",
-   "created_at": "2026-08-11",
-   "pushed_at": "2026-08-12",
-   "age_days": 16,
-   "stars_per_day_lifetime": 6.56,
+   "lang": "JavaScript",
+   "created_at": "2026-07-14",
+   "pushed_at": "2026-08-23",
+   "age_days": 45,
+   "stars_per_day_lifetime": 2.29,
    "license": "MIT",
    "license_family": "permissive",
    "found_by": {
     "dimension": "category",
     "query": "topic:xiaohongshu stars:>100",
     "sort": "stars",
-    "query_breadth": 60,
-    "position": 57
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "生成艺术方向图像的迷你杂志",
-   "evidence": "topics: agent-skills, ai-design, codex-skills, editorial-design, image-generation, minimal-zine, visual-art, xiaohongshu",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "Visterainer/aidea-zotero",
-   "url": "https://github.com/Visterainer/aidea-zotero",
-   "description": "AIdea — Free AI chat in Zotero's side panel. OAuth login (no API key needed), supports OpenAI-compatible APIs and local models (Ollama, LM Studio). | 免费 AI 助手，Zotero 侧边栏对话，OAuth 登录无需 API Key，支持 OpenAI 兼容接口与本地模型（Ollama、LM Studio）",
-   "stars": 104,
-   "topics": [
-    "academic",
-    "ai",
-    "ai-assistant",
-    "apikey-authentication",
-    "chatgpt",
-    "free",
-    "free-chatgpt",
-    "no-api-key",
-    "no-api-keys",
-    "oauth",
-    "oauth-login",
-    "ollama"
-   ],
-   "lang": "TypeScript",
-   "created_at": "2026-03-04",
-   "pushed_at": "2026-08-12",
-   "age_days": 176,
-   "stars_per_day_lifetime": 0.59,
-   "license": "AGPL-3.0",
-   "license_family": "copyleft",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "免费 API in:name,description stars:>100 pushed:>2026-05-29",
-    "sort": "stars",
-    "query_breadth": 33,
-    "position": 32
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "在 Zotero 侧边栏提供免费 AI 对话",
-   "evidence": "topics: academic, ai, ai-assistant, apikey-authentication, chatgpt, free, free-chatgpt, no-api-key, no-api-keys, oauth, ",
-   "transfer_forms": [
-    "skill",
-    "library"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "modelcontextprotocol/go-sdk",
-   "url": "https://github.com/modelcontextprotocol/go-sdk",
-   "description": "The official Go SDK for Model Context Protocol servers and clients. Maintained in collaboration with Google.",
-   "stars": 5025,
-   "topics": [
-    "go",
-    "mcp"
-   ],
-   "lang": "Go",
-   "created_at": "2025-04-23",
-   "pushed_at": "2026-08-27",
-   "age_days": 491,
-   "stars_per_day_lifetime": 10.23,
-   "license": "NOASSERTION",
-   "license_family": "unknown",
-   "found_by": {
-    "dimension": "stock",
-    "query": "topic:mcp stars:>2000 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 52
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供 Model Context Protocol 的 Go SDK",
-   "evidence": "topics: go, mcp",
-   "transfer_forms": [
-    "mcp",
-    "library"
-   ],
-   "line_candidates": [
-    "modelpool"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "tmwgsicp/ForgeRSS",
-   "url": "https://github.com/tmwgsicp/ForgeRSS",
-   "description": "将任意网站转换为 RSS 订阅源、多引擎抓取、反爬突破、支持爬取抖音、快手、小红书、B站、知乎、小宇宙、知识星球",
-   "stars": 101,
-   "topics": [
-    "anti-bot",
-    "bilibili",
-    "crawler",
-    "douyin",
-    "drissionpage",
-    "feed-generator",
-    "kuaishou",
-    "python",
-    "rss",
-    "rss-feed",
-    "rss-generator",
-    "selenium"
-   ],
-   "lang": "Python",
-   "created_at": "2026-05-03",
-   "pushed_at": "2026-08-27",
-   "age_days": 116,
-   "stars_per_day_lifetime": 0.87,
-   "license": "AGPL-3.0",
-   "license_family": "copyleft",
-   "found_by": {
-    "dimension": "category",
-    "query": "topic:xiaohongshu stars:>100",
-    "sort": "stars",
-    "query_breadth": 60,
+    "query_breadth": 61,
     "position": 59
    },
    "matched_by_n_queries": 1,
@@ -344,53 +84,10 @@
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "将网站转换为 RSS 订阅源和多引擎抓取",
-   "evidence": "topics: anti-bot, bilibili, crawler, douyin, drissionpage, feed-generator, kuaishou, python, rss, rss-feed, rss-generato",
+   "capability": "小红书图文内容工作台，自动化内容创作与营销流程",
+   "evidence": "小红书图文内容工作台：把账号定位、热点研究、选题、原创文稿、品牌配图、预览和人工确认组织成一条可控流程。",
    "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "Mr-funny/hbg-hanzi-chaizi-video",
-   "url": "https://github.com/Mr-funny/hbg-hanzi-chaizi-video",
-   "description": "用 Remotion + Edge TTS 制作上方逐笔写字、下方趣味拆字变形的 9:16 汉字短视频",
-   "stars": 117,
-   "topics": [
-    "animation",
-    "chinese-characters",
-    "edge-tts",
-    "hanzi",
-    "remotion",
-    "typescript",
-    "video-generation"
-   ],
-   "lang": "TypeScript",
-   "created_at": "2026-08-07",
-   "pushed_at": "2026-08-08",
-   "age_days": 20,
-   "stars_per_day_lifetime": 5.85,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "短视频 in:name,description stars:>100 pushed:>2026-05-29",
-    "sort": "stars",
-    "query_breadth": 43,
-    "position": 41
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "制作汉字短视频",
-   "evidence": "topics: animation, chinese-characters, edge-tts, hanzi, remotion, typescript, video-generation",
-   "transfer_forms": [
-    "deploy"
+    "skill"
    ],
    "line_candidates": [
     "video"
@@ -398,629 +95,110 @@
    "distilled": true
   },
   {
-   "repo": "CryptoAILab/Awesome-LM-SSP",
-   "url": "https://github.com/CryptoAILab/Awesome-LM-SSP",
-   "description": "A reading list for large models safety, security, and privacy (including Awesome LLM Security, Safety, etc.).",
-   "stars": 2068,
-   "topics": [
-    "adversarial-attacks",
-    "awesome-list",
-    "diffusion-models",
-    "jailbreak",
-    "language-model",
-    "llm",
-    "nlp",
-    "privacy",
-    "safety",
-    "security",
-    "vlm"
-   ],
-   "lang": "",
-   "created_at": "2024-01-09",
-   "pushed_at": "2026-08-27",
-   "age_days": 961,
-   "stars_per_day_lifetime": 2.15,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "awesome in:name stars:>2000 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 2
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供大型模型安全、安全和隐私阅读列表",
-   "evidence": "topics: adversarial-attacks, awesome-list, diffusion-models, jailbreak, language-model, llm, nlp, privacy, safety, secur",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "zepen/predict_Lottery_ticket",
-   "url": "https://github.com/zepen/predict_Lottery_ticket",
-   "description": "双色球+大乐透彩票AI预测",
-   "stars": 1025,
-   "topics": [
-    "chinese",
-    "deep-learning",
-    "ml",
-    "python"
-   ],
-   "lang": "Python",
-   "created_at": "2018-04-24",
-   "pushed_at": "2026-08-27",
-   "age_days": 3047,
-   "stars_per_day_lifetime": 0.34,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "topic:chinese stars:>500 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 63,
-    "position": 10
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "双色球和大乐透彩票 AI 预测",
-   "evidence": "topics: chinese, deep-learning, ml, python",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "njzjz/nsfc-agent-skills",
-   "url": "https://github.com/njzjz/nsfc-agent-skills",
-   "description": "用于写NSFC本子的Agent Skills",
-   "stars": 335,
+   "repo": "aaadanzghe/ecommerce-content-agent",
+   "url": "https://github.com/aaadanzghe/ecommerce-content-agent",
+   "description": "电商内容智能体：从商品理解到文案、图片、短视频生成的全链路AI系统",
+   "stars": 107,
    "topics": [],
    "lang": "Python",
-   "created_at": "2026-02-16",
-   "pushed_at": "2026-08-27",
-   "age_days": 192,
-   "stars_per_day_lifetime": 1.74,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "category",
-    "query": "skill in:name stars:>200 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 13
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "用于编写NSFC本子的Agent Skills",
-   "evidence": "用于写NSFC本子的Agent Skills",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "LB623/no-negative-echo",
-   "url": "https://github.com/LB623/no-negative-echo",
-   "description": "让 Codex 根据最终结果生成标题、注释、commit 和 PR，减少被否决方案在交付中的残留。",
-   "stars": 529,
-   "topics": [
-    "agent-skills",
-    "chinese",
-    "codex",
-    "codex-skill",
-    "prompt-engineering"
-   ],
-   "lang": "Python",
-   "created_at": "2026-08-21",
-   "pushed_at": "2026-08-26",
-   "age_days": 6,
-   "stars_per_day_lifetime": 88.17,
+   "created_at": "2026-07-28",
+   "pushed_at": "2026-08-20",
+   "age_days": 31,
+   "stars_per_day_lifetime": 3.45,
    "license": "MIT",
    "license_family": "permissive",
    "found_by": {
     "dimension": "chinese",
-    "query": "topic:chinese stars:>500 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 63,
-    "position": 23
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "根据最终结果生成标题、注释、commit 和 PR",
-   "evidence": "让 Codex 根据最终结果生成标题、注释、commit 和 PR",
-   "transfer_forms": [
-    "skill"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "rawfilejson/awesome-osint-arsenal",
-   "url": "https://github.com/rawfilejson/awesome-osint-arsenal",
-   "description": "OSINT & recon toolkit // 100+ tools, one-command installer, SOCMINT, GEOINT, network recon, dark web, forensics & more.",
-   "stars": 2586,
-   "topics": [
-    "cybersecurity",
-    "data-breach",
-    "ethical-hacking",
-    "goverment-data",
-    "hacking",
-    "information-gathering",
-    "infosec",
-    "intelligence",
-    "investigation",
-    "kali-linux",
-    "open-data",
-    "osint"
-   ],
-   "lang": "Shell",
-   "created_at": "2026-04-12",
-   "pushed_at": "2026-08-27",
-   "age_days": 137,
-   "stars_per_day_lifetime": 18.88,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "awesome in:name stars:>2000 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 19
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供OSINT工具和资源",
-   "evidence": "OSINT & recon toolkit // 100+ tools, one-command installer, SOCMINT, GEOINT, network recon, dark web, forensics & more.",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "KurosawaGeeker/femboy-skill",
-   "url": "https://github.com/KurosawaGeeker/femboy-skill",
-   "description": "面向 MTF、crossdresser 与性别多元成年人的中文 Agent Skill，基于生如夏花知识库并加入医学安全护栏。",
-   "stars": 92,
-   "topics": [
-    "agent-skill",
-    "chinese",
-    "codex",
-    "crossdresser",
-    "femboy",
-    "gender-diversity",
-    "mtf",
-    "sexual-health",
-    "voice-training"
-   ],
-   "lang": "Python",
-   "created_at": "2026-08-25",
-   "pushed_at": "2026-08-27",
-   "age_days": 2,
-   "stars_per_day_lifetime": 46.0,
-   "license": "NOASSERTION",
-   "license_family": "unknown",
-   "found_by": {
-    "dimension": "chinese",
-    "query": "中医 in:name,description stars:>50",
+    "query": "短视频 in:name,description stars:>100 pushed:>2026-05-30",
     "sort": "stars",
-    "query_breadth": 100,
-    "position": 84
+    "query_breadth": 45,
+    "position": 43
    },
    "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "面向MTF、crossdresser与性别多元成年人的中文Agent Skill",
-   "evidence": "面向 MTF、crossdresser 与性别多元成年人的中文 Agent Skill",
+   "capability": "电商内容智能体，全链路AI内容生成系统",
+   "evidence": "从商品理解到文案、图片、短视频生成的全链路AI系统",
    "transfer_forms": [
     "skill"
    ],
    "line_candidates": [
-    "unknown"
+    "video"
    ],
    "distilled": true
   },
   {
-   "repo": "EverMind-AI/SkillCorpus",
-   "url": "https://github.com/EverMind-AI/SkillCorpus",
-   "description": "Open-source infrastructure that turns scattered SKILL.md files into curated, retrieval-ready agent-skill corpora—with retrieval and evaluation tooling included.",
-   "stars": 229,
+   "repo": "secondsky/sap-skills",
+   "url": "https://github.com/secondsky/sap-skills",
+   "description": "Production-ready plugins for SAP development with AI coding assistants — BTP, CAP, Fiori, ABAP, HANA, Analytics Cloud, Datasphere, and more",
+   "stars": 425,
    "topics": [
-    "agent-memory",
-    "agent-skills",
-    "ai-agents",
-    "benchmark",
-    "dataset",
-    "deepseek-harness",
-    "dsh",
-    "dsh-plugin",
-    "embeddings",
-    "hugginface",
-    "information-retrieval",
-    "llm-agents"
-   ],
-   "lang": "Python",
-   "created_at": "2026-08-11",
-   "pushed_at": "2026-08-27",
-   "age_days": 16,
-   "stars_per_day_lifetime": 14.31,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "skill in:name stars:>200 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 22
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "将SKILL.md文件转换为检索就绪的agent-skills语料库",
-   "evidence": "Open-source infrastructure that turns scattered SKILL.md files into curated, retrieval-ready agent-skill corpora",
-   "transfer_forms": [
-    "library"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "tourmind-com/Tourmind-Booking-Skills",
-   "url": "https://github.com/tourmind-com/Tourmind-Booking-Skills",
-   "description": "AI agent skill for end-to-end hotel search and booking—compare live rates across leading OTAs and hotel suppliers, verify availability, book stays, and manage reservations, cancellations, and payments via the TourMind API.",
-   "stars": 402,
-   "topics": [
-    "agent-skills",
-    "ai-agent",
-    "booking-api",
-    "codex-skills",
-    "hotel-api",
-    "hotel-booking",
-    "hotel-price-comparison",
-    "hotel-search",
-    "online-travel-agency",
-    "tourmind",
-    "travel-booking",
-    "travel-tech"
-   ],
-   "lang": "Python",
-   "created_at": "2026-07-13",
-   "pushed_at": "2026-08-27",
-   "age_days": 45,
-   "stars_per_day_lifetime": 8.93,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "skill in:name stars:>200 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 24
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "AI代理技能，用于酒店搜索和预订",
-   "evidence": "AI agent skill for end-to-end hotel search and booking",
-   "transfer_forms": [
-    "skill"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "punkpeye/mcp-remote",
-   "url": "https://github.com/punkpeye/mcp-remote",
-   "description": "Connect an MCP Client that only supports local (stdio) servers to a Remote MCP Server.",
-   "stars": 1562,
-   "topics": [
-    "mcp"
-   ],
-   "lang": "TypeScript",
-   "created_at": "2025-03-20",
-   "pushed_at": "2026-08-27",
-   "age_days": 525,
-   "stars_per_day_lifetime": 2.98,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "mcp server in:name,description stars:>1000 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 31
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "连接支持本地服务器的MCP客户端到远程MCP服务器",
-   "evidence": "Connect an MCP Client that only supports local (stdio) servers to a Remote MCP Server.",
-   "transfer_forms": [
-    "mcp"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "toplap/awesome-livecoding",
-   "url": "https://github.com/toplap/awesome-livecoding",
-   "description": "All things livecoding",
-   "stars": 3276,
-   "topics": [
-    "awesome",
-    "awesome-list",
-    "coding",
-    "graphics",
-    "live",
-    "livecoding",
-    "music",
-    "synthesis"
-   ],
-   "lang": "",
-   "created_at": "2017-02-14",
-   "pushed_at": "2026-08-26",
-   "age_days": 3481,
-   "stars_per_day_lifetime": 0.94,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "category",
-    "query": "awesome in:name stars:>2000 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 32
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供livecoding相关资源",
-   "evidence": "All things livecoding",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "jeremylongshore/tons-of-skills-marketplace",
-   "url": "https://github.com/jeremylongshore/tons-of-skills-marketplace",
-   "description": "471 plugins, 3,069 skills, 347 agents for Claude Code. Open-source marketplace at tonsofskills.com with the ccpi CLI package manager.",
-   "stars": 2679,
-   "topics": [
-    "agent-skills",
-    "ai",
-    "ai-agents",
-    "anthropic",
-    "automation",
+    "abap",
+    "ai-development",
+    "ai-skills",
+    "cds",
+    "claude",
     "claude-code",
-    "claude-code-plugins",
     "developer-tools",
-    "devops",
-    "llm",
-    "marketplace",
-    "mcp"
+    "joule",
+    "mcp",
+    "sap",
+    "sap-ai-core",
+    "sap-analytics-cloud"
    ],
-   "lang": "Python",
-   "created_at": "2025-10-10",
-   "pushed_at": "2026-08-27",
-   "age_days": 321,
-   "stars_per_day_lifetime": 8.35,
-   "license": "MIT",
-   "license_family": "permissive",
-   "found_by": {
-    "dimension": "category",
-    "query": "skill in:name stars:>200 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 32
-   },
-   "matched_by_n_queries": 3,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供Claude Code插件和技能市场",
-   "evidence": "471 plugins, 3,069 skills, 347 agents for Claude Code. Open-source marketplace at tonsofskills.com with the ccpi CLI pac",
-   "transfer_forms": [
-    "skill"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "datawhalechina/agent-skills-with-anthropic",
-   "url": "https://github.com/datawhalechina/agent-skills-with-anthropic",
-   "description": "本项目围绕吴恩达老师在DeepLearning.AI出品的agent-skills-with-anthropic系列课程，为学习者打造中文翻译与知识整理教程。项目提供课程内容翻译、知识点梳理和示例代码解读等内容，欢迎大家Star!",
-   "stars": 1481,
-   "topics": [],
-   "lang": "Python",
-   "created_at": "2026-02-01",
-   "pushed_at": "2026-08-27",
-   "age_days": 207,
-   "stars_per_day_lifetime": 7.15,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "category",
-    "query": "skill in:name stars:>200 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 40
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供吴恩达agent-skills-with-anthropic系列课程的中文翻译与知识整理教程",
-   "evidence": "本项目围绕吴恩达老师在DeepLearning.AI出品的agent-skills-with-anthropic系列课程，为学习者打造中文翻译与知识整理教程。",
-   "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "awesome-windows11/windows11",
-   "url": "https://github.com/awesome-windows11/windows11",
-   "description": "🌎 Windows 11 Settings, Tweaks, Scripts",
-   "stars": 3538,
-   "topics": [
-    "flighthub",
-    "powershell",
-    "scripts",
-    "tweaks",
-    "windows",
-    "windows-10",
-    "windows-11",
-    "windows10",
-    "windows11"
-   ],
-   "lang": "Batchfile",
-   "created_at": "2021-06-20",
-   "pushed_at": "2026-08-26",
-   "age_days": 1894,
-   "stars_per_day_lifetime": 1.87,
+   "lang": "JavaScript",
+   "created_at": "2025-11-21",
+   "pushed_at": "2026-08-28",
+   "age_days": 280,
+   "stars_per_day_lifetime": 1.52,
    "license": "GPL-3.0",
    "license_family": "copyleft",
    "found_by": {
     "dimension": "category",
-    "query": "awesome in:name stars:>2000 pushed:>2026-07-28",
+    "query": "skill in:name stars:>200 pushed:>2026-07-29",
     "sort": "updated",
     "query_breadth": 100,
-    "position": 41
+    "position": 7
    },
    "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "提供 Windows 11 设置、调整和脚本",
-   "evidence": "Windows 11 Settings, Tweaks, Scripts",
+   "capability": "SAP开发AI编码助手插件，支持多种SAP产品",
+   "evidence": "Production-ready plugins for SAP development with AI coding assistants — BTP, CAP, Fiori, ABAP, HANA, Analytics Cloud, D",
    "transfer_forms": [
-    "unknown"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "geekjourneyx/ai-daily-skill",
-   "url": "https://github.com/geekjourneyx/ai-daily-skill",
-   "description": "AI 资讯日报 Claude Code Skill - 每天自动获取、分析、归类 AI 前沿资讯",
-   "stars": 233,
-   "topics": [
-    "ai",
-    "ai-news",
-    "claude-skills"
-   ],
-   "lang": "Python",
-   "created_at": "2026-01-14",
-   "pushed_at": "2026-08-27",
-   "age_days": 225,
-   "stars_per_day_lifetime": 1.04,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "category",
-    "query": "skill in:name stars:>200 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 42
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "每日自动获取、分析、归类 AI 前沿资讯",
-   "evidence": "每天自动获取、分析、归类 AI 前沿资讯",
-   "transfer_forms": [
+    "library",
     "skill"
    ],
    "line_candidates": [
-    "unknown"
+    "modelpool"
    ],
    "distilled": true
   },
   {
-   "repo": "ramnes/awesome-mongodb",
-   "url": "https://github.com/ramnes/awesome-mongodb",
-   "description": ":leaves: A curated list of awesome MongoDB resources, libraries, tools and applications",
-   "stars": 2673,
+   "repo": "XiakeMan777/xiakeman-ai-short-drama",
+   "url": "https://github.com/XiakeMan777/xiakeman-ai-short-drama",
+   "description": "AI漫剧 / AI仿真人短剧/Seedance2.0专用创作工具：剧本创作、剧本分析、小说改编、AI 分镜、图片资产和 Seedance2.0提示词 / 火山方舟视频生成工作流。",
+   "stars": 103,
    "topics": [
-    "awesome",
-    "awesome-list",
-    "list",
-    "mongodb",
-    "mongodb-resources"
+    "seedance",
+    "seedance-2-0"
    ],
-   "lang": "",
-   "created_at": "2016-02-21",
+   "lang": "TypeScript",
+   "created_at": "2026-05-10",
    "pushed_at": "2026-08-26",
-   "age_days": 3840,
-   "stars_per_day_lifetime": 0.7,
-   "license": "NONE",
-   "license_family": "none",
+   "age_days": 110,
+   "stars_per_day_lifetime": 0.94,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
    "found_by": {
-    "dimension": "category",
-    "query": "awesome in:name stars:>2000 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
+    "dimension": "chinese",
+    "query": "短视频 in:name,description stars:>100 pushed:>2026-05-30",
+    "sort": "stars",
+    "query_breadth": 45,
     "position": 44
    },
    "matched_by_n_queries": 1,
@@ -1028,8 +206,54 @@
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "提供 MongoDB 资源列表",
-   "evidence": "A curated list of awesome MongoDB resources",
+   "capability": "AI漫剧/短剧创作工具，剧本创作与AI分镜",
+   "evidence": "AI漫剧 / AI仿真人短剧/Seedance2.0专用创作工具：剧本创作、剧本分析、小说改编、AI 分镜、图片资产和 Seedance2.0提示词 / 火山方舟视频生成工作流。",
+   "transfer_forms": [
+    "skill"
+   ],
+   "line_candidates": [
+    "video"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "unicodeveloper/awesome-nextjs",
+   "url": "https://github.com/unicodeveloper/awesome-nextjs",
+   "description": ":notebook_with_decorative_cover: :books: A curated list of awesome resources : books, videos, articles about using Next.js (A minimalistic framework for universal server-rendered React applications)",
+   "stars": 11108,
+   "topics": [
+    "awesome-list",
+    "framework",
+    "isomorphic",
+    "javascript",
+    "nextjs",
+    "reactjs",
+    "routing",
+    "server-side-rendering",
+    "tutorials",
+    "universal"
+   ],
+   "lang": "",
+   "created_at": "2016-12-01",
+   "pushed_at": "2026-08-28",
+   "age_days": 3557,
+   "stars_per_day_lifetime": 3.12,
+   "license": "NONE",
+   "license_family": "none",
+   "found_by": {
+    "dimension": "category",
+    "query": "awesome in:name stars:>2000 pushed:>2026-07-29",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 11
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "Next.js资源列表，包含教程和文章",
+   "evidence": "A curated list of awesome resources : books, videos, articles about using Next.js (A minimalistic framework for universa",
    "transfer_forms": [
     "library"
    ],
@@ -1039,26 +263,277 @@
    "distilled": true
   },
   {
-   "repo": "jondot/awesome-react-native",
-   "url": "https://github.com/jondot/awesome-react-native",
-   "description": "Awesome React Native components, news, tools, and learning material!",
-   "stars": 35691,
+   "repo": "hoolulu/deep-research",
+   "url": "https://github.com/hoolulu/deep-research",
+   "description": "Professional deep research report generation Skill — one command, ten minutes, broker-grade deep research / 深度调研报告生成 Skill — 一条命令，十分钟出券商级深度调研报告",
+   "stars": 525,
    "topics": [
+    "ai-agent",
+    "chinese",
+    "deep-research",
+    "intelligence-report",
+    "market-research",
+    "multi-language",
+    "opencode",
+    "report-generation",
+    "research-tool",
+    "skill"
+   ],
+   "lang": "Python",
+   "created_at": "2026-06-05",
+   "pushed_at": "2026-08-27",
+   "age_days": 84,
+   "stars_per_day_lifetime": 6.25,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese stars:>500 pushed:>2026-07-29",
+    "sort": "updated",
+    "query_breadth": 63,
+    "position": 15
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "深度调研报告生成工具，快速生成专业报告",
+   "evidence": "Professional deep research report generation Skill — one command, ten minutes, broker-grade deep research",
+   "transfer_forms": [
+    "skill"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "unnoo/zsxq-skill",
+   "url": "https://github.com/unnoo/zsxq-skill",
+   "description": "",
+   "stars": 266,
+   "topics": [],
+   "lang": "JavaScript",
+   "created_at": "2026-04-10",
+   "pushed_at": "2026-08-28",
+   "age_days": 140,
+   "stars_per_day_lifetime": 1.9,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "skill in:name stars:>200 pushed:>2026-07-29",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 25
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "未知功能",
+   "evidence": "未知",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "yaojingang/yao-open-skills",
+   "url": "https://github.com/yaojingang/yao-open-skills",
+   "description": "OpenYao public skills collection: reusable AI assets for decision-making, business analysis, tutorials, research evidence gathering, and document generation.",
+   "stars": 1304,
+   "topics": [],
+   "lang": "HTML",
+   "created_at": "2026-04-06",
+   "pushed_at": "2026-08-28",
+   "age_days": 144,
+   "stars_per_day_lifetime": 9.06,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "skill in:name stars:>200 pushed:>2026-07-29",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 35
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "OpenYao公共技能集合，AI资产复用",
+   "evidence": "OpenYao public skills collection: reusable AI assets for decision-making, business analysis, tutorials, research evidenc",
+   "transfer_forms": [
+    "library",
+    "skill"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "vsouza/awesome-ios",
+   "url": "https://github.com/vsouza/awesome-ios",
+   "description": "A curated list of awesome iOS ecosystem, including Objective-C and Swift Projects",
+   "stars": 53188,
+   "topics": [
+    "apple-swift",
+    "arkit",
+    "awesome",
+    "ios",
+    "ios-animation",
+    "ios-libraries",
+    "objective-c",
+    "objective-c-library",
+    "swift-extensions",
+    "swift-framework",
+    "swift-language",
+    "swift-library"
+   ],
+   "lang": "Swift",
+   "created_at": "2014-07-10",
+   "pushed_at": "2026-08-27",
+   "age_days": 4432,
+   "stars_per_day_lifetime": 12.0,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "awesome in:name stars:>2000 pushed:>2026-07-29",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 36
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "iOS生态系统资源列表，包括Objective-C和Swift项目",
+   "evidence": "A curated list of awesome iOS ecosystem, including Objective-C and Swift Projects",
+   "transfer_forms": [
+    "library"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "unicodeveloper/awesome-opensource-apps",
+   "url": "https://github.com/unicodeveloper/awesome-opensource-apps",
+   "description": ":house::information_source: Curated list of awesome open source crafted web & mobile applications - Learn, Fork, Contribute & Most Importantly Enjoy!",
+   "stars": 3891,
+   "topics": [
+    "android",
+    "awesome",
     "awesome-list",
-    "mobile",
+    "django",
+    "firebase",
+    "ios",
+    "laravel",
+    "meteor",
+    "opensource-apps",
+    "rails",
     "react",
     "react-native"
    ],
    "lang": "",
-   "created_at": "2015-03-26",
-   "pushed_at": "2026-08-26",
-   "age_days": 4172,
-   "stars_per_day_lifetime": 8.55,
+   "created_at": "2016-03-21",
+   "pushed_at": "2026-08-27",
+   "age_days": 3812,
+   "stars_per_day_lifetime": 1.02,
    "license": "NONE",
    "license_family": "none",
    "found_by": {
     "dimension": "category",
-    "query": "awesome in:name stars:>2000 pushed:>2026-07-28",
+    "query": "awesome in:name stars:>2000 pushed:>2026-07-29",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 39
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "开源Web和移动应用列表，包含Android和iOS",
+   "evidence": ":house::information_source: Curated list of awesome open source crafted web & mobile applications - Learn, Fork, Contrib",
+   "transfer_forms": [
+    "library"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "jamesmurdza/awesome-ai-devtools",
+   "url": "https://github.com/jamesmurdza/awesome-ai-devtools",
+   "description": "Curated list of AI-powered developer tools.",
+   "stars": 3920,
+   "topics": [],
+   "lang": "",
+   "created_at": "2023-08-03",
+   "pushed_at": "2026-08-27",
+   "age_days": 1121,
+   "stars_per_day_lifetime": 3.5,
+   "license": "NONE",
+   "license_family": "none",
+   "found_by": {
+    "dimension": "category",
+    "query": "awesome in:name stars:>2000 pushed:>2026-07-29",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 43
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "收集 AI 开发工具列表",
+   "evidence": "Curated list of AI-powered developer tools.",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "ligurio/awesome-ci",
+   "url": "https://github.com/ligurio/awesome-ci",
+   "description": "The list of continuous integration services and tools",
+   "stars": 4134,
+   "topics": [
+    "awesome",
+    "ci",
+    "comparison",
+    "continuous-integration",
+    "developer-tools",
+    "development",
+    "devops"
+   ],
+   "lang": "",
+   "created_at": "2014-10-28",
+   "pushed_at": "2026-08-27",
+   "age_days": 4322,
+   "stars_per_day_lifetime": 0.96,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "found_by": {
+    "dimension": "category",
+    "query": "awesome in:name stars:>2000 pushed:>2026-07-29",
     "sort": "updated",
     "query_breadth": 100,
     "position": 49
@@ -1068,43 +543,8 @@
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "提供 React Native 组件、新闻、工具和学习材料",
-   "evidence": "Awesome React Native components, news, tools, and learning material!",
-   "transfer_forms": [
-    "library"
-   ],
-   "line_candidates": [
-    "unknown"
-   ],
-   "distilled": true
-  },
-  {
-   "repo": "JanVanRyswyck/awesome-talks",
-   "url": "https://github.com/JanVanRyswyck/awesome-talks",
-   "description": "Awesome online talks and screencasts",
-   "stars": 6199,
-   "topics": [],
-   "lang": "",
-   "created_at": "2014-01-17",
-   "pushed_at": "2026-08-26",
-   "age_days": 4605,
-   "stars_per_day_lifetime": 1.35,
-   "license": "NONE",
-   "license_family": "none",
-   "found_by": {
-    "dimension": "category",
-    "query": "awesome in:name stars:>2000 pushed:>2026-07-28",
-    "sort": "updated",
-    "query_breadth": 100,
-    "position": 50
-   },
-   "matched_by_n_queries": 1,
-   "known_in_arsenal": false,
-   "new_to_us": true,
-   "stars_delta": null,
-   "stars_delta_window_days": null,
-   "capability": "提供在线演讲和屏幕录制",
-   "evidence": "Awesome online talks and screencasts",
+   "capability": "列出持续集成服务和工具",
+   "evidence": "The list of continuous integration services and tools.",
    "transfer_forms": [
     "unknown"
    ],
@@ -1114,34 +554,34 @@
    "distilled": true
   },
   {
-   "repo": "luchasarie/bro-skill",
-   "url": "https://github.com/luchasarie/bro-skill",
-   "description": "🤙 /bro — re-explains the last answer in plain language, for when the reply made you go 'bro what'. One-file skill for Hermes, Claude Code, Codex, and opencode.",
-   "stars": 301,
+   "repo": "warpdotdev/common-skills",
+   "url": "https://github.com/warpdotdev/common-skills",
+   "description": "",
+   "stars": 255,
    "topics": [],
-   "lang": "Shell",
-   "created_at": "2026-07-25",
+   "lang": "Python",
+   "created_at": "2026-04-30",
    "pushed_at": "2026-08-27",
-   "age_days": 33,
-   "stars_per_day_lifetime": 9.12,
+   "age_days": 120,
+   "stars_per_day_lifetime": 2.12,
    "license": "MIT",
    "license_family": "permissive",
    "found_by": {
     "dimension": "category",
-    "query": "skill in:name stars:>200 pushed:>2026-07-28",
+    "query": "skill in:name stars:>200 pushed:>2026-07-29",
     "sort": "updated",
     "query_breadth": 100,
-    "position": 50
+    "position": 60
    },
    "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "为 Hermes、Claude Code、Codex 和 opencode 提供技能",
-   "evidence": "One-file skill for Hermes, Claude Code, Codex, and opencode.",
+   "capability": "提供 Python 代码",
+   "evidence": "Python.",
    "transfer_forms": [
-    "skill"
+    "unknown"
    ],
    "line_candidates": [
     "unknown"
@@ -1149,45 +589,129 @@
    "distilled": true
   },
   {
-   "repo": "0xInfection/Awesome-WAF",
-   "url": "https://github.com/0xInfection/Awesome-WAF",
-   "description": "Everything about Web Application Firewalls (WAFs) from Security Standpoint! 🔥",
-   "stars": 7592,
+   "repo": "timescale/pg-aiguide",
+   "url": "https://github.com/timescale/pg-aiguide",
+   "description": "MCP server and Claude plugin for Postgres skills and documentation. Helps AI coding tools generate better PostgreSQL code.",
+   "stars": 1825,
+   "topics": [
+    "ai",
+    "ai-agents",
+    "ai-coding",
+    "claude-code-plugin",
+    "claude-code-plugins",
+    "claude-code-plugins-marketplace",
+    "claude-marketplace",
+    "claude-plugin",
+    "claude-skills",
+    "docs",
+    "documentation",
+    "mcp"
+   ],
+   "lang": "Python",
+   "created_at": "2025-07-23",
+   "pushed_at": "2026-08-27",
+   "age_days": 401,
+   "stars_per_day_lifetime": 4.55,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "mcp server in:name,description stars:>1000 pushed:>2026-07-29",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 64
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供 PostgreSQL 代码生成插件和文档",
+   "evidence": "MCP server and Claude plugin for Postgres skills and documentation.",
+   "transfer_forms": [
+    "mcp",
+    "skill",
+    "library"
+   ],
+   "line_candidates": [
+    "modelpool",
+    "ocr",
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "msmps/opentui-skill",
+   "url": "https://github.com/msmps/opentui-skill",
+   "description": "OpenTUI skill for use with OpenCode",
+   "stars": 224,
+   "topics": [],
+   "lang": "Shell",
+   "created_at": "2026-01-19",
+   "pushed_at": "2026-08-27",
+   "age_days": 221,
+   "stars_per_day_lifetime": 1.01,
+   "license": "MIT",
+   "license_family": "permissive",
+   "found_by": {
+    "dimension": "category",
+    "query": "skill in:name stars:>200 pushed:>2026-07-29",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 68
+   },
+   "matched_by_n_queries": 1,
+   "known_in_arsenal": false,
+   "new_to_us": true,
+   "stars_delta": null,
+   "stars_delta_window_days": null,
+   "capability": "提供 OpenTUI 技能",
+   "evidence": "OpenTUI skill for use with OpenCode.",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "distilled": true
+  },
+  {
+   "repo": "sirredbeard/awesome-wsl",
+   "url": "https://github.com/sirredbeard/awesome-wsl",
+   "description": "Awesome list dedicated to Windows Subsystem for Linux",
+   "stars": 6537,
    "topics": [
     "awesome",
     "awesome-list",
-    "bypass-waf",
-    "firewall",
-    "infosec",
-    "security",
-    "waf",
-    "waf-bypass",
-    "waf-detection",
-    "waf-fingerprints",
-    "waf-test",
-    "waf-testing"
+    "hacktoberfest-accepted",
+    "microsoft",
+    "windows-10",
+    "windows-subsystem",
+    "windows-subsystem-for-linux",
+    "windows-subsystem-linux",
+    "wsl"
    ],
-   "lang": "Python",
-   "created_at": "2019-01-08",
+   "lang": "",
+   "created_at": "2018-05-19",
    "pushed_at": "2026-08-26",
-   "age_days": 2788,
-   "stars_per_day_lifetime": 2.72,
-   "license": "Apache-2.0",
-   "license_family": "permissive",
+   "age_days": 3023,
+   "stars_per_day_lifetime": 2.16,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
    "found_by": {
     "dimension": "category",
-    "query": "awesome in:name stars:>2000 pushed:>2026-07-28",
+    "query": "awesome in:name stars:>2000 pushed:>2026-07-29",
     "sort": "updated",
     "query_breadth": 100,
-    "position": 52
+    "position": 82
    },
    "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "提供关于 Web 应用防火墙 (WAF) 的信息",
-   "evidence": "Everything about Web Application Firewalls (WAFs) from Security Standpoint!",
+   "capability": "列出 Windows Subsystem for Linux 相关资源",
+   "evidence": "Awesome list dedicated to Windows Subsystem for Linux.",
    "transfer_forms": [
     "unknown"
    ],
@@ -1197,34 +721,47 @@
    "distilled": true
   },
   {
-   "repo": "antithesishq/antithesis-skills",
-   "url": "https://github.com/antithesishq/antithesis-skills",
-   "description": "AI Skills for Antithesis Users",
-   "stars": 259,
-   "topics": [],
-   "lang": "JavaScript",
-   "created_at": "2026-02-10",
-   "pushed_at": "2026-08-26",
-   "age_days": 198,
-   "stars_per_day_lifetime": 1.31,
+   "repo": "xiao24bei/xiaobei-skill",
+   "url": "https://github.com/xiao24bei/xiaobei-skill",
+   "description": "小北在读研开源 Codex Skills 合集：Image to VBA、Academic Paper to PPT 等 AI + 科研工作流。",
+   "stars": 208,
+   "topics": [
+    "academic-figures",
+    "academic-ppt",
+    "academic-presentation",
+    "agent-skills",
+    "ai-for-research",
+    "codex-skill",
+    "editable-powerpoint",
+    "image-to-vba",
+    "office-shapes",
+    "office-vba",
+    "openai-codex",
+    "paper-to-ppt"
+   ],
+   "lang": "Python",
+   "created_at": "2026-05-26",
+   "pushed_at": "2026-08-27",
+   "age_days": 94,
+   "stars_per_day_lifetime": 2.21,
    "license": "Apache-2.0",
    "license_family": "permissive",
    "found_by": {
     "dimension": "category",
-    "query": "skill in:name stars:>200 pushed:>2026-07-28",
+    "query": "skill in:name stars:>200 pushed:>2026-07-29",
     "sort": "updated",
     "query_breadth": 100,
-    "position": 65
+    "position": 93
    },
    "matched_by_n_queries": 1,
    "known_in_arsenal": false,
    "new_to_us": true,
    "stars_delta": null,
    "stars_delta_window_days": null,
-   "capability": "为 Antithesis 用户提供 AI 技能",
-   "evidence": "AI Skills for Antithesis Users",
+   "capability": "提供 Codex 技能集合",
+   "evidence": "小北在读研开源 Codex Skills 合集：Image to VBA、Academic Paper to PPT 等 AI + 科研工作流。",
    "transfer_forms": [
-    "skill"
+    "unknown"
    ],
    "line_candidates": [
     "unknown"
