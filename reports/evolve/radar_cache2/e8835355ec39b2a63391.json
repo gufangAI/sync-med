@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "字符错误率",
+ "how": "集成RapidOCR作为OCR引擎",
+ "effort": "中",
+ "current": "目前使用的是云端 Actions 批量跑的 OCR 工具",
+ "beats": "可能降低字符错误率，提高识别准确度",
+ "why": "RapidOCR基于ONNXRuntime，性能优越"
+}
