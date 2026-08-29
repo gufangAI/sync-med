@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "updated": "2026-08-28",
+ "updated": "2026-08-29",
  "decisions": [
   {
    "source": "arsenal:x1xhlol/system-prompts-and-models-of-ai-tools",
@@ -631,6 +631,26 @@
    "fingerprint": "94ee3bff99a7a18f",
    "date": "2026-08-28",
    "issue": 464,
+   "topic": "新技术研判:unicodeveloper/awesome-nextjs(11108星)— Next.js资源列表，包含教程和文章",
+   "verdict_ok": true
+  },
+  {
+   "source": "arsenal:vsouza/awesome-ios",
+   "decision": "adopt",
+   "basis": "no-veto",
+   "fingerprint": "f308665868e5e089",
+   "date": "2026-08-29",
+   "issue": 472,
+   "topic": "新技术研判:vsouza/awesome-ios(53188星)— iOS生态系统资源列表，包括Objective-C和Swift项目",
+   "verdict_ok": true
+  },
+  {
+   "source": "arsenal:unicodeveloper/awesome-nextjs",
+   "decision": "watch",
+   "basis": "veto:1",
+   "fingerprint": "94ee3bff99a7a18f",
+   "date": "2026-08-29",
+   "issue": 472,
    "topic": "新技术研判:unicodeveloper/awesome-nextjs(11108星)— Next.js资源列表，包含教程和文章",
    "verdict_ok": true
   }
