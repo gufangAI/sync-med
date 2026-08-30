@@ -11,7 +11,7 @@ on:
         required: false
         default: '1'
   schedule:
-    - cron: '*/12 * * * *'    # 每 12 分钟 1 篇(温和,避 sync-med 队列堆积);本地循环是主力,Actions 作云端持久备份
+    - cron: '25 */2 * * *'    # 每 12 分钟 1 篇(温和,避 sync-med 队列堆积);本地循环是主力,Actions 作云端持久备份
 
 concurrency:
   group: roundtable-factory

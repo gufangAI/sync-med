@@ -16,7 +16,7 @@ name: frontend-sentinel
 
 on:
   schedule:
-    - cron: '20 * * * *'   # hourly, offset from :00 to avoid piling on other hourly jobs
+    - cron: '20 */4 * * *'   # hourly, offset from :00 to avoid piling on other hourly jobs
   workflow_dispatch:
 
 concurrency:

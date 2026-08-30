@@ -2,7 +2,7 @@ name: 🛡️ Fleet Watch
 
 on:
   schedule:
-    - cron: '0 * * * *'   # 每小时整点
+    - cron: '0 */4 * * *'   # 每小时整点
   workflow_dispatch:        # 手动触发
 
 concurrency:
