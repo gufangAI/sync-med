@@ -4803,8 +4803,8 @@
    "repo": "vsouza/awesome-ios",
    "url": "https://github.com/vsouza/awesome-ios",
    "first_seen": "2026-08-28",
-   "status": "debated",
-   "status_note": "council 2026-08-28 #464",
+   "status": "verified",
+   "status_note": "council 2026-08-29 #472",
    "last_seen": "2026-08-28",
    "stars": 53188,
    "license": "MIT",
@@ -27718,6 +27718,49 @@
    }
   },
   {
+   "repo": "av/harbor",
+   "url": "https://github.com/av/harbor",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 3198,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "lang": "Python",
+   "pushed_at": "2026-08-29",
+   "created_at": "2024-07-27",
+   "stars_per_day_lifetime": 4.19,
+   "capability": "提供预配置的AI堆栈",
+   "transfer_forms": [
+    "mcp"
+   ],
+   "line_candidates": [
+    "modelpool"
+   ],
+   "topics": [
+    "ai",
+    "automation",
+    "bash",
+    "cli",
+    "container",
+    "docker",
+    "docker-compose",
+    "homelab",
+    "llm",
+    "local",
+    "mcp",
+    "npm"
+   ],
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:mcp stars:>2000 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 83
+   }
+  },
+  {
    "repo": "brycewang-stanford/Auto-Empirical-Research-Skills",
    "url": "https://github.com/brycewang-stanford/Auto-Empirical-Research-Skills",
    "first_seen": "2026-08-01",
@@ -27880,6 +27923,48 @@
     "sort": "updated",
     "query_breadth": 100,
     "position": 24
+   }
+  },
+  {
+   "repo": "minar09/awesome-virtual-try-on",
+   "url": "https://github.com/minar09/awesome-virtual-try-on",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 3160,
+   "license": "NONE",
+   "license_family": "none",
+   "pushed_at": "2026-08-29",
+   "created_at": "2020-06-20",
+   "stars_per_day_lifetime": 1.4,
+   "capability": "收集虚拟试穿相关资源",
+   "transfer_forms": [
+    "dataset"
+   ],
+   "line_candidates": [
+    "image"
+   ],
+   "topics": [
+    "2d-virtual-try-on",
+    "3d-virtual-try-on",
+    "awesome-list",
+    "awesome-lists",
+    "cloth",
+    "collection",
+    "curated",
+    "curated-list",
+    "fashion",
+    "fashion-tech",
+    "garment",
+    "image"
+   ],
+   "found_by": {
+    "dimension": "category",
+    "query": "awesome in:name stars:>2000 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 27
    }
   },
   {
@@ -28468,6 +28553,34 @@
     "sort": "stars",
     "query_breadth": 27,
     "position": 3
+   }
+  },
+  {
+   "repo": "xcomptek/awesome-saas-boilerplates",
+   "url": "https://github.com/xcomptek/awesome-saas-boilerplates",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 3086,
+   "license": "NONE",
+   "license_family": "none",
+   "pushed_at": "2026-08-29",
+   "created_at": "2021-05-27",
+   "stars_per_day_lifetime": 1.61,
+   "capability": "整理 SaaS 项目启动模板（boilerplates）的精选列表。",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "found_by": {
+    "dimension": "category",
+    "query": "awesome in:name stars:>2000 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 40
    }
   },
   {
@@ -31067,6 +31180,40 @@
    }
   },
   {
+   "repo": "docsifyjs/awesome-docsify",
+   "url": "https://github.com/docsifyjs/awesome-docsify",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 2646,
+   "license": "NOASSERTION",
+   "license_family": "unknown",
+   "pushed_at": "2026-08-29",
+   "created_at": "2018-01-24",
+   "stars_per_day_lifetime": 0.84,
+   "capability": "整理 docsify 相关插件、主题、工具的精选列表。",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "topics": [
+    "awesome",
+    "awesome-list",
+    "docsify",
+    "docsify-plugin"
+   ],
+   "found_by": {
+    "dimension": "category",
+    "query": "awesome in:name stars:>2000 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 43
+   }
+  },
+  {
    "repo": "xuchonglang/investing-for-beginners",
    "url": "https://github.com/xuchonglang/investing-for-beginners",
    "first_seen": "2026-07-26",
@@ -31601,6 +31748,45 @@
     "sort": "stars",
     "query_breadth": 100,
     "position": 79
+   }
+  },
+  {
+   "repo": "guyulongcs/Awesome-Deep-Learning-Papers-for-Search-Recommendation-Advertising",
+   "url": "https://github.com/guyulongcs/Awesome-Deep-Learning-Papers-for-Search-Recommendation-Advertising",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 2589,
+   "license": "NONE",
+   "license_family": "none",
+   "lang": "Python",
+   "pushed_at": "2026-08-29",
+   "created_at": "2020-09-06",
+   "stars_per_day_lifetime": 1.19,
+   "capability": "整理工业界搜索、推荐、广告领域深度学习论文的精选列表，涵盖 Embedding、Matching、Ranking 等方向。",
+   "transfer_forms": [
+    "unknown"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "topics": [
+    "advertising",
+    "ctr",
+    "cvr",
+    "deep-learning",
+    "recommender-system",
+    "reinforcement-learning",
+    "search",
+    "search-engine"
+   ],
+   "found_by": {
+    "dimension": "category",
+    "query": "awesome in:name stars:>2000 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 45
    }
   },
   {
@@ -32757,6 +32943,47 @@
    "found_by": {
     "dimension": "category",
     "query": "skill in:name stars:>200 pushed:>2026-07-14",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 51
+   }
+  },
+  {
+   "repo": "miuuyy/codex-chatgpt-web",
+   "url": "https://github.com/miuuyy/codex-chatgpt-web",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 2444,
+   "license": "MIT",
+   "license_family": "permissive",
+   "lang": "TypeScript",
+   "pushed_at": "2026-08-30",
+   "created_at": "2026-07-26",
+   "stars_per_day_lifetime": 69.83,
+   "capability": "将ChatGPT Web集成到Codex应用中",
+   "transfer_forms": [
+    "deploy"
+   ],
+   "line_candidates": [
+    "modelpool"
+   ],
+   "topics": [
+    "chatgpt",
+    "chatgpt-pro",
+    "codex",
+    "free-ai",
+    "mcp",
+    "openai",
+    "playwright",
+    "quickstart",
+    "responses-api",
+    "typescript"
+   ],
+   "found_by": {
+    "dimension": "stock",
+    "query": "topic:mcp stars:>2000 pushed:>2026-07-31",
     "sort": "updated",
     "query_breadth": 100,
     "position": 51
@@ -34702,6 +34929,34 @@
     "sort": "stars",
     "query_breadth": 100,
     "position": 91
+   }
+  },
+  {
+   "repo": "uhub/awesome-c",
+   "url": "https://github.com/uhub/awesome-c",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 2213,
+   "license": "NONE",
+   "license_family": "none",
+   "pushed_at": "2026-08-30",
+   "created_at": "2015-08-12",
+   "stars_per_day_lifetime": 0.55,
+   "capability": "收集C语言框架和库",
+   "transfer_forms": [
+    "library"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "found_by": {
+    "dimension": "category",
+    "query": "awesome in:name stars:>2000 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 21
    }
   },
   {
@@ -43625,6 +43880,48 @@
    }
   },
   {
+   "repo": "irinabuht12-oss/google-meta-ads-ga4-mcp",
+   "url": "https://github.com/irinabuht12-oss/google-meta-ads-ga4-mcp",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 1073,
+   "license": "MIT",
+   "license_family": "permissive",
+   "pushed_at": "2026-08-29",
+   "created_at": "2026-04-06",
+   "stars_per_day_lifetime": 7.35,
+   "capability": "集成Google Ads MCP、Meta Ads MCP和GA4",
+   "transfer_forms": [
+    "mcp"
+   ],
+   "line_candidates": [
+    "modelpool"
+   ],
+   "topics": [
+    "ad-optimization",
+    "advertising",
+    "ai-agent",
+    "campaign-management",
+    "chatgpt",
+    "claude",
+    "cursor",
+    "facebook-ads",
+    "ga4",
+    "google-ads",
+    "google-ads-mcp",
+    "google-analytics"
+   ],
+   "found_by": {
+    "dimension": "category",
+    "query": "mcp server in:name,description stars:>1000 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 14
+   }
+  },
+  {
    "repo": "MayDay-wpf/snow-cli",
    "url": "https://github.com/MayDay-wpf/snow-cli",
    "first_seen": "2026-08-16",
@@ -44330,6 +44627,49 @@
     "sort": "updated",
     "query_breadth": 100,
     "position": 11
+   }
+  },
+  {
+   "repo": "atlassian/atlassian-mcp-server",
+   "url": "https://github.com/atlassian/atlassian-mcp-server",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 1002,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "lang": "JavaScript",
+   "pushed_at": "2026-08-29",
+   "created_at": "2025-08-01",
+   "stars_per_day_lifetime": 2.54,
+   "capability": "Atlassian 官方远程 MCP Server，通过 OAuth 2.1 或 API Token 将 Jira、Confluence、Bitbucket 等产品接入 Claude、ChatGPT、Cursor 等 AI 工具。",
+   "transfer_forms": [
+    "mcp"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "topics": [
+    "ai",
+    "ai-agents",
+    "atlassian",
+    "bitbucket",
+    "chatgpt",
+    "claude",
+    "compass",
+    "confluence",
+    "copilot",
+    "cursor",
+    "developer-tools",
+    "jira"
+   ],
+   "found_by": {
+    "dimension": "category",
+    "query": "mcp server in:name,description stars:>1000 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 47
    }
   },
   {
@@ -50516,6 +50856,49 @@
    }
   },
   {
+   "repo": "LifelongLazyLearner/qu-ai-wei",
+   "url": "https://github.com/LifelongLazyLearner/qu-ai-wei",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 504,
+   "license": "MIT",
+   "license_family": "permissive",
+   "lang": "Shell",
+   "pushed_at": "2026-08-16",
+   "created_at": "2026-04-21",
+   "stars_per_day_lifetime": 3.85,
+   "capability": "去除简体中文AI写作痕迹",
+   "transfer_forms": [
+    "skill"
+   ],
+   "line_candidates": [
+    "image"
+   ],
+   "topics": [
+    "agent-skills",
+    "ai-writing",
+    "chinese",
+    "claude-code",
+    "codex",
+    "codex-cli",
+    "cursor",
+    "humanizer",
+    "kimi-code",
+    "opencode",
+    "qu-ai-wei",
+    "simplified-chinese"
+   ],
+   "found_by": {
+    "dimension": "chinese",
+    "query": "topic:chinese stars:>500 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 63,
+    "position": 49
+   }
+  },
+  {
    "repo": "DLWangSan/douyin_parse",
    "url": "https://github.com/DLWangSan/douyin_parse",
    "first_seen": "2026-08-05",
@@ -52563,6 +52946,40 @@
     "sort": "stars",
     "query_breadth": 100,
     "position": 29
+   }
+  },
+  {
+   "repo": "bahayonghang/academic-writing-skills",
+   "url": "https://github.com/bahayonghang/academic-writing-skills",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 432,
+   "license": "NONE",
+   "license_family": "none",
+   "lang": "Python",
+   "pushed_at": "2026-08-29",
+   "created_at": "2026-01-01",
+   "stars_per_day_lifetime": 1.79,
+   "capability": "提供 5 个 AI skill，用于学术论文的格式校验、语法润色、去 AI 痕迹、参考文献检查和审稿风格审计。",
+   "transfer_forms": [
+    "skill"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "topics": [
+    "academic",
+    "latex",
+    "typst"
+   ],
+   "found_by": {
+    "dimension": "category",
+    "query": "skill in:name stars:>200 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 44
    }
   },
   {
@@ -54802,6 +55219,45 @@
    }
   },
   {
+   "repo": "bam-bam-2/solo-skills",
+   "url": "https://github.com/bam-bam-2/solo-skills",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 340,
+   "license": "MIT",
+   "license_family": "permissive",
+   "lang": "Python",
+   "pushed_at": "2026-08-30",
+   "created_at": "2026-08-22",
+   "stars_per_day_lifetime": 42.5,
+   "capability": "提供26个AI代理技能和自动化脚本",
+   "transfer_forms": [
+    "skill"
+   ],
+   "line_candidates": [
+    "video"
+   ],
+   "topics": [
+    "agent-skills",
+    "ai-agent",
+    "automation",
+    "claude-code",
+    "korean",
+    "productivity",
+    "skills",
+    "solopreneur"
+   ],
+   "found_by": {
+    "dimension": "category",
+    "query": "skill in:name stars:>200 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 7
+   }
+  },
+  {
    "repo": "arpitg1304/robotics-agent-skills",
    "url": "https://github.com/arpitg1304/robotics-agent-skills",
    "first_seen": "2026-08-12",
@@ -55628,6 +56084,34 @@
     "sort": "updated",
     "query_breadth": 100,
     "position": 8
+   }
+  },
+  {
+   "repo": "safaiyeh/app-store-review-skill",
+   "url": "https://github.com/safaiyeh/app-store-review-skill",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 317,
+   "license": "MIT",
+   "license_family": "permissive",
+   "pushed_at": "2026-08-29",
+   "created_at": "2026-01-21",
+   "stars_per_day_lifetime": 1.43,
+   "capability": "提供 Apple App Review 合规校验的 AI skill，用于验证代码库是否符合苹果应用商店审核要求。",
+   "transfer_forms": [
+    "skill"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "found_by": {
+    "dimension": "category",
+    "query": "skill in:name stars:>200 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 36
    }
   },
   {
@@ -56518,6 +57002,40 @@
     "sort": "stars",
     "query_breadth": 44,
     "position": 13
+   }
+  },
+  {
+   "repo": "langgptai/awesome-doubao-prompts",
+   "url": "https://github.com/langgptai/awesome-doubao-prompts",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 294,
+   "license": "Apache-2.0",
+   "license_family": "permissive",
+   "pushed_at": "2026-08-30",
+   "created_at": "2025-06-17",
+   "stars_per_day_lifetime": 0.67,
+   "capability": "收集豆包AI提示词库",
+   "transfer_forms": [
+    "dataset"
+   ],
+   "line_candidates": [
+    "image"
+   ],
+   "topics": [
+    "doubao",
+    "doubao-prompt",
+    "doubaoai",
+    "prompt"
+   ],
+   "found_by": {
+    "dimension": "chinese",
+    "query": "提示词 in:name,description stars:>200 pushed:>2026-06-01",
+    "sort": "stars",
+    "query_breadth": 51,
+    "position": 44
    }
   },
   {
@@ -58854,6 +59372,35 @@
    }
   },
   {
+   "repo": "jakubkrehel/oklch-skill",
+   "url": "https://github.com/jakubkrehel/oklch-skill",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 229,
+   "license": "NONE",
+   "license_family": "none",
+   "lang": "Markdown",
+   "pushed_at": "2026-08-29",
+   "created_at": "2026-03-31",
+   "stars_per_day_lifetime": 1.51,
+   "capability": "提供OKLCH颜色工作技能",
+   "transfer_forms": [
+    "skill"
+   ],
+   "line_candidates": [
+    "unknown"
+   ],
+   "found_by": {
+    "dimension": "category",
+    "query": "skill in:name stars:>200 pushed:>2026-07-31",
+    "sort": "updated",
+    "query_breadth": 100,
+    "position": 35
+   }
+  },
+  {
    "repo": "nuyoah-ai-works/nuyoah-xiezhen-prompt",
    "url": "https://github.com/nuyoah-ai-works/nuyoah-xiezhen-prompt",
    "first_seen": "2026-08-11",
@@ -59112,6 +59659,35 @@
     "sort": "updated",
     "query_breadth": 100,
     "position": 19
+   }
+  },
+  {
+   "repo": "lixiaoxiao9888-create/manju-laoli-skill",
+   "url": "https://github.com/lixiaoxiao9888-create/manju-laoli-skill",
+   "first_seen": "2026-08-30",
+   "status": "pending",
+   "status_note": "",
+   "last_seen": "2026-08-30",
+   "stars": 225,
+   "license": "NONE",
+   "license_family": "none",
+   "lang": "Python",
+   "pushed_at": "2026-08-28",
+   "created_at": "2026-08-15",
+   "stars_per_day_lifetime": 15.0,
+   "capability": "提供AIGC全流程Skill",
+   "transfer_forms": [
+    "skill"
+   ],
+   "line_candidates": [
+    "video"
+   ],
+   "found_by": {
+    "dimension": "chinese",
+    "query": "提示词 in:name,description stars:>200 pushed:>2026-06-01",
+    "sort": "stars",
+    "query_breadth": 51,
+    "position": 48
    }
   },
   {
@@ -67530,7 +68106,7 @@
    }
   }
  ],
- "updated": "2026-08-29",
+ "updated": "2026-08-30",
  "status_enum": [
   "pending",
   "debated",
