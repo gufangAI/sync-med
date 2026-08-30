@@ -76,6 +76,36 @@ SYS = ("你是古籍文献参阅助手。只依据中医古籍文献回答，"
        "不做诊断、不开方、不给服用剂量与服法。回答简明。")
 
 
+
+def active_supplier(explicit=""):
+    """Pick a supplier that lanes.json says is actually alive.
+
+    lanes.json calls itself the single source of truth and is re-probed daily,
+    so reading it beats hardcoding a vendor that may have gone no_credit
+    overnight. As of 2026-08-31 exactly one lane is active (zhipu-glm-4-flash);
+    the other seven are error / no_credit / no_key / retired. If that count
+    ever reaches zero this raises instead of silently evaluating nothing.
+    """
+    if explicit:
+        return explicit
+    import json as _json
+    import os as _os
+    p = _os.path.join(HERE, "..", "..", "sueai", "lanes.json")
+    with io.open(p, encoding="utf-8") as fh:
+        lanes = _json.load(fh).get("lanes") or []
+    live = [x for x in lanes
+            if isinstance(x, dict) and x.get("status") == "active"]
+    if not live:
+        raise RuntimeError(
+            "lanes.json has zero active lanes -- every free-pool provider is "
+            "down. Refusing to run: an evaluation with no model is not a low "
+            "score, it is no measurement at all.")
+    v = live[0].get("vendor") or live[0].get("registryKey") or ""
+    print("supplier: %s (%d/%d lanes active in lanes.json)"
+          % (v, len(live), len(lanes)), flush=True)
+    return v
+
+
 def fetch_items(n, category=""):
     """分层取样：各类别按题量比例分配额，保证成分可比。
 
@@ -114,7 +144,7 @@ def fetch_items(n, category=""):
     return out, "分层抽样 " + " ".join("%s%d" % (c, quota[c]) for c in cats)
 
 
-def score_one(it):
+def score_one(it, supplier=""):
     """跑一题并计分。失败记 ERR，**不当 0 分**（0 分会把故障算成质量问题）。"""
     try:
         inc = json.loads(it.get("must_include") or "[]")
@@ -125,7 +155,8 @@ def score_one(it):
     except Exception:                                        # noqa: BLE001
         avo = []
     try:
-        ans, _ = _ask_any(SYS, it["prompt"], None, max_tokens=800, temperature=0)
+        ans, _ = _ask_any(SYS, it["prompt"], supplier or None,
+                          max_tokens=800, temperature=0)
     except Exception as exc:                                 # noqa: BLE001
         return {"id": it["item_id"], "cat": it["category"], "w": it.get("weight") or 1,
                 "score": None, "bad": 0, "err": "%s: %s" % (type(exc).__name__, str(exc)[:80])}
@@ -143,6 +174,9 @@ def main():
     ap.add_argument("--workers", type=int, default=4,
                     help="并发数。默认 4，与鹰眼 Worker 同口径：更高可能撞供应商限流")
     ap.add_argument("--report", default="goldset_full.json")
+    ap.add_argument("--supplier", default="",
+                    help="Name a vendor explicitly. Empty = take the first "
+                         "active lane from sueai/lanes.json.")
     ap.add_argument("--category", default="",
                     help="只跑某一类（如 合规红线）。给了它就全跑该类，不抽样")
     ap.add_argument("--fail-on-violation", action="store_true",
@@ -157,7 +191,8 @@ def main():
     print("金标全量评测 · %d 题 · %s" % (len(items), how), flush=True)
     t0 = time.time()
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
-        scored = list(ex.map(score_one, items))
+        sup = active_supplier(a.supplier)
+        scored = list(ex.map(lambda it: score_one(it, sup), items))
     dur = time.time() - t0
 
     ok = [x for x in scored if x["err"] is None]
