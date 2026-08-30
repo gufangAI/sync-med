@@ -1,0 +1,86 @@
+# 指标受控注册表 v1
+# 规则：未在此登记的数字，不得进入任何裁决路径。
+# 校验由 check_metric.py 执行 —— 未注册即退出码 1，评测脚本跑不起来。
+# 新增指标必须由人登记；改进者、CC、评测器均无权自行新增。
+
+registry_version: "1"
+season_id: "S1"          # 三冻结的赛季号；冻题/冻考官/冻判分函数任一变更即 +1
+frozen:
+  question_set: "regset_v1_frozen_40"   # 冻题
+  judge_supplier: "<待填：单一供应商>"    # 冻考官（供应商）
+  judge_model_version: "<待填：单一版本>" # 冻考官（版本）
+  scorer_version: "<待填：判分函数版本>"  # 冻判分函数
+
+metrics:
+
+  - name: pairwise_win_rate
+    role: PRIMARY            # 主判据
+    numerator: "双序一致的胜局数"
+    denominator: "双序一致判出胜负的总局数（记平的局不计入分母）"
+    unit: ratio
+    deterministic: false     # 依赖考官模型，但赛季内钉死
+    freeze_requires: [question_set, judge_supplier, judge_model_version, scorer_version]
+    comparable_within: season          # 跨赛季不可比
+    promotion_rule: "二项置信区间下界 > 0.5"
+    owner: hoson.zuo
+
+  - name: qualification_gate_pass
+    role: GATE               # 资格闸，过/不过，不参与排名
+    numerator: "全部必检项通过的候选数"
+    denominator: "参评候选数"
+    unit: ratio
+    deterministic: true
+    freeze_requires: [question_set, scorer_version]
+    comparable_within: scorer_version
+    owner: hoson.zuo
+
+  - name: formula_mass_consistency
+    role: GATE_ITEM          # 内容类确定性指标（结构式↔分子式对账）
+    numerator: "结构式与分子式一致的条目数"
+    denominator: "含结构式的条目数"
+    unit: ratio
+    deterministic: true
+    freeze_requires: [scorer_version]
+    comparable_within: scorer_version
+    owner: hoson.zuo
+
+  - name: citation_backcheck
+    role: GATE_ITEM          # 引文回验：反编造，权重高于形式类
+    numerator: "在冻结原文中可回验命中的引用数"
+    denominator: "输出中的引用总数"
+    unit: ratio
+    deterministic: true
+    freeze_requires: [question_set, scorer_version]
+    comparable_within: scorer_version
+    owner: hoson.zuo
+
+  - name: goldset_point_hit
+    role: SCORE              # 金标要点命中，连续分（禁止二值）
+    numerator: "命中的专家定稿要点数"
+    denominator: "该题金标要点总数"
+    unit: ratio
+    deterministic: true
+    freeze_requires: [question_set, scorer_version]
+    comparable_within: question_set
+    owner: hoson.zuo
+
+# ───────────────────────────────────────────────────────────
+# 反面教材：以下为历史翻车，登记在册供比对，permanently BANNED
+# ───────────────────────────────────────────────────────────
+banned:
+
+  - name: ingest_rate_as_fitness
+    what_happened: "拿入库率冒充放行率，两者分母不同却直接比大小"
+    consequence: "会把更差的方案提拔成冠军，数字还很漂亮"
+
+  - name: cross_paper_absolute_score
+    what_happened: "冠军与挑战者跑不同题材，比绝对分数"
+    consequence: "挑战者「领先 3.5 个点」，换同卷后其实是落后"
+
+  - name: drifting_examinee_and_judge
+    what_happened: "同卷，但考生模型与考官模型都在换，仍比绝对分数"
+    consequence: "同一方案两轮 8.3% → 0.0%，分数不可复现"
+
+  - name: verdict_on_voided_ruler
+    what_happened: "用已判作废的尺子，给整个项目的中心假设定生死"
+    consequence: "得出「免费池写不出更好的提示词」这一无效结论，并据此主张付费"

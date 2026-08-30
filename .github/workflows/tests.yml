@@ -24,7 +24,11 @@ jobs:
       # 这里装 pytest 只是为了跟本地验收命令 `python -m pytest tests/ -q` 完全一致 ——
       # CI 跑的和人手上跑的必须是同一条命令,不然两边会各自漂移。
       - name: install pytest
-        run: pip install --quiet pytest
+        # pyyaml：`scripts/check_metric.py`(指标受控注册表的机器闸)与
+        #   `tests/test_metrics_registry.py` 要读 metrics_registry.yaml。
+        #   不显式装的话，CI 上能不能 import yaml 取决于 runner 镜像里恰好有没有 ——
+        #   那是"靠运气绿"，哪天镜像一变就整片 ERROR，且看起来像我们的代码坏了。
+        run: pip install --quiet pytest pyyaml
 
       - name: OCR 质量闸判据回归(正货放行 + 垃圾判死)
         run: python -m pytest tests/ -q
