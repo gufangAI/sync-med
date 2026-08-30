@@ -29,6 +29,18 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // 2026-08-31 upsert-guard: 有开着的同类告警就追评论,不再每轮新建一个 Issue。
+            // 侦察实测:持续停滞时旧写法最多每天 12 个新 Issue 刷屏。
+            const _open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'alert', per_page: 20 });
+            const _hit = _open.data.find(i => (i.labels||[]).some(l => (l.name||l) === 'content-factory'));
+            if (_hit) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: _hit.number,
+                body: `${new Date().toISOString()} 仍停滞(近3h新增 ${{ steps.check.outputs.recent }} 篇)` });
+            } else
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
