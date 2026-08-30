@@ -13,10 +13,11 @@ own docstring already admitted this ("can only ever see brand-new").
 Trending is defined by *star velocity*, which the Search API does not expose at
 all. So the two sources that actually publish it:
 
-  1. github.com/trending -- the official board. No API, so the HTML is parsed.
-     The markup is stable (`<article class="Box-row">`), and the parse degrades
-     to an empty list rather than raising, so a layout change costs us this one
-     source for a day instead of breaking the whole radar run.
+  1. github.com/trending -- the official board. No API, so the HTML is parsed
+     with lxml. Every xpath was measured against the live page before being
+     written down. The parse degrades to an empty list rather than raising,
+     so a layout change costs us this one source for a day instead of
+     breaking the whole radar run.
 
   2. OpenGithubs/github-weekly-rank -- a repo that publishes the top-20 by
      weekly star *growth* every Monday. This one needs no scraping at all: it
@@ -35,25 +36,6 @@ Usage:
 
     python gh_trending_real.py            # standalone smoke run
 
-KNOWN GAP (2026-08-31, not yet solved -- stated rather than hidden)
-------------------------------------------------------------------
-`fetch_trending_html` returns 0 rows against the live board, while every step
-of it verifies correctly in isolation: _get() returns 669KB, the split yields
-19 blocks, and the h2 regex matches "THU-MAIC/OpenMAIC" on blocks[0]. Run as a
-whole, the loop still appends nothing. Cause not identified.
-
-Time-boxed out under the no-rabbit-hole rule (30 minutes on one point with no
-verifiable output -> stop and report, do not keep guessing).
-
-This does NOT block the feature. `fetch_weekly_rank` works and is the more
-valuable of the two: it yields actual weekly star *growth* numbers, which the
-official board never exposes numerically. Verified live -- 20 repos, top entry
-+6,969 stars in a week.
-
-Next step when someone picks this up: instrument inside the loop body itself
-(print len(blocks), and the value of `full` per iteration) rather than testing
-the regex again in isolation -- isolation already passes, so the divergence is
-somewhere between the loop and the append, not in the pattern.
 """
 import json
 import os
@@ -98,11 +80,14 @@ def _clean(s: str) -> str:
 
 
 def fetch_trending_html(spoken: str = "", lang: str = "", since: str = "daily") -> list:
-    """Parse github.com/trending.
+    """Parse github.com/trending with lxml.
 
-    Returns [] on any failure. A dead source must not take down the radar run --
-    the rest of the pipeline treats an empty list as "nothing new today", which
-    is the correct degradation for one source out of a dozen.
+    Every xpath here was measured against the live page first, not guessed.
+    Previous attempt hand-rolled regexes and returned 0 rows; a parser removes
+    that whole class of failure.
+
+    Returns [] on any failure -- one dead source must degrade to "nothing new
+    today" rather than taking down the whole radar run.
     """
     q = {}
     if lang:
@@ -113,35 +98,50 @@ def fetch_trending_html(spoken: str = "", lang: str = "", since: str = "daily") 
         q["since"] = since
     url = TRENDING_URL + ("?" + urllib.parse.urlencode(q) if q else "")
     try:
-        html = _get(url)
+        from lxml import html as LH
+    except ImportError:
+        print("    [trending] lxml not installed -- skipping this source",
+              flush=True)
+        return []
+    try:
+        doc = LH.fromstring(_get(url))
     except Exception as exc:                                     # noqa: BLE001
         print("    [trending] fetch failed: %s" % str(exc)[:90], flush=True)
         return []
 
+    def _num(t):
+        t = (t or "").strip().replace(",", "")
+        try:
+            return int(t)
+        except ValueError:
+            return 0
+
+    def _first(node, xp):
+        """First NON-BLANK text node.
+
+        xpath()/text() returns every direct text child, and the first one is
+        usually the whitespace sitting before an <svg>. Taking [0] blindly
+        yields "" -- which is exactly how the gain field silently read 0 while
+        the same xpath, filtered, measured "907 stars today" by hand.
+        """
+        for t in node.xpath(xp):
+            if t and t.strip():
+                return t.strip()
+        return ""
+
     out = []
-    # Each entry is one <article class="Box-row">. Split on it rather than
-    # trying to match the whole card in one regex -- the inner markup varies
-    # (sponsor badges, built-by avatars), the outer wrapper does not.
-    for block in re.split(r'<article class="Box-row"', html)[1:]:
-        m = re.search(r'<h2[^>]*>\s*<a[^>]*?href="/([^"]+?)"', block, re.S)
-        if not m:
+    for art in doc.xpath("//article[contains(@class,'Box-row')]"):
+        href = art.xpath(".//h2//a/@href")
+        if not href:
             continue
-        full = m.group(1).strip("/")
+        full = href[0].strip("/")
         if full.count("/") != 1:
             continue
-        dm = re.search(r'<p class="col-9[^"]*">(.*?)</p>', block, re.S)
-        desc = _clean(dm.group(1)) if dm else ""
-        sm = re.search(r'stargazers"[^>]*>(.*?)</a>', block, re.S)
-        stars = 0
-        if sm:
-            t = _clean(sm.group(1)).replace(",", "")
-            try:
-                stars = int(float(t[:-1]) * 1000) if t.endswith("k") else int(t)
-            except ValueError:
-                stars = 0
-        tm = re.search(r'itemprop="programmingLanguage">([^<]+)<', block)
-        gm = re.search(r'([\d,]+)\s*stars\s+(?:today|this week|this month)', _clean(block))
-        gain = int(gm.group(1).replace(",", "")) if gm else 0
+        stars = _num(_first(art, ".//a[contains(@href,'/stargazers')]/text()"))
+        gain_txt = _first(art, ".//span[contains(@class,'float-sm-right')]/text()")
+        gain = _num(gain_txt.split()[0]) if gain_txt else 0
+        language = _first(art, ".//span[@itemprop='programmingLanguage']/text()")
+        desc = " ".join(x.strip() for x in art.xpath(".//p/text()") if x.strip())
         out.append({
             "id": "trend:" + full,
             "title": full,
@@ -151,7 +151,7 @@ def fetch_trending_html(spoken: str = "", lang: str = "", since: str = "daily") 
             "source": "GitHub Trending Board",
             "stars": stars,
             "gain": gain,
-            "lang": tm.group(1).strip() if tm else "",
+            "lang": language,
         })
     print("    [trending/%s] %d repos" % (since, len(out)), flush=True)
     return out
