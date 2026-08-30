@@ -1,0 +1,100 @@
+# 金标全量评测 —— 门1-1.1「50 题扩测」
+#
+# 「它出问题时谁在哪看见」:结果进固定 Issue(label=goldset),分数掉了或失败题变多,
+#   标红到创始人手机;失败也 always 发,不会静默消失。
+#   —— 这一行是新建 workflow 的必答题,答不出=没建完。
+#
+# 为什么不在鹰眼 Worker 里扩题(查完家底后否掉的方案):
+#   Worker 那段注释写明「4 题一批并发:串行 12 题会把墙钟拖到 60 秒以上」;
+#   99 题 = 99 个 fetch subrequest,而 CF Worker 的 subrequest 配额是整次调用共享的
+#   (鹰眼那次 cron 还要干别的活),大概率撞上限。
+#   日线 12 题本身有价值(快、成分固定、适合当每日体温计),不该为扩测把它拆了。
+#   → 日线留 Worker,全量线搬 Actions。Actions 即我方 n8n(零成本、已装机、不引新引擎)。
+name: 📏 Gold Set Full · 金标全量评测
+
+on:
+  workflow_dispatch:
+    inputs:
+      n:
+        description: '题数（0=全量 99 题）'
+        required: false
+        default: '50'
+  schedule:
+    # 每周一 UTC 05:20（北京 13:20）—— 排在 judge-scorecard(04:50) 之后，避免同时打网关。
+    # 周频而非日频:全量跑一次几分钟且要打几十次网关,日线已有 Worker 那条 12 题的在盯。
+    - cron: '20 5 * * 1'
+
+concurrency:
+  group: goldset-full
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write        # 结果要进 Issue —— 没有它,哨兵就是「只在真出事那次炸」
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+
+      - name: 金标全量评测（走内部免费池网关·零按量计费）
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          GW_KEY:         ${{ secrets.GW_KEY }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          python scripts/evolve/goldset_full.py \
+            --n "${{ github.event.inputs.n || 50 }}" \
+            --report goldset_full.json
+
+      - name: 结果进固定 Issue（失败也发 —— 静默失败比失败本身更贵）
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY' > body.md
+          import json, os
+          try:
+              d = json.load(open("goldset_full.json", encoding="utf-8"))
+          except Exception as e:
+              print("## ❌ 本轮没有产出报告\n")
+              print(f"`goldset_full.json` 读不到：`{e}`")
+              print("\n说明脚本在出报告之前就挂了 —— 看 run 日志。")
+              raise SystemExit(0)
+          print(f"## 加权总分 **{d['weighted_score']}** / 100\n")
+          print(f"- 题数 **{d['n']}**（{d['sampling']}）· 成功 {d['ok']} · 失败 {d['err']}")
+          print(f"- 合规违规 **{d['violations']}** 题 · 用时 {d['duration_sec']}s")
+          if d.get("suspect_violations"):
+              print(f"- ⚠️ 其中 {len(d['suspect_violations'])} 题命中的是**已知假阳性判据**"
+                    f"（{'、'.join(d['suspect_violations'])}）—— 修法见 migration 061，未执行")
+          print("\n### 按类别\n")
+          print("| 类别 | 分 |")
+          print("|---|---|")
+          for c, v in d["by_category"].items():
+              print(f"| {c} | {v} |")
+          errs = [x for x in d["items"] if x.get("err")]
+          if errs:
+              print("\n### 失败题（记 ERR，不当 0 分）\n")
+              for x in errs[:10]:
+                  print(f"- `{x['id']}` {x['err']}")
+          print("\n---")
+          print("> 日线 12 题在鹰眼 Worker 里跑（每天，成分固定，当体温计）；")
+          print("> 本表是**周频全量线**，用来看稳定基线 —— 单看'今天 vs 昨天'在 12 题样本下没有意义。")
+          PY
+          TITLE="📏 金标全量评测"
+          NUM=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --label goldset \
+                --json number,title --jq "[.[]|select(.title|startswith(\"$TITLE\"))][0].number")
+          if [ -n "$NUM" ] && [ "$NUM" != "null" ]; then
+            gh issue edit "$NUM" -R "$GITHUB_REPOSITORY" --title "$TITLE · $(date -u +%Y-%m-%d)" --body-file body.md
+            # 只编辑正文不产生任何通知 —— 必须追一条评论才真的通知到人
+            gh issue comment "$NUM" -R "$GITHUB_REPOSITORY" --body-file body.md
+          else
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$TITLE · $(date -u +%Y-%m-%d)" \
+              --label goldset --body-file body.md
+          fi
