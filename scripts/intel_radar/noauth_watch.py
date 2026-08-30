@@ -9,7 +9,7 @@ repo, the very project our nova-gateway was modelled on). Instead of
 re-scanning the internet ourselves, we diff their registry weekly and only
 speak up when it changes.
 
-Cadence is weekly by founder's explicit correction ("每周对一次", upgrading
+Cadence is weekly by founder's explicit correction ("weekly, not monthly", upgrading
 my original monthly suggestion), wired into the Eagle Weekly Hunter run.
 
 Output contract:
