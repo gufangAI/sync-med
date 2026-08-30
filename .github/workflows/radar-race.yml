@@ -154,7 +154,16 @@ jobs:
             cat radar_race_report.md 2>/dev/null || echo "(结果表缺失)"
           } > issue_comment.md
           if [ -n "$num" ]; then
-            gh issue comment "$num" -R "$GITHUB_REPOSITORY" --body-file issue_comment.md
+          # Periodic report, not an alarm. Body still updates every run;
+          # the comment (the part that pings a human) is opt-in, because
+          # a daily ping for a green report is what buried the founder's
+          # inbox. Routine notification belongs in the weekly digest.
+          # Set NOTIFY=1 on a dispatch when you do want to be pinged.
+            if [ "${NOTIFY:-0}" = "1" ]; then
+              gh issue comment "$num" -R "$GITHUB_REPOSITORY" --body-file issue_comment.md
+            else
+              gh issue edit "$num" -R "$GITHUB_REPOSITORY" --body-file issue_comment.md
+            fi
           else
             gh issue create -R "$GITHUB_REPOSITORY" --title "$T" --body-file issue_comment.md
           fi
