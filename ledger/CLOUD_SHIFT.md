@@ -22,12 +22,12 @@
 
 逐条执行:
 ```bash
-gh run list -R gufangAI/sync-med --workflow=<文件名> --limit 5
+gh run list -R hosonzuo8848/sync-med --workflow=<文件名> --limit 5
 ```
 
 **任何 failure 都优先于推进新任务** —— 先看日志定位真因再修:
 ```bash
-gh run view <run_id> -R gufangAI/sync-med --log-failed
+gh run view <run_id> -R hosonzuo8848/sync-med --log-failed
 ```
 
 **修的时候守一条**:停摆先查「是不是没触发 / 被 cancel / secret 缺失」,**别一上来改代码**

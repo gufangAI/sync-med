@@ -47,7 +47,7 @@ local_github_consistency_audit.py — 本地-GitHub 一致性审计 v1
   本机深度模式:
     python local_github_consistency_audit.py --mode local \
         --local-repo hosonzuo8848/guyaofang=F:\\0book\\guyaofang-web \
-        --local-repo gufangAI/sync-med=F:\\0book\\<sync-med本地路径,如有>
+        --local-repo hosonzuo8848/sync-med=F:\\0book\\<sync-med本地路径,如有>
 """
 import argparse
 import base64
@@ -63,7 +63,7 @@ from datetime import datetime, timezone
 
 # ─── 被审计的仓库 ──────────────────────────────────────────────────────────────
 REPOS = [
-    {"slug": "gufangAI/sync-med", "token_env": "GITHUB_TOKEN", "label": "sync-med(下载/后端管线)"},
+    {"slug": "hosonzuo8848/sync-med", "token_env": "GITHUB_TOKEN", "label": "sync-med(下载/后端管线)"},
     {"slug": "hosonzuo8848/guyaofang", "token_env": "GUYAOFANG_TOKEN", "label": "guyaofang-web(前端+RAG)"},
 ]
 

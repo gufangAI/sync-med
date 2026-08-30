@@ -552,7 +552,7 @@ def _call_dist():
 
 def create_issue(title, body, date_str):
     tok = os.environ.get("GH_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
-    repo = os.environ.get("GITHUB_REPOSITORY", "gufangAI/sync-med")
+    repo = os.environ.get("GITHUB_REPOSITORY", "hosonzuo8848/sync-med")
     if not tok:
         log("no GH token -- skipping issue creation")
         return None
@@ -689,7 +689,7 @@ def main():
     date_str = time.strftime("%Y-%m-%d")
     run_id = os.environ.get("GITHUB_RUN_ID", "local")
     run_url = "%s/%s/actions/runs/%s" % (os.environ.get("GITHUB_SERVER_URL", "https://github.com"),
-                                         os.environ.get("GITHUB_REPOSITORY", "gufangAI/sync-med"),
+                                         os.environ.get("GITHUB_REPOSITORY", "hosonzuo8848/sync-med"),
                                          run_id)
     st = {}
 

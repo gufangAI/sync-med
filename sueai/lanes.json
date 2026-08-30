@@ -258,6 +258,6 @@
     }
   ],
   "_已排除候选": "2026-07-27 为 gemma-3n-e4b 选替补时实调排掉的，写在这里防下次重查：① google/gemma-3-12b-it —— HTTP 404，本账号无权调用；② deepseek-ai/deepseek-v4-flash （NVIDIA 家的，非 SenseNova 同名那条）—— HTTP 400 DEGRADED，厂商侧降级中。两条都在厂商公开目录里列着——**目录能列 ≠ 账号能调**，选型必须实调，不能拿目录当凭据。",
-  "_副本层级": "本文件存在两份，权威的是云端那份：① gufangAI/sync-med 的 sueai/lanes.json ——【真源】lane-probe 每天把探活结果写回它；② 本地 sueai-core-engine/core/ai_orchestrator/lanes.json ——【只读副本】那个目录不是 git 仓，引擎也还没接进生产，写在这里的状态没人看得见。改动一律先改云端，再同步到本地；反向改了本地就会被下一次同步覆盖。【未了】两份合一需要改引擎读配置的方式，今晚只写清层级、没有合并——别把这条当已解决。",
+  "_副本层级": "本文件存在两份，权威的是云端那份：① hosonzuo8848/sync-med 的 sueai/lanes.json ——【真源】lane-probe 每天把探活结果写回它；② 本地 sueai-core-engine/core/ai_orchestrator/lanes.json ——【只读副本】那个目录不是 git 仓，引擎也还没接进生产，写在这里的状态没人看得见。改动一律先改云端，再同步到本地；反向改了本地就会被下一次同步覆盖。【未了】两份合一需要改引擎读配置的方式，今晚只写清层级、没有合并——别把这条当已解决。",
   "_本副本角色": "真源（lane-probe 写回处）"
 }

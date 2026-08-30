@@ -27,7 +27,7 @@ ACCOUNT = os.environ['CF_ACCOUNT_ID']
 TOKEN   = os.environ['D1_API_TOKEN']
 DB_ID   = os.environ.get('GUYAOFANG_DB_ID', '2db89d3b-e988-4577-a9e3-fb7c563af72f')
 
-REPO     = os.environ.get('GITHUB_REPOSITORY', 'gufangAI/sync-med')
+REPO     = os.environ.get('GITHUB_REPOSITORY', 'hosonzuo8848/sync-med')
 GH_TOKEN = os.environ.get('GITHUB_TOKEN', '')
 
 # 申请类反馈 —— 这些是钱，和 bug 报告 / 功能建议不是一回事，必须分开盯

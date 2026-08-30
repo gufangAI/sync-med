@@ -22,7 +22,7 @@ fleet-watch.yml 覆盖了其中 4 个（clean-embed / ocr / sync / ocr_ndl），
 """
 import os, json, sys, urllib.request, datetime
 
-REPO     = os.environ.get('GITHUB_REPOSITORY', 'gufangAI/sync-med')
+REPO     = os.environ.get('GITHUB_REPOSITORY', 'hosonzuo8848/sync-med')
 GH_TOKEN = os.environ.get('GITHUB_TOKEN', '')
 
 # fleet-watch.yml 已经在盯的，这里跳过，免得同一件事两个 Issue 对着刷

@@ -36,7 +36,7 @@
 
 dreammis/social-auto-upload | 2026-07-29 | sau CLI, MIT; content factory -> douyin/xiaohongshu queue adapter
 calesthio/OpenMontage       | 2026-07-21 | ffmpeg xfade named transitions, absorbed into make_video.py render_body_clips()
-RapidAI/RapidOCR            | -          | second OCR line, gufangAI/sync-med ocr.py, driven by ocr.yml
+RapidAI/RapidOCR            | -          | second OCR line, hosonzuo8848/sync-med ocr.py, driven by ocr.yml
 xfyun-HunyuanOCR-STABLE     | -          | service not a repo; industrial_ocr.py, 491 medical-case books -> RAG fuel
 Graphify-Labs/graphify       | 2026-08-05 | 知识图谱星图 — 读源码吸收 analyze.py 的意外分与 exporters/html.py 的社群摘要思路,上线 2 个端点 /api/graph/overview 与 /api/graph/insights;线上实测 overview 返回 8 个知识区覆盖 46560 节点、32 条跨区桥接;insights 扫 300 条边命中 6 条。缺陷:insights 候选未排序,头部多为常识,待修
 DietrichGebert/ponytail      | 2026-08-05 | DROPPED: 查明为 Claude Code 插件(95160 星),定位是约束 agent 少写代码;我们已有 zero-error-constitution 与 code-change-discipline 两个 skill 覆盖同一职责,npx 安装实测报错未装成,不重复引入

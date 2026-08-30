@@ -50,7 +50,7 @@
 #
 # Env:
 #   GH_TOKEN / GITHUB_TOKEN                      - gh CLI auth for `gh issue create/edit/comment`
-#   GITHUB_REPOSITORY                            - defaults to gufangAI/sync-med (where Issue posts)
+#   GITHUB_REPOSITORY                            - defaults to hosonzuo8848/sync-med (where Issue posts)
 #   CF_ACCOUNT_ID / D1_DATABASE_ID / D1_API_TOKEN - optional; live-schema check via Cloudflare D1 API.
 #                                                   All optional -- script degrades gracefully without
 #                                                   any of them (migrations-only mode), zero AI calls
@@ -67,7 +67,7 @@ import time
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-REPORT_REPO = os.environ.get("GITHUB_REPOSITORY", "gufangAI/sync-med")
+REPORT_REPO = os.environ.get("GITHUB_REPOSITORY", "hosonzuo8848/sync-med")
 AUDITED_REPO_LABEL = os.environ.get("AUDITED_REPO_LABEL", "hosonzuo8848/guyaofang (guyaofang-web)")
 TITLE_PREFIX = "\U0001F9FE code-self-audit"  # receipt emoji, distinct from fleet-health's ship emoji
 ISSUE_LABEL = "code-self-audit"

@@ -11,7 +11,7 @@ import zipfile
 import io
 from datetime import datetime, timezone, timedelta
 
-REPO = "gufangAI/sync-med"
+REPO = "hosonzuo8848/sync-med"
 TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
 

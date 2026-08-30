@@ -23,7 +23,7 @@ CLAUDE.md 第 8 条：「凡是只写进日志的产线，一律视为没人看�
 import os, json, re, sys, urllib.request
 
 SITE     = os.environ.get('GUYAOFANG_SITE', 'https://guyaofang-web.pages.dev')
-REPO     = os.environ.get('GITHUB_REPOSITORY', 'gufangAI/sync-med')
+REPO     = os.environ.get('GITHUB_REPOSITORY', 'hosonzuo8848/sync-med')
 GH_TOKEN = os.environ.get('GITHUB_TOKEN', '')
 
 # 寻脉链头 —— 与 functions/api/_lib/local_ollama_router.js 的 callWithFallback 首参保持一致。

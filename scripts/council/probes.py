@@ -236,7 +236,7 @@ _SELF_HEAD = t("radar_selfhead")      # "self-inspection" section head
 
 def _gh(path):
     tok = os.environ.get("GH_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
-    repo = os.environ.get("GITHUB_REPOSITORY", "gufangAI/sync-med")
+    repo = os.environ.get("GITHUB_REPOSITORY", "hosonzuo8848/sync-med")
     req = urllib.request.Request(
         "https://api.github.com/repos/%s%s" % (repo, path),
         headers={"Authorization": "Bearer " + tok,

@@ -2519,7 +2519,7 @@ def push_wechat(today: str, top_items: list, raw_counts: dict,
         f"- \u7cbe\u534e TOP: **{top_n}** \u6761",
         f"- \u7cbe\u534e\u7387: {rate}",
         "",
-        '*\u8be6\u7ec6\u62a5\u544a\u89c1 GitHub Issues \u2192 gufangAI/sync-med*',
+        '*\u8be6\u7ec6\u62a5\u544a\u89c1 GitHub Issues \u2192 hosonzuo8848/sync-med*',
     ]
     desp = "\n".join(lines)
 
@@ -2570,7 +2570,7 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
                 arsenal_md: Optional[str] = None,
                 absorb_md: Optional[str] = None,
                 adoption: Optional[dict] = None):
-    '\n    \u7528 gh CLI \u521b\u5efa Issue \u5230 gufangAI/sync-med\u3002\n    GH_TOKEN \u7531 Actions \u81ea\u52a8\u6ce8\u5165,\u65e0\u9700\u989d\u5916\u914d\u7f6e\u3002\n    '
+    '\n    \u7528 gh CLI \u521b\u5efa Issue \u5230 hosonzuo8848/sync-med\u3002\n    GH_TOKEN \u7531 Actions \u81ea\u52a8\u6ce8\u5165,\u65e0\u9700\u989d\u5916\u914d\u7f6e\u3002\n    '
     import subprocess
 
     top_n = len(top_items)
@@ -2722,7 +2722,7 @@ def _push_issue(today: str, top_items: list, raw_counts: dict,
     
     cmd = [
         "gh", "issue", "create",
-        "--repo", "gufangAI/sync-med",
+        "--repo", "hosonzuo8848/sync-med",
         "--title", title,
         "--body-file", str(tmp_body),
     ]

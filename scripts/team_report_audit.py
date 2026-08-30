@@ -6,7 +6,7 @@
 # Founder does NOT chase reports; the system does. Free LLM (Xunfei) does the reading.
 import os, sys, json, datetime, urllib.request, urllib.parse
 
-REPO = os.environ.get("GITHUB_REPOSITORY", "gufangAI/sync-med")
+REPO = os.environ.get("GITHUB_REPOSITORY", "hosonzuo8848/sync-med")
 GH_TOKEN = os.environ["GH_ISSUE_TOKEN"]
 XF_KEYS = [k.strip() for k in ((os.environ.get("XF_KEY") or "") + "," + (os.environ.get("XF_API_KEYS") or "")).split(",") if k.strip()]
 XF_HOST = os.environ.get("XF_HOST", "https://maas-api.cn-huabei-1.xf-yun.com/v2")

@@ -7,7 +7,7 @@ import json, os, subprocess, sys, time, urllib.request
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 SITE = "https://www.gufangai.com"
 UA = {"User-Agent": "FleetHealth/1.0", "Content-Type": "application/json"}
-REPO = os.environ.get("GITHUB_REPOSITORY", "gufangAI/sync-med")
+REPO = os.environ.get("GITHUB_REPOSITORY", "hosonzuo8848/sync-med")
 TITLE = "\U0001F6A2 fleet-health"  # ship emoji
 
 def fetch(url, body=None, timeout=120):

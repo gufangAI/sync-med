@@ -1,4 +1,4 @@
-'\n\u60c5\u62a5\u96f7\u8fbe \xb7 \u6bcf\u65e5\u62a5\u544a\u751f\u6210\u5668 v2 (\u4e91\u7aef\u7248)\n======================================\n\u4e13\u4e3a GitHub Actions (\u6d77\u5916 runner) \u8bbe\u8ba1:\n  - \u5206\u6790\u6a21\u578b: \u4f18\u5148 DeepSeek (NVIDIA NIM) / \u5907\u7528 \u667a\u8c31 GLM-4-Flash\n  - \u60c5\u62a5\u6e90: arXiv cs.AI + HuggingFace Daily Papers + PubMed TCM+AI\n  - \u62a5\u544a\u901a\u8fc7 `gh issue create` \u63a8\u9001\u5230 gufangAI/sync-med Issues (\u2192 \u624b\u673a\u901a\u77e5)\n\n\u73af\u5883\u53d8\u91cf (GitHub Secrets):\n    NVIDIA_API_KEY   \u2014 NVIDIA NIM API Key (deepseek-ai/deepseek-r1)\n    ZHIPU_API_KEY    \u2014 \u667a\u8c31 GLM-4-Flash Key (\u5907\u7528,NVIDIA \u4e0d\u53ef\u7528\u65f6\u542f\u52a8)\n\n\u65e0 key \u65f6\u811a\u672c\u4ecd\u53ef\u8fd0\u884c,\u4f46\u5206\u6790\u6b65\u9aa4\u4f1a\u8df3\u8fc7(\u53ea\u51fa\u539f\u59cb\u5217\u8868\u62a5\u544a)\u3002\n\n\u7528\u6cd5:\n    python daily_report_cloud.py\n'
+'\n\u60c5\u62a5\u96f7\u8fbe \xb7 \u6bcf\u65e5\u62a5\u544a\u751f\u6210\u5668 v2 (\u4e91\u7aef\u7248)\n======================================\n\u4e13\u4e3a GitHub Actions (\u6d77\u5916 runner) \u8bbe\u8ba1:\n  - \u5206\u6790\u6a21\u578b: \u4f18\u5148 DeepSeek (NVIDIA NIM) / \u5907\u7528 \u667a\u8c31 GLM-4-Flash\n  - \u60c5\u62a5\u6e90: arXiv cs.AI + HuggingFace Daily Papers + PubMed TCM+AI\n  - \u62a5\u544a\u901a\u8fc7 `gh issue create` \u63a8\u9001\u5230 hosonzuo8848/sync-med Issues (\u2192 \u624b\u673a\u901a\u77e5)\n\n\u73af\u5883\u53d8\u91cf (GitHub Secrets):\n    NVIDIA_API_KEY   \u2014 NVIDIA NIM API Key (deepseek-ai/deepseek-r1)\n    ZHIPU_API_KEY    \u2014 \u667a\u8c31 GLM-4-Flash Key (\u5907\u7528,NVIDIA \u4e0d\u53ef\u7528\u65f6\u542f\u52a8)\n\n\u65e0 key \u65f6\u811a\u672c\u4ecd\u53ef\u8fd0\u884c,\u4f46\u5206\u6790\u6b65\u9aa4\u4f1a\u8df3\u8fc7(\u53ea\u51fa\u539f\u59cb\u5217\u8868\u62a5\u544a)\u3002\n\n\u7528\u6cd5:\n    python daily_report_cloud.py\n'
 
 import sys
 import os
@@ -47,7 +47,7 @@ REPORTS_DIR = Path(__file__).parent / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-ISSUE_REPO = "gufangAI/sync-med"
+ISSUE_REPO = "hosonzuo8848/sync-med"
 
 
 SUEAI_CONTEXT = '\n\u6211\u4eec\u7684\u4ea7\u54c1 SueAI \u662f\u4e2d\u533b\u53e4\u7c4d\u667a\u80fd\u5206\u6790\u7cfb\u7edf,\u6838\u5fc3\u6a21\u5757\u5305\u62ec:\n1. \u60c5\u62a5\u96f7\u8fbe \u2014 \u81ea\u52a8\u6293 AI \u524d\u6cbf\u8bba\u6587,\u7b5b\u51fa\u5bf9\u4e2d\u533b AI \u6709\u4ef7\u503c\u7684\n2. RAG \u68c0\u7d22\u5f15\u64ce \u2014 \u57fa\u4e8e 2100+ \u53e4\u5178\u533b\u6848 + 7700+ \u53e4\u7c4d\u7684\u5411\u91cf\u68c0\u7d22\n3. AI \u5bfb\u8109 \u2014 \u7ed9\u75c7\u72b6\u751f\u6210"\u53e4\u7c4d\u8fa8\u8bc1\u53c2\u9605\u62a5\u544a"(\u6587\u732e\u4e3b\u8bed,\u975e\u8bca\u7597)\n4. \u5224\u65ad\u6eaf\u6e90 \u2014 \u7ed9 AI \u8f93\u51fa\u6807\u6ce8\u6587\u732e\u51fa\u5904+\u53ef\u4fe1\u5ea6\u5206\u7ea7\n5. SueAI \u4e13\u5bb6\u5206\u8eab \u2014 \u4e2d\u533b\u540d\u5bb6\u5b66\u6d3e\u89c6\u89d2\u95ee\u7b54\n\n\u5173\u952e\u6280\u672f\u65b9\u5411:\u4e2d\u533b NLP\u3001\u53e4\u7c4d OCR\u3001RAG/GraphRAG\u3001\u6587\u672c\u5206\u7c7b\u3001embedding\u3001\u77e5\u8bc6\u56fe\u8c31\u3001\n\u4e2d\u533b\u672f\u8bed\u6807\u51c6\u5316\u3001\u4f20\u7edf\u533b\u5b66\u6587\u732e\u6316\u6398\n'
@@ -387,7 +387,7 @@ def build_issue_title(date_str: str, relevant: list, raw_counts: dict) -> str:
 
 
 def push_issue(title: str, body: str) -> bool:
-    '\n    \u7528 gh CLI \u628a\u62a5\u544a\u63a8\u9001\u5230 gufangAI/sync-med Issues\u3002\n    gh CLI \u5728 GitHub Actions ubuntu \u4e0a\u9ed8\u8ba4\u53ef\u7528,GITHUB_TOKEN \u81ea\u52a8\u6ce8\u5165\u3002\n    \u8fd4\u56de True = \u6210\u529f\u3002\n    '
+    '\n    \u7528 gh CLI \u628a\u62a5\u544a\u63a8\u9001\u5230 hosonzuo8848/sync-med Issues\u3002\n    gh CLI \u5728 GitHub Actions ubuntu \u4e0a\u9ed8\u8ba4\u53ef\u7528,GITHUB_TOKEN \u81ea\u52a8\u6ce8\u5165\u3002\n    \u8fd4\u56de True = \u6210\u529f\u3002\n    '
     import subprocess
     import tempfile
 

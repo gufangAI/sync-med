@@ -28,7 +28,7 @@ import urllib.request
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 BODY = os.environ.get("BODY", "").strip()
-REPO = os.environ.get("REPO", "gufangAI/sync-med")
+REPO = os.environ.get("REPO", "hosonzuo8848/sync-med")
 ISSUE = os.environ.get("ISSUE", "")
 CF_ACC = os.environ.get("CF_ACCOUNT_ID", "")
 CF_TOK = os.environ.get("CF_API_TOKEN", "")

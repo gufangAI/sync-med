@@ -38,7 +38,7 @@ CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
 D1_DB      = os.environ.get("D1_DATABASE_ID", "2db89d3b-e988-4577-a9e3-fb7c563af72f")
 D1_TOKEN   = os.environ.get("D1_API_TOKEN", "")
 GH_TOKEN   = os.environ.get("GITHUB_TOKEN", "")
-GH_REPO    = os.environ.get("GITHUB_REPOSITORY", "gufangAI/sync-med")
+GH_REPO    = os.environ.get("GITHUB_REPOSITORY", "hosonzuo8848/sync-med")
 
 # ── 判据阈值(改这里就改了系统的"健康标准")─────────────────────
 TH = {

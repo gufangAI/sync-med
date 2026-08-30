@@ -52,7 +52,7 @@ jobs:
       fail-fast: false
       max-parallel: 8   # was 150: this fires unattended every 3h and, with default total=150, tried to
                         # claim 150 concurrent jobs against an org-wide Free-plan ceiling of ~20 shared
-                        # across all of gufangAI -> starved every other repo/workflow (2026-07-16 fix).
+                        # across all of hosonzuo8848 -> starved every other repo/workflow (2026-07-16 fix).
       matrix:
         shard: ${{ fromJSON(needs.prep.outputs.shards) }}
     steps:

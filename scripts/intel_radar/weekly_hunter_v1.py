@@ -199,7 +199,7 @@ def main():
     
     title = f"🦅\u9e70\u773c\u5468\u62a5 {TODAY} | {len(signals)}\u4e2a\u9886\u5148\u7a7a\u5730+\u8de8\u754c\u79fb\u690d"
     try:
-        r = subprocess.run(["gh", "issue", "create", "-R", "gufangAI/sync-med",
+        r = subprocess.run(["gh", "issue", "create", "-R", "hosonzuo8848/sync-med",
                             "--title", title, "--body", md],
                            capture_output=True, text=True, timeout=60)
         print(f"[issue] {'✓ ' + r.stdout.strip() if r.returncode == 0 else '✗ ' + r.stderr[:200]}", flush=True)

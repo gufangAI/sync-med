@@ -401,7 +401,7 @@ def generate_report(date_str: str, raw_counts: dict, top_items: list,
 
 def push_issue(date_str: str, top_items: list, raw_counts: dict,
                total_raw: int, elapsed: float, model_desc: str):
-    """用 gh CLI 创建 Issue 到 gufangAI/sync-med。GH_TOKEN 由 Actions 自动注入。
+    """用 gh CLI 创建 Issue 到 hosonzuo8848/sync-med。GH_TOKEN 由 Actions 自动注入。
     标题固定带 [情报雷达-竞品监管] 前缀,与日报的 [情报雷达 v3] 明显区分,
     一眼能分清"这是AI趋势"还是"这是竞品/监管情报"。"""
     n_comp = len([i for i in top_items if i.get("lane") == "竞品"])
@@ -414,7 +414,7 @@ def push_issue(date_str: str, top_items: list, raw_counts: dict,
     tmp_body = SCRIPT_DIR / f"_tmp_competitor_reg_issue_{date_str}.md"
     tmp_body.write_text(body, encoding="utf-8")
 
-    base_cmd = ["gh", "issue", "create", "--repo", "gufangAI/sync-med",
+    base_cmd = ["gh", "issue", "create", "--repo", "hosonzuo8848/sync-med",
                 "--title", title, "--body-file", str(tmp_body)]
     cmd_with_label = base_cmd + ["--label", "intel-competitor-reg"]
 
