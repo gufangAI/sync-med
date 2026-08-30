@@ -1,0 +1,72 @@
+# P15 research collector (L0 stage)
+#
+# The research bureau's harvester: takes a ticket manifest (research/R2 or R3),
+# turns its seed queries into pages via the public DuckDuckGo HTML endpoint,
+# crawls each with crawl4ai, and files L0 records. Index rows (ASCII) commit
+# to research/<ticket>/; full text is artifact-only -- substantive content
+# stays out of a public repo.
+#
+# Dispatch-only while the operation is in small-batch calibration; cron comes
+# after the first batches pass review (one function, one workflow, no
+# premature automation). Red job on a quiet harvest: gathering nothing must
+# be loud.
+name: P15 Research Collect
+
+on:
+  workflow_dispatch:
+    inputs:
+      ticket:
+        description: "Which ticket (R2 / R3)"
+        required: true
+        default: "R2"
+      max_pages:
+        description: "Page cap for this batch"
+        required: false
+        default: "10"
+
+concurrency:
+  group: p15-collect-${{ github.event.inputs.ticket }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install crawl4ai
+        run: |
+          pip install --quiet crawl4ai
+          crawl4ai-setup
+
+      - name: Collect batch
+        env:
+          P15_TICKET: ${{ github.event.inputs.ticket }}
+          P15_MAX_PAGES: ${{ github.event.inputs.max_pages || '10' }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/crawl/p15_collect.py
+
+      - name: Commit index rows
+        if: success()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git pull --rebase origin main || true
+          git add research/
+          git commit -m "data(p15): ${{ github.event.inputs.ticket }} L0 index batch [skip ci]" && git push || echo "nothing new"
+
+      - name: Full text -> artifact only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p15-l0-full-${{ github.event.inputs.ticket }}
+          path: p15_l0_full_*.jsonl
+          retention-days: 90
+          if-no-files-found: ignore
