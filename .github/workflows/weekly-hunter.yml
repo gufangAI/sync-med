@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
-      contents: read
+      contents: write   # noauth snapshot commits back
       issues: write     # gh issue 推周报到手机(鹰眼日报连挂6天就缺这个,一步配齐)
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +25,38 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python scripts/intel_radar/weekly_hunter_v1.py
+
+      # Founder-mandated weekly watch (2026-08-31): OmniRoute's noauth.ts is the
+      # best-maintained registry of public free no-auth model endpoints. Diff it
+      # weekly; speak only on change (digest discipline). exit 0 silent / 10
+      # changed / 1 broken (fail loudly -- a dead watch is a watch nobody has).
+      - name: Watch OmniRoute no-auth registry
+        id: noauth
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          python scripts/intel_radar/noauth_watch.py
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" = "1" ]; then exit 1; fi
+          exit 0
+
+      - name: Commit snapshot and surface the diff
+        if: steps.noauth.outputs.code == '10'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add scripts/intel_radar/noauth_snapshot.json
+          git commit -m "chore(intel): noauth registry snapshot [skip ci]" && git push || true
+          num=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "Weekly in:title"                 --json number --jq '.[0].number' 2>/dev/null)
+          if [ -n "$num" ] && [ "$num" != "null" ]; then
+            gh issue comment "$num" -R "$GITHUB_REPOSITORY" --body-file noauth_watch.md
+          else
+            gh issue create -R "$GITHUB_REPOSITORY"               --title "OmniRoute no-auth registry changed" --body-file noauth_watch.md
+          fi
       - name: Archive report
         if: always()
         uses: actions/upload-artifact@v4

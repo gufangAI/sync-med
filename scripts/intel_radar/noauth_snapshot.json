@@ -1,0 +1,74 @@
+{
+ "aihorde": {
+  "hasFree": true,
+  "noAuth": true,
+  "note": "Crowdsourced inference from volunteer GPUs. Throughput is a shared queue, not a quota: there is no RPM/RPD cap, but waits grow when the network is busy.",
+  "website": "https://aihorde.net"
+ },
+ "auggie": {
+  "hasFree": false,
+  "noAuth": true,
+  "note": "Local passthrough — runs the Augment CLI (`auggie`) on this machine. Auth is handled by `auggie login`, not OmniRoute.",
+  "website": "https://augmentcode.com"
+ },
+ "chipotle": {
+  "hasFree": true,
+  "noAuth": true,
+  "note": "Free — Chipotle's Pepper AI (IPsoft Amelia). Anonymous sessions, no API key. Rate-limited.",
+  "website": "https://amelia.chipotle.com"
+ },
+ "cloudflare-playground": {
+  "hasFree": true,
+  "noAuth": true,
+  "note": "Free — Cloudflare's AI Playground: GLM 5.2, Kimi K2.7 Code, DeepSeek V4 Pro, gpt-oss-120B and 16 more. No account, no API key.",
+  "website": "https://playground.ai.cloudflare.com"
+ },
+ "codex-app-server": {
+  "hasFree": false,
+  "noAuth": true,
+  "note": "No token stored by OmniRoute. The Codex CLI app-server manages its own ChatGPT sign-in (~/.codex/auth.json, auto-refreshed). Use \\u201cSign in with ChatGPT\\u201",
+  "website": "https://developers.openai.com/codex/cli"
+ },
+ "devin-cli-agentic": {
+  "hasFree": true,
+  "noAuth": true,
+  "note": "No API key required — public OpenCode endpoint with Kimi, GLM, Qwen, MiMo, MiniMax models.",
+  "website": "https://docs.devin.ai/work-with-devin/devin-cli"
+ },
+ "duckduckgo-web": {
+  "hasFree": true,
+  "noAuth": true,
+  "note": "Free — anonymous access to multiple AI models via DuckDuckGo.",
+  "website": "https://duckduckgo.com/duckchat"
+ },
+ "opencode": {
+  "hasFree": true,
+  "noAuth": true,
+  "note": "No API key required — public OpenCode endpoint with Kimi, GLM, Qwen, MiMo, MiniMax models.",
+  "website": "https://opencode.ai"
+ },
+ "theoldllm": {
+  "hasFree": true,
+  "noAuth": true,
+  "note": "Free — GPT-5.4, Claude 4.6 Opus/Sonnet/Haiku, + more. No API key — tokens auto-generated via browser.",
+  "website": "https://theoldllm.vercel.app"
+ },
+ "uncloseai": {
+  "hasFree": true,
+  "noAuth": true,
+  "note": "Free forever — no signup, no credit card. OpenAI-compatible endpoints.",
+  "website": "https://uncloseai.com"
+ },
+ "veoaifree-web": {
+  "hasFree": true,
+  "noAuth": true,
+  "note": "Free video generation — VEO 3.1, Seedance. 6 requests/hour.",
+  "website": "https://veoaifree.com"
+ },
+ "zcode": {
+  "hasFree": false,
+  "noAuth": true,
+  "note": "No API key stored by OmniRoute. The local ZCode app-server uses the existing builtin:zai-coding-plan login.",
+  "website": "https://zcode.z.ai"
+ }
+}
