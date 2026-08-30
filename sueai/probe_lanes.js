@@ -151,7 +151,25 @@ async function probeOne(lane, timeoutMs) {
 
     // 2xx\uff1a\u786e\u8ba4\u771f\u6709\u5185\u5bb9\u8fd4\u56de\uff0c\u522b\u628a"200 \u4f46\u7a7a body"\u5f53\u6210\u6d3b\u7684
     let content = '';
-    try { content = JSON.parse(text)?.choices?.[0]?.message?.content ?? ''; } catch { /* \u975e JSON */ }
+    // A lane is alive if it returned any content at all. Providers put it in
+    // one of four places; checking only the first marked working providers
+    // dead (agnes / sensenova answered 200, were failed as "no content"):
+    //   message.content            standard
+    //   message.reasoning_content  reasoning models leave content empty
+    //   choices[0].text            legacy completions shape
+    //   delta.content              some servers reply in streaming shape
+    let shape = '';
+    try {
+      const c0 = JSON.parse(text)?.choices?.[0] ?? {};
+      for (const [k, v] of [
+        ['message.content', c0.message?.content],
+        ['message.reasoning_content', c0.message?.reasoning_content],
+        ['text', c0.text],
+        ['delta.content', c0.delta?.content],
+      ]) {
+        if (typeof v === 'string' && v.trim()) { content = v; shape = k; break; }
+      }
+    } catch { /* non-JSON body */ }
     if (!content) {
       return {
         id: lane.id, status: LANE_STATUS.ERROR, lastChecked: today(),

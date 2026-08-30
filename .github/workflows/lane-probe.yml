@@ -61,7 +61,7 @@ jobs:
           # already recorded in metrics.latencyMs. Killing a slow lane on a
           # liveness check is the same mistake as a watchdog killing a job for
           # being slow rather than dead.
-          node probe_lanes.js --timeout 60000 2>&1 | tee probe_out.txt
+          node --use-env-proxy probe_lanes.js --timeout 60000 2>&1 | tee probe_out.txt
           echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - name: commit updated lane status
