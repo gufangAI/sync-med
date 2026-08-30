@@ -65,11 +65,11 @@
       "verified": true,
       "status": "error",
       "lastChecked": "2026-08-30",
-      "lastError": "超时 60000ms（境外 lane 请确认已加 --use-env-proxy）",
+      "lastError": "HTTP 500 {\"type\":\"urn:inference-connection:problem-details:internal-server-error\",\"title\":\"Internal Server Error\",\"status\":500,\"detail\":\"Inference co",
       "metrics": {
         "latencyMs": 4934,
         "latencyNote": "经代理实测",
-        "probeMs": 60003,
+        "probeMs": 6140,
         "latencyRangeMs": [
           4934,
           26073
@@ -130,7 +130,7 @@
       "lastError": "HTTP 402 {\"message\":\"Payment required to access this resource. Visit your billing tab.\",\"type\":\"payment_required_error\",\"param\":\"quota\",\"code\":\"payme",
       "metrics": {
         "rateLimit": "tight",
-        "probeMs": 98
+        "probeMs": 203
       },
       "notes": "最快。在 Cloudflare 后面：默认 UA 吃 403（error 1010），必须带浏览器 UA。限流紧，并发压低。"
     },
@@ -180,7 +180,7 @@
       "lastError": null,
       "metrics": {
         "latencyMs": 669,
-        "probeMs": 1067
+        "probeMs": 1405
       },
       "notes": "免费档，实测 669ms 返回正确。glm-5.x 是付费档，勿顺手升版本号。"
     },
@@ -198,11 +198,11 @@
         "general"
       ],
       "verified": true,
-      "status": "error",
+      "status": "active",
       "lastChecked": "2026-08-30",
-      "lastError": "HTTP 200 但无 content: {\"id\":\"82bbe7e10d83493788ab2450c0829625\",\"created\":1788081460,\"model\":\"agnes-2.0-flash\",\"object\":\"chat.completion\",\"choices\":[{\"finish_reaso",
+      "lastError": null,
       "metrics": {
-        "probeMs": 6607
+        "probeMs": 695
       },
       "notes": "免费。粗活主力。"
     },
@@ -222,11 +222,11 @@
         "general"
       ],
       "verified": true,
-      "status": "error",
+      "status": "active",
       "lastChecked": "2026-08-30",
-      "lastError": "HTTP 200 但无 content: {\"id\":\"1842114f-d7f0-4584-8f89-144e60a81b36\",\"created\":1788081467,\"model\":\"deepseek-v4-flash\",\"object\":\"chat.completion\",\"choices\":[{\"index\"",
+      "lastError": null,
       "metrics": {
-        "probeMs": 4558
+        "probeMs": 2404
       },
       "notes": "商汤免费档转发 deepseek-v4-flash。"
     },
