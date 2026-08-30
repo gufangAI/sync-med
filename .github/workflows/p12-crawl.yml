@@ -1,0 +1,63 @@
+# P12 collector sample (gate 2B.2)
+#
+# Blueprint v2.1 trunk node 3: crawl4ai sample source -> N stored + repro 100%.
+# Evidence path per blueprint: data/crawl/ (CJK-free summaries committed);
+# full extracted content stays in run artifacts only.
+#
+# "Who sees it when it breaks?" -- the job goes red on N=0 or repro<100%,
+# and this is dispatch-first tooling: no cron until the sample has passed
+# review and a real pipeline is designed on top (one function, one workflow).
+name: P12 Crawl Sample
+
+on:
+  workflow_dispatch:
+    inputs:
+      n:
+        description: "How many sample articles"
+        required: false
+        default: "5"
+
+concurrency:
+  group: p12-crawl
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # commits the CJK-free summary into data/crawl/
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install crawl4ai (browser included)
+        run: |
+          pip install --quiet crawl4ai
+          crawl4ai-setup
+
+      - name: Run sample crawl + reproduction check
+        env:
+          P12_N: ${{ github.event.inputs.n || '5' }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/crawl/p12_sample.py
+
+      - name: Commit summary to the evidence path
+        if: success()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/crawl/
+          git commit -m "data(p12): crawl sample summary [skip ci]" && git push || echo "nothing new"
+
+      - name: Full content -> artifact only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p12-full-content
+          path: p12_full_*.jsonl
+          retention-days: 30
+          if-no-files-found: ignore
