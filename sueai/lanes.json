@@ -1,323 +1,319 @@
 {
-  "_单一真源": "本文件是模型/厂商清单的唯一真源。provider_registry.js 的 baseUrl+模型事实、school_model_map.json 的路由链，全部从这里派生。改动只改这里。",
-  "_禁止": "禁止在 call_model.js / provider_registry.js / school_model_map.json 里再写一份 base 或 model 字符串。历史上这三处各存一份，2026-07-27 SiliconFlow 余额耗尽时只有一处知情，另两处仍当它是活的 —— 本文件就是为消除该缺陷而建。",
-  "_红线": "只列免费池。按量计费源（GPT-4o / Claude Opus / o3 / gemini-pro / qwen-max / deepseek-reasoner 等）一律不入表。需要付费能力时呈证据给创始人决定，代码里不留后门。",
-  "_环境坑_代理": "Node 原生 fetch 不读 HTTPS_PROXY 环境变量。境外 lane（nvidia / cerebras / agnes）必须用 `node --use-env-proxy` 启动，否则一律超时。国内 lane（zhipu / siliconflow / sensenova）在 NO_PROXY 名单内，直连即可。",
-  "_环境坑_UA": "Cerebras 站在 Cloudflare 后面：默认 node/python UA 会吃 403（error 1010）。所有请求必须带浏览器 UA —— 见 lanes.js 的 BROWSER_UA。",
-  "_status取值": {
-    "active": "有凭据且实调通过",
-    "no_credit": "凭据有效但账户余额耗尽（HTTP 402 一类）",
-    "no_key": "环境里没有凭据，或凭据被拒（HTTP 401）",
-    "retired": "人工下架，不再进任何调用链",
-    "error": "探活遇到其它故障（超时 / 5xx / 网关异常），需人工看 lastError"
+ "_单一真源": "本文件是模型/厂商清单的唯一真源。provider_registry.js 的 baseUrl+模型事实、school_model_map.json 的路由链，全部从这里派生。改动只改这里。",
+ "_禁止": "禁止在 call_model.js / provider_registry.js / school_model_map.json 里再写一份 base 或 model 字符串。历史上这三处各存一份，2026-07-27 SiliconFlow 余额耗尽时只有一处知情，另两处仍当它是活的 —— 本文件就是为消除该缺陷而建。",
+ "_红线": "只列免费池。按量计费源（GPT-4o / Claude Opus / o3 / gemini-pro / qwen-max / deepseek-reasoner 等）一律不入表。需要付费能力时呈证据给创始人决定，代码里不留后门。",
+ "_环境坑_代理": "Node 原生 fetch 不读 HTTPS_PROXY 环境变量。境外 lane（nvidia / cerebras / agnes）必须用 `node --use-env-proxy` 启动，否则一律超时。国内 lane（zhipu / siliconflow / sensenova）在 NO_PROXY 名单内，直连即可。",
+ "_环境坑_UA": "Cerebras 站在 Cloudflare 后面：默认 node/python UA 会吃 403（error 1010）。所有请求必须带浏览器 UA —— 见 lanes.js 的 BROWSER_UA。",
+ "_status取值": {
+  "active": "有凭据且实调通过",
+  "no_credit": "凭据有效但账户余额耗尽（HTTP 402 一类）",
+  "no_key": "环境里没有凭据，或凭据被拒（HTTP 401）",
+  "retired": "人工下架，不再进任何调用链",
+  "error": "探活遇到其它故障（超时 / 5xx / 网关异常），需人工看 lastError"
+ },
+ "_名单来源": "2026-07-26 夜逐家实跑的模型赛马（771 个账面模型 → 75 个真能应答 → 27 个过零幻觉闸 → 8 条投产），不是厂商宣传页。被筛掉的不是「没接」，是「接了会出事」：NVIDIA llama 全系读不懂繁体古文会编出原文不存在的方名，污染的正是唯一护城河——可追溯性。",
+ "vendors": {
+  "nvidia": {
+   "label": "NVIDIA",
+   "registryKey": "nvidia",
+   "region": "overseas"
   },
-  "_名单来源": "2026-07-26 夜逐家实跑的模型赛马（771 个账面模型 → 75 个真能应答 → 27 个过零幻觉闸 → 8 条投产），不是厂商宣传页。被筛掉的不是「没接」，是「接了会出事」：NVIDIA llama 全系读不懂繁体古文会编出原文不存在的方名，污染的正是唯一护城河——可追溯性。",
-  "vendors": {
-    "nvidia": {
-      "label": "NVIDIA",
-      "registryKey": "nvidia",
-      "region": "overseas"
-    },
-    "cerebras": {
-      "label": "Cerebras",
-      "registryKey": "cerebras",
-      "region": "overseas"
-    },
-    "agnes": {
-      "label": "Agnes",
-      "registryKey": "agnes",
-      "region": "overseas"
-    },
-    "zhipu": {
-      "label": "智谱AI (GLM)",
-      "registryKey": "zhipu",
-      "region": "cn"
-    },
-    "siliconflow": {
-      "label": "硅基流动",
-      "registryKey": "siliconflow",
-      "region": "cn"
-    },
-    "sensenova": {
-      "label": "日日新 (商汤)",
-      "registryKey": "senseTime",
-      "region": "cn"
-    }
+  "cerebras": {
+   "label": "Cerebras",
+   "registryKey": "cerebras",
+   "region": "overseas"
   },
-  "_tags说明": "tags 只允许写实测撑得住的能力标签，禁止凭厂商宣传打标。school_model_map.json 靠 tags 选链，不再写模型名。zero-hallucination=过零幻觉闸；high-yield=实战真方率高；fast=低延迟；classical-cn=中文古文强；general=通用兜底。目前 8 条 lane 无一验证过超长上下文，故没有 long-context 标签 —— 这是真实缺口，不是漏填。",
-  "lanes": [
-    {
-      "id": "nvidia-gemma-4-31b",
-      "rank": 1,
-      "vendor": "nvidia",
-      "base": "https://integrate.api.nvidia.com/v1",
-      "model": "google/gemma-4-31b-it",
-      "envKey": "NVIDIA_API_KEY",
-      "envAliases": [
-        "NVIDIA_NIM_API_KEY",
-        "NVIDIA_KEYS"
-      ],
-      "tags": [
-        "zero-hallucination",
-        "classical-cn",
-        "general"
-      ],
-      "verified": true,
-      "status": "active",
-      "lastChecked": "2026-08-30",
-      "lastError": null,
-      "metrics": {
-        "latencyMs": 4934,
-        "latencyNote": "经代理实测",
-        "probeMs": 3149,
-        "latencyRangeMs": [
-          4934,
-          26073
-        ]
-      },
-      "notes": "零幻觉；英文模型里唯一读得懂繁体古文的一档——这个能力池里没有第二条 lane 覆盖。【延迟极不稳】实测 4934ms～26073ms，波动四到五倍。2026-07-27 探活按 30s 超时把它误判成 error 踢出调用链，已把探活超时放宽到 60s。它慢，但没死——实时问答别排它，批量古文活它是首选。"
-    },
-    {
-      "id": "nvidia-mistral-nemotron",
-      "rank": 2,
-      "vendor": "nvidia",
-      "base": "https://integrate.api.nvidia.com/v1",
-      "model": "mistralai/mistral-nemotron",
-      "envKey": "NVIDIA_API_KEY",
-      "envAliases": [
-        "NVIDIA_NIM_API_KEY",
-        "NVIDIA_KEYS"
-      ],
-      "tags": [
-        "zero-hallucination",
-        "fast",
-        "general"
-      ],
-      "verified": true,
-      "status": "error",
-      "lastChecked": "2026-08-30",
-      "lastError": "超时 60000ms（境外 lane 请确认已加 --use-env-proxy）",
-      "metrics": {
-        "probeMs": 60002,
-        "gateDate": "2026-07-27",
-        "gateCases": 6,
-        "gatePass": 3,
-        "gateReject": 2,
-        "gateFalsePos": 1,
-        "gateHalluc": 0,
-        "gateMsPerCase": 2876
-      },
-      "notes": "2026-07-27 零幻觉闸 6 题（3 真方 + 3 陷阱题）：真方 3/3 全抽对且逐字可溯，幻觉 0。2876ms/题，比 gemma-4-31b（19189ms）快 6.6 倍，批量跑得动。【已知缺口】把《本草》性味主治条（黃芢味甘微溫主癰疽）当方剂抽了一次——单味药、无剂量的本草条目会被误收，下游入库前需卡住。正因此不打 classical-cn 标。"
-    },
-    {
-      "id": "cerebras-gemma-4-31b",
-      "rank": 3,
-      "vendor": "cerebras",
-      "base": "https://api.cerebras.ai/v1",
-      "model": "gemma-4-31b",
-      "envKey": "CEREBRAS_KEYS",
-      "envAliases": [
-        "CEREBRAS_API_KEY",
-        "CB_KEYS"
-      ],
-      "tags": [
-        "fast",
-        "general"
-      ],
-      "verified": true,
-      "status": "no_credit",
-      "lastChecked": "2026-08-30",
-      "lastError": "HTTP 402 {\"message\":\"Payment required to access this resource. Visit your billing tab.\",\"type\":\"payment_required_error\",\"param\":\"quota\",\"code\":\"payme",
-      "metrics": {
-        "rateLimit": "tight",
-        "probeMs": 183
-      },
-      "notes": "最快。在 Cloudflare 后面：默认 UA 吃 403（error 1010），必须带浏览器 UA。限流紧，并发压低。"
-    },
-    {
-      "id": "siliconflow-qwen72b",
-      "rank": 4,
-      "vendor": "siliconflow",
-      "base": "https://api.siliconflow.cn/v1",
-      "model": "Qwen/Qwen2.5-72B-Instruct",
-      "envKey": "SILICONFLOW_KEY",
-      "envAliases": [
-        "SILICONFLOW_API_KEY"
-      ],
-      "tags": [
-        "classical-cn",
-        "general"
-      ],
-      "verified": true,
-      "status": "no_key",
-      "lastChecked": "2026-08-30",
-      "lastError": "环境里没有 SILICONFLOW_KEY（也没有别名 SILICONFLOW_API_KEY）",
-      "metrics": {
-        "passRate72b": 0.69,
-        "passRate7b": 0.4,
-        "probeMs": 207
-      },
-      "notes": "中文古文强。勿降到 7B：同批题通过率 7B 40% → 72B 69%。昨夜赛马还能用，2026-07-27 实测 HTTP 402 余额耗尽。"
-    },
-    {
-      "id": "zhipu-glm-4-flash",
-      "rank": 5,
-      "vendor": "zhipu",
-      "base": "https://open.bigmodel.cn/api/paas/v4",
-      "model": "glm-4-flash",
-      "envKey": "ZHIPU_KEY",
-      "envAliases": [
-        "ZHIPU_API_KEY"
-      ],
-      "tags": [
-        "fast",
-        "classical-cn",
-        "general"
-      ],
-      "verified": true,
-      "status": "active",
-      "lastChecked": "2026-08-30",
-      "lastError": null,
-      "metrics": {
-        "latencyMs": 669,
-        "probeMs": 1018
-      },
-      "notes": "免费档，实测 669ms 返回正确。glm-5.x 是付费档，勿顺手升版本号。"
-    },
-    {
-      "id": "agnes-2.0-flash",
-      "rank": 6,
-      "vendor": "agnes",
-      "base": "https://apihub.agnes-ai.com/v1",
-      "model": "agnes-2.0-flash",
-      "envKey": "AGNES_API_KEY",
-      "envAliases": [
-        "AGNES_KEY"
-      ],
-      "tags": [
-        "general"
-      ],
-      "verified": true,
-      "status": "active",
-      "lastChecked": "2026-08-30",
-      "lastError": null,
-      "metrics": {
-        "probeMs": 6518
-      },
-      "notes": "免费。粗活主力。"
-    },
-    {
-      "id": "sensenova-flash",
-      "rank": 7,
-      "vendor": "sensenova",
-      "base": "https://token.sensenova.cn/v1",
-      "model": "deepseek-v4-flash",
-      "envKey": "SENSENOVA_KEYS",
-      "envAliases": [
-        "SENSENOVA_API_KEY",
-        "SN_KEYS"
-      ],
-      "tags": [
-        "classical-cn",
-        "general"
-      ],
-      "verified": true,
-      "status": "active",
-      "lastChecked": "2026-08-30",
-      "lastError": null,
-      "metrics": {
-        "probeMs": 2305
-      },
-      "notes": "商汤免费档转发 deepseek-v4-flash。"
-    },
-    {
-      "id": "sensenova-u1",
-      "rank": 8,
-      "vendor": "sensenova",
-      "base": "https://token.sensenova.cn/v1",
-      "model": "sensenova-u1",
-      "envKey": "SENSENOVA_KEYS",
-      "envAliases": [
-        "SENSENOVA_API_KEY",
-        "SN_KEYS"
-      ],
-      "tags": [],
-      "verified": false,
-      "status": "error",
-      "lastChecked": "2026-08-30",
-      "lastError": "HTTP 404 {\"error\":{\"message\":\"model is not found\",\"type\":\"not_found_error\",\"code\":\"5\"}}",
-      "metrics": {
-        "probeMs": 196
-      }
-    },
-    {
-      "id": "sensenova-u1-fast",
-      "rank": 9,
-      "vendor": "sensenova",
-      "base": "https://token.sensenova.cn/v1",
-      "model": "sensenova-u1-fast",
-      "envKey": "SENSENOVA_KEYS",
-      "envAliases": [
-        "SENSENOVA_API_KEY",
-        "SN_KEYS"
-      ],
-      "tags": [],
-      "verified": false,
-      "status": "error",
-      "lastChecked": "2026-08-30",
-      "lastError": "HTTP 404 {\"error\":{\"message\":\"model is not found\",\"type\":\"not_found_error\",\"code\":\"5\"}}",
-      "metrics": {
-        "probeMs": 215
-      }
-    },
-    {
-      "id": "sensenova-6.8-flash-lite",
-      "rank": 10,
-      "vendor": "sensenova",
-      "base": "https://token.sensenova.cn/v1",
-      "model": "sensenova-6.7-flash-lite",
-      "envKey": "SENSENOVA_KEYS",
-      "envAliases": [
-        "SENSENOVA_API_KEY",
-        "SN_KEYS"
-      ],
-      "tags": [],
-      "verified": false,
-      "status": "error",
-      "lastChecked": "2026-08-30",
-      "lastError": "HTTP 200 但无 content: {\"id\":\"2f6b215a-ed4f-4a6d-9d3a-6635ef94f0e6\",\"created\":1788121164,\"model\":\"sensenova-6.7-flash-lite\",\"object\":\"chat.completion\",\"choices\":[{",
-      "metrics": {
-        "probeMs": 725
-      }
-    },
-    {
-      "id": "nvidia-gemma-3n-e4b",
-      "rank": 90,
-      "vendor": "nvidia",
-      "base": "https://integrate.api.nvidia.com/v1",
-      "model": "google/gemma-3n-e4b-it",
-      "envKey": "NVIDIA_API_KEY",
-      "envAliases": [
-        "NVIDIA_NIM_API_KEY",
-        "NVIDIA_KEYS"
-      ],
-      "tags": [
-        "high-yield",
-        "general"
-      ],
-      "verified": true,
-      "status": "retired",
-      "lastChecked": "2026-07-27",
-      "lastError": "HTTP 410 {\"type\":\"about:blank\",\"title\":\"Gone\",\"status\":410,\"detail\":\"The model 'google/gemma-3n-e4b-it' has reached its end of life on 2026-07-27T00:",
-      "metrics": {
-        "trueFormulaRate": 0.89,
-        "sampleSize": 4144,
-        "probeMs": 815
-      },
-      "notes": "实战真方率最高：4144 条样本 89%。—— 2026-07-27 厂商 EOL 下架（HTTP 410），永不恢复。替补已选定：nvidia-mistral-nemotron（同日过零幻觉闸）。数字留着作基准，替补跟不跟得上要拿同批真样本重测。"
-    }
-  ],
-  "_已排除候选": "2026-07-27 为 gemma-3n-e4b 选替补时实调排掉的，写在这里防下次重查：① google/gemma-3-12b-it —— HTTP 404，本账号无权调用；② deepseek-ai/deepseek-v4-flash （NVIDIA 家的，非 SenseNova 同名那条）—— HTTP 400 DEGRADED，厂商侧降级中。两条都在厂商公开目录里列着——**目录能列 ≠ 账号能调**，选型必须实调，不能拿目录当凭据。",
-  "_副本层级": "本文件存在两份，权威的是云端那份：① hosonzuo8848/sync-med 的 sueai/lanes.json ——【真源】lane-probe 每天把探活结果写回它；② 本地 sueai-core-engine/core/ai_orchestrator/lanes.json ——【只读副本】那个目录不是 git 仓，引擎也还没接进生产，写在这里的状态没人看得见。改动一律先改云端，再同步到本地；反向改了本地就会被下一次同步覆盖。【未了】两份合一需要改引擎读配置的方式，今晚只写清层级、没有合并——别把这条当已解决。",
-  "_本副本角色": "真源（lane-probe 写回处）"
+  "agnes": {
+   "label": "Agnes",
+   "registryKey": "agnes",
+   "region": "overseas"
+  },
+  "zhipu": {
+   "label": "智谱AI (GLM)",
+   "registryKey": "zhipu",
+   "region": "cn"
+  },
+  "siliconflow": {
+   "label": "硅基流动",
+   "registryKey": "siliconflow",
+   "region": "cn"
+  },
+  "sensenova": {
+   "label": "日日新 (商汤)",
+   "registryKey": "senseTime",
+   "region": "cn"
+  }
+ },
+ "_tags说明": "tags 只允许写实测撑得住的能力标签，禁止凭厂商宣传打标。school_model_map.json 靠 tags 选链，不再写模型名。zero-hallucination=过零幻觉闸；high-yield=实战真方率高；fast=低延迟；classical-cn=中文古文强；general=通用兜底。目前 8 条 lane 无一验证过超长上下文，故没有 long-context 标签 —— 这是真实缺口，不是漏填。",
+ "lanes": [
+  {
+   "id": "nvidia-gemma-4-31b",
+   "rank": 1,
+   "vendor": "nvidia",
+   "base": "https://integrate.api.nvidia.com/v1",
+   "model": "google/gemma-4-31b-it",
+   "envKey": "NVIDIA_API_KEY",
+   "envAliases": [
+    "NVIDIA_NIM_API_KEY",
+    "NVIDIA_KEYS"
+   ],
+   "tags": [
+    "zero-hallucination",
+    "classical-cn",
+    "general"
+   ],
+   "verified": true,
+   "status": "active",
+   "lastChecked": "2026-08-30",
+   "lastError": null,
+   "metrics": {
+    "latencyMs": 4934,
+    "latencyNote": "经代理实测",
+    "probeMs": 3149,
+    "latencyRangeMs": [
+     4934,
+     26073
+    ]
+   },
+   "notes": "零幻觉；英文模型里唯一读得懂繁体古文的一档——这个能力池里没有第二条 lane 覆盖。【延迟极不稳】实测 4934ms～26073ms，波动四到五倍。2026-07-27 探活按 30s 超时把它误判成 error 踢出调用链，已把探活超时放宽到 60s。它慢，但没死——实时问答别排它，批量古文活它是首选。"
+  },
+  {
+   "id": "nvidia-gpt-oss-120b",
+   "rank": 2,
+   "vendor": "nvidia",
+   "base": "https://integrate.api.nvidia.com/v1",
+   "model": "openai/gpt-oss-120b",
+   "envKey": "NVIDIA_API_KEY",
+   "envAliases": [
+    "NVIDIA_NIM_API_KEY",
+    "NVIDIA_KEYS"
+   ],
+   "tags": [],
+   "verified": false,
+   "status": "error",
+   "lastChecked": "2026-08-30",
+   "lastError": "swapped from dead mistral-nemotron per 2026-08-31 full probe; await lane-probe",
+   "metrics": {
+    "probeMs": 60002,
+    "gateDate": "2026-07-27",
+    "gateCases": 6,
+    "gatePass": 3,
+    "gateReject": 2,
+    "gateFalsePos": 1,
+    "gateHalluc": 0,
+    "gateMsPerCase": 2876
+   },
+   "notes": "2026-07-27 零幻觉闸 6 题（3 真方 + 3 陷阱题）：真方 3/3 全抽对且逐字可溯，幻觉 0。2876ms/题，比 gemma-4-31b（19189ms）快 6.6 倍，批量跑得动。【已知缺口】把《本草》性味主治条（黃芢味甘微溫主癰疽）当方剂抽了一次——单味药、无剂量的本草条目会被误收，下游入库前需卡住。正因此不打 classical-cn 标。"
+  },
+  {
+   "id": "cerebras-gemma-4-31b",
+   "rank": 3,
+   "vendor": "cerebras",
+   "base": "https://api.cerebras.ai/v1",
+   "model": "gemma-4-31b",
+   "envKey": "CEREBRAS_KEYS",
+   "envAliases": [
+    "CEREBRAS_API_KEY",
+    "CB_KEYS"
+   ],
+   "tags": [
+    "fast",
+    "general"
+   ],
+   "verified": true,
+   "status": "no_credit",
+   "lastChecked": "2026-08-30",
+   "lastError": "HTTP 402 {\"message\":\"Payment required to access this resource. Visit your billing tab.\",\"type\":\"payment_required_error\",\"param\":\"quota\",\"code\":\"payme",
+   "metrics": {
+    "rateLimit": "tight",
+    "probeMs": 183
+   },
+   "notes": "最快。在 Cloudflare 后面：默认 UA 吃 403（error 1010），必须带浏览器 UA。限流紧，并发压低。"
+  },
+  {
+   "id": "siliconflow-qwen72b",
+   "rank": 4,
+   "vendor": "siliconflow",
+   "base": "https://api.siliconflow.cn/v1",
+   "model": "Qwen/Qwen2.5-72B-Instruct",
+   "envKey": "SILICONFLOW_KEY",
+   "envAliases": [
+    "SILICONFLOW_API_KEY"
+   ],
+   "tags": [
+    "classical-cn",
+    "general"
+   ],
+   "verified": true,
+   "status": "no_key",
+   "lastChecked": "2026-08-30",
+   "lastError": "环境里没有 SILICONFLOW_KEY（也没有别名 SILICONFLOW_API_KEY）",
+   "metrics": {
+    "passRate72b": 0.69,
+    "passRate7b": 0.4,
+    "probeMs": 207
+   },
+   "notes": "中文古文强。勿降到 7B：同批题通过率 7B 40% → 72B 69%。昨夜赛马还能用，2026-07-27 实测 HTTP 402 余额耗尽。"
+  },
+  {
+   "id": "zhipu-glm-4-flash",
+   "rank": 5,
+   "vendor": "zhipu",
+   "base": "https://open.bigmodel.cn/api/paas/v4",
+   "model": "glm-4-flash",
+   "envKey": "ZHIPU_KEY",
+   "envAliases": [
+    "ZHIPU_API_KEY"
+   ],
+   "tags": [
+    "fast",
+    "classical-cn",
+    "general"
+   ],
+   "verified": true,
+   "status": "active",
+   "lastChecked": "2026-08-30",
+   "lastError": null,
+   "metrics": {
+    "latencyMs": 669,
+    "probeMs": 1018
+   },
+   "notes": "免费档，实测 669ms 返回正确。glm-5.x 是付费档，勿顺手升版本号。"
+  },
+  {
+   "id": "agnes-2.0-flash",
+   "rank": 6,
+   "vendor": "agnes",
+   "base": "https://apihub.agnes-ai.com/v1",
+   "model": "agnes-2.0-flash",
+   "envKey": "AGNES_API_KEY",
+   "envAliases": [
+    "AGNES_KEY"
+   ],
+   "tags": [
+    "general"
+   ],
+   "verified": true,
+   "status": "active",
+   "lastChecked": "2026-08-30",
+   "lastError": null,
+   "metrics": {
+    "probeMs": 6518
+   },
+   "notes": "免费。粗活主力。"
+  },
+  {
+   "id": "sensenova-flash",
+   "rank": 7,
+   "vendor": "sensenova",
+   "base": "https://token.sensenova.cn/v1",
+   "model": "deepseek-v4-flash",
+   "envKey": "SENSENOVA_KEYS",
+   "envAliases": [
+    "SENSENOVA_API_KEY",
+    "SN_KEYS"
+   ],
+   "tags": [
+    "classical-cn",
+    "general"
+   ],
+   "verified": true,
+   "status": "active",
+   "lastChecked": "2026-08-30",
+   "lastError": null,
+   "metrics": {
+    "probeMs": 2305
+   },
+   "notes": "商汤免费档转发 deepseek-v4-flash。"
+  },
+  {
+   "id": "sensenova-u1",
+   "rank": 8,
+   "vendor": "sensenova",
+   "base": "https://token.sensenova.cn/v1",
+   "model": "sensenova-u1",
+   "envKey": "SENSENOVA_KEYS",
+   "envAliases": [
+    "SENSENOVA_API_KEY",
+    "SN_KEYS"
+   ],
+   "tags": [],
+   "verified": false,
+   "status": "error",
+   "lastChecked": "2026-08-30",
+   "lastError": "404 model not found at token.sensenova.cn (third-party docs gave wrong id); need official /v1/models listing",
+   "metrics": {
+    "probeMs": 196
+   }
+  },
+  {
+   "id": "sensenova-u1-fast",
+   "rank": 9,
+   "vendor": "sensenova",
+   "base": "https://token.sensenova.cn/v1",
+   "model": "sensenova-u1-fast",
+   "envKey": "SENSENOVA_KEYS",
+   "envAliases": [
+    "SENSENOVA_API_KEY",
+    "SN_KEYS"
+   ],
+   "tags": [],
+   "verified": false,
+   "status": "error",
+   "lastChecked": "2026-08-30",
+   "lastError": "404 model not found at token.sensenova.cn (third-party docs gave wrong id); need official /v1/models listing",
+   "metrics": {
+    "probeMs": 215
+   }
+  },
+  {
+   "id": "sensenova-6.8-flash-lite",
+   "rank": 10,
+   "vendor": "sensenova",
+   "base": "https://token.sensenova.cn/v1",
+   "model": "sensenova-6.7-flash-lite",
+   "envKey": "SENSENOVA_KEYS",
+   "envAliases": [
+    "SENSENOVA_API_KEY",
+    "SN_KEYS"
+   ],
+   "tags": [],
+   "verified": false,
+   "status": "error",
+   "lastChecked": "2026-08-30",
+   "lastError": "HTTP 200 但无 content: {\"id\":\"2f6b215a-ed4f-4a6d-9d3a-6635ef94f0e6\",\"created\":1788121164,\"model\":\"sensenova-6.7-flash-lite\",\"object\":\"chat.completion\",\"choices\":[{",
+   "metrics": {
+    "probeMs": 725
+   }
+  },
+  {
+   "id": "nvidia-gemma-3n-e4b",
+   "rank": 90,
+   "vendor": "nvidia",
+   "base": "https://integrate.api.nvidia.com/v1",
+   "model": "google/gemma-3n-e4b-it",
+   "envKey": "NVIDIA_API_KEY",
+   "envAliases": [
+    "NVIDIA_NIM_API_KEY",
+    "NVIDIA_KEYS"
+   ],
+   "tags": [
+    "high-yield",
+    "general"
+   ],
+   "verified": true,
+   "status": "retired",
+   "lastChecked": "2026-07-27",
+   "lastError": "HTTP 410 {\"type\":\"about:blank\",\"title\":\"Gone\",\"status\":410,\"detail\":\"The model 'google/gemma-3n-e4b-it' has reached its end of life on 2026-07-27T00:",
+   "metrics": {
+    "trueFormulaRate": 0.89,
+    "sampleSize": 4144,
+    "probeMs": 815
+   },
+   "notes": "实战真方率最高：4144 条样本 89%。—— 2026-07-27 厂商 EOL 下架（HTTP 410），永不恢复。替补已选定：nvidia-mistral-nemotron（同日过零幻觉闸）。数字留着作基准，替补跟不跟得上要拿同批真样本重测。"
+  }
+ ],
+ "_已排除候选": "2026-07-27 为 gemma-3n-e4b 选替补时实调排掉的，写在这里防下次重查：① google/gemma-3-12b-it —— HTTP 404，本账号无权调用；② deepseek-ai/deepseek-v4-flash （NVIDIA 家的，非 SenseNova 同名那条）—— HTTP 400 DEGRADED，厂商侧降级中。两条都在厂商公开目录里列着——**目录能列 ≠ 账号能调**，选型必须实调，不能拿目录当凭据。",
+ "_副本层级": "本文件存在两份，权威的是云端那份：① hosonzuo8848/sync-med 的 sueai/lanes.json ——【真源】lane-probe 每天把探活结果写回它；② 本地 sueai-core-engine/core/ai_orchestrator/lanes.json ——【只读副本】那个目录不是 git 仓，引擎也还没接进生产，写在这里的状态没人看得见。改动一律先改云端，再同步到本地；反向改了本地就会被下一次同步覆盖。【未了】两份合一需要改引擎读配置的方式，今晚只写清层级、没有合并——别把这条当已解决。",
+ "_本副本角色": "真源（lane-probe 写回处）"
 }
