@@ -96,3 +96,35 @@ jobs:
           CF_WORKERS:     ${{ github.event.inputs.workers || '6' }}
           PYTHONIOENCODING: utf-8
         run: python scripts/content_factory/reviewer.py --target ${{ matrix.target }} --limit 60
+
+      # Output sentry (2026-08-31). This line ran green for 21 days while
+      # inserting zero rows -- the classic "green light, dead line". A factory
+      # is judged by what it ships, so the job now goes red when the last 8
+      # runs for this target all inserted 0 AND at least one had failures
+      # (all-zero with zero failures can be legitimate topic exhaustion; the
+      # red is for silent breakage, not for a well drained backlog).
+      - name: Output sentry -- red on sustained zero production
+        env:
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          acc = os.environ["CF_ACCOUNT_ID"]; db = os.environ["D1_DATABASE_ID"]
+          tgt = {"herb": "herb_compare", "biocomp": "biocomp_entries"}.get(
+              os.environ["TARGET"], os.environ["TARGET"])
+          req = urllib.request.Request(
+              "https://api.cloudflare.com/client/v4/accounts/%s/d1/database/%s/query" % (acc, db),
+              data=json.dumps({"sql":
+                  "SELECT inserted, failed FROM content_gen_runs WHERE target=? "
+                  "ORDER BY rowid DESC LIMIT 8", "params": [tgt]}).encode(),
+              headers={"Authorization": "Bearer " + os.environ["D1_API_TOKEN"],
+                       "Content-Type": "application/json"})
+          rows = json.loads(urllib.request.urlopen(req, timeout=60).read())["result"][0]["results"]
+          ins = sum(r["inserted"] for r in rows); fails = sum(r["failed"] for r in rows)
+          print("last %d runs for %s: inserted=%d failed=%d" % (len(rows), tgt, ins, fails))
+          if len(rows) >= 8 and ins == 0 and fails > 0:
+              raise SystemExit("SUSTAINED ZERO PRODUCTION with failures -- the line is broken, not idle")
+          PY
