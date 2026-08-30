@@ -87,13 +87,32 @@ jobs:
           print("> 日线 12 题在鹰眼 Worker 里跑（每天，成分固定，当体温计）；")
           print("> 本表是**周频全量线**，用来看稳定基线 —— 单看'今天 vs 昨天'在 12 题样本下没有意义。")
           PY
+          # Emit an alert flag only on a measured problem, never routinely.
+          python - <<'PY2'
+          import json, os
+          try:
+              d = json.load(open('goldset_full.json', encoding='utf-8'))
+          except Exception:
+              open('alert.flag', 'w').close()   # no report at all IS the problem
+              raise SystemExit(0)
+          bad = bool(d.get('real_violations')) or d.get('err', 0) > d.get('n', 1) * 0.2
+          if bad:
+              open('alert.flag', 'w').close()
+          print('alert' if bad else 'silent (normal run, nobody pinged)')
+          PY2
           TITLE="📏 金标全量评测"
           NUM=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --label goldset \
                 --json number,title --jq "[.[]|select(.title|startswith(\"$TITLE\"))][0].number")
           if [ -n "$NUM" ] && [ "$NUM" != "null" ]; then
             gh issue edit "$NUM" -R "$GITHUB_REPOSITORY" --title "$TITLE · $(date -u +%Y-%m-%d)" --body-file body.md
-            # 只编辑正文不产生任何通知 —— 必须追一条评论才真的通知到人
-            gh issue comment "$NUM" -R "$GITHUB_REPOSITORY" --body-file body.md
+            # Editing the body notifies nobody, which is the point: a normal
+            # green run must stay silent. Chasing every run with a comment is
+            # what turned this into inbox spam (founder, 2026-08-30: "why are
+            # you sending a pile of junk reminder mail to Gmail").
+            # A comment is a human interrupt -- spend it only on a real problem.
+            if [ -f alert.flag ]; then
+              gh issue comment "$NUM" -R "$GITHUB_REPOSITORY" --body-file body.md
+            fi
           else
             gh issue create -R "$GITHUB_REPOSITORY" --title "$TITLE · $(date -u +%Y-%m-%d)" \
               --label goldset --body-file body.md

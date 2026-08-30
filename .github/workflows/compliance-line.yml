@@ -99,8 +99,12 @@ jobs:
                 --json number,title --jq "[.[]|select(.title|startswith(\"$TITLE\"))][0].number")
           if [ -n "$NUM" ] && [ "$NUM" != "null" ]; then
             gh issue edit "$NUM" -R "$GITHUB_REPOSITORY" --title "$TITLE · $(date -u +%Y-%m-%d)" --body-file body.md
-            # 只编辑正文不产生任何通知 —— 必须追评论才真的通知到人（#458/#459 血证）
-            gh issue comment "$NUM" -R "$GITHUB_REPOSITORY" --body-file body.md
+            # Silent on a green run. The step above already decided whether
+            # this run is a failure; reuse that verdict rather than inventing
+            # a second one. A comment is a human interrupt, not a heartbeat.
+            if [ "${{ steps.run.outcome }}" = "failure" ]; then
+              gh issue comment "$NUM" -R "$GITHUB_REPOSITORY" --body-file body.md
+            fi
           else
             gh issue create -R "$GITHUB_REPOSITORY" --title "$TITLE · $(date -u +%Y-%m-%d)" \
               --label compliance --body-file body.md
