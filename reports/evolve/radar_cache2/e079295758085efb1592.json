@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "sue_graph_nodes/edges 6.9 万节点,2D/3D 力导向可视化",
+ "beats": "",
+ "why": "已在家底:我们使用的是 sue_graph_nodes/edges，这是一个已经建立的持久知识图谱。DeusData/codebase-memory-mcp 提供的是代码库索引到持久知识图谱的功能，但我们的知识图谱已经存在，因此不需要额外的索引服务。"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "目前使用的是自研的静态文件服务器",
+ "beats": "",
+ "why": "Caddy 是一个 Web 服务器，而前台阅读器模块需要的是一个专门用于阅读体验的解决方案，Caddy 不符合这一需求"
+}
