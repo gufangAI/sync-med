@@ -642,7 +642,7 @@ def main():
             item, got, err = fu.result()
             if err is not None:
                 fail += 1
-                print(f"  ✗ {item[0]} 生成失败: {type(err).__name__} {str(err)[:90]}", flush=True)
+                print(f"  ✗ {item[0]} 生成失败: {type(err).__name__} {str(err)[:300]}", flush=True)
                 continue
             obj, model = got
             model_used = model or model_used
