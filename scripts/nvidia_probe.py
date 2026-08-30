@@ -29,14 +29,33 @@ NVIDIA 全量模型探针 —— 把「列出的」和「真能调的」分开
 """
 import os, sys, json, time, uuid, argparse, urllib.request, urllib.error
 
+
+def _require_env(*names):
+    """读环境变量；缺任何一个就**停**，并说清缺哪个。
+
+    与 scripts/content_factory/_ai.py 同形态（那是本仓 10+ 脚本共用的入口）：
+    绝不把生产账号/库 ID 写成默认值。写了的后果不是"少个字段"——
+    是配置有两个来源、只维护一个：库 ID 变更时别的脚本跟 secret 走，
+    留字面量的那个静默留在旧库上，而日志里一个字都没有。
+    """
+    vals, missing = [], []
+    for n in names:
+        v = os.environ.get(n, "").strip()
+        (vals.append(v) if v else missing.append(n))
+        if not v:
+            vals.append("")
+    if missing:
+        sys.exit("缺环境变量:%s —— 生产由 secrets 提供;本地跑请显式设置。"
+                 "本脚本刻意不内置生产账号/库 ID 作默认值(见 _ai.py 同款理由)。"
+                 % ", ".join(missing))
+    return vals if len(names) > 1 else vals[0]
 BASE = "https://integrate.api.nvidia.com/v1"
 KEY = (os.environ.get("NVIDIA_API_KEY")
        or os.environ.get("NVIDIA_NIM_API_KEY")
        or (os.environ.get("NVIDIA_KEYS", "").split(",")[0].strip())
        or (os.environ.get("NVIDIA_API_KEYS", "").split(",")[0].strip()))
 
-CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "b7362ed77d212bab298a9ae8736c9868")
-D1_DB = os.environ.get("D1_DATABASE_ID", "2db89d3b-e988-4577-a9e3-fb7c563af72f")
+CF_ACCOUNT, D1_DB = _require_env("CF_ACCOUNT_ID", "D1_DATABASE_ID")
 D1_TOKEN = os.environ.get("D1_API_TOKEN", "")
 
 # 判对判错的题:少阳证提纲,答案要点明确、不易蒙对
