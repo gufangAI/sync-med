@@ -315,21 +315,25 @@ def suggest_switch(o):
     }
 
 
+# 常驻 Issue 的标题前缀。同一条产线永远复用这一个 Issue,不再每轮新开。
+STANDING_TITLE = "🧬 自进化控制器 · 待处理"
+
+
 def open_issue(title, body):
-    if not GH_TOKEN:
-        print("  (无 GITHUB_TOKEN,跳过开 Issue)", flush=True)
-        return None
-    req = urllib.request.Request(
-        f"https://api.github.com/repos/{GH_REPO}/issues", method="POST",
-        data=json.dumps({"title": title, "body": body, "labels": ["self-evolve"]}).encode("utf-8"),
-        headers={"Authorization": "Bearer " + GH_TOKEN, "Accept": "application/vnd.github+json",
-                 "Content-Type": "application/json", "User-Agent": "evolve-controller"})
-    try:
-        j = json.loads(urllib.request.urlopen(req, timeout=45).read())
-        return j.get("html_url")
-    except Exception as e:
-        print(f"  开 Issue 失败: {str(e)[:120]}", flush=True)
-        return None
+    """维护**一个**常驻 Issue,而不是每轮开一个新的。
+
+    立此因(2026-08-27 全仓体检):本脚本挂在 cron '40 */6 * * *' 上 = 一天四轮,
+    每轮 POST 一个新 Issue。实测:仓里 91 个自进化控制器 Issue 全部 open、
+    全部 0 条回复。出口不是没有,是**太多等于没有**。
+
+    实现在 scripts/gh_issue.py —— 那是规范实现,不在这里再手抄一份。
+    仓里这段逻辑已经手抄了四遍(workflow_sentry / gateway_sentry / intake_sentry /
+    team_report_audit),而且四份都漏了同一件事:只 PATCH 正文、从不发评论,
+    **而编辑正文不产生任何通知**。gh_issue.upsert 默认 notify=True 补上那一半。
+    """
+    from gh_issue import upsert
+    return upsert(GH_REPO, "self-evolve", STANDING_TITLE.split(" · ")[0],
+                  title, body)
 
 
 def main():
@@ -420,8 +424,11 @@ def main():
         if args.dry_run:
             print("\n  (--dry-run,不开 Issue)")
         else:
-            url = open_issue(f"🧬 自进化控制器 · {time.strftime('%Y-%m-%d %H:%M')} · {len(issues)} 项待处理",
-                             "\n\n".join(body_parts))
+            # 标题带最新时间与待处理数(一眼看新鲜度),但**前缀固定** ——
+            # open_issue 靠这个前缀找到同一个常驻 Issue,不再每轮新开一个。
+            url = open_issue(
+                f"{STANDING_TITLE} · {len(issues)} 项 · 更新于 {time.strftime('%Y-%m-%d %H:%M')}",
+                "\n\n".join(body_parts))
             if url:
                 print(f"  已开 Issue: {url}")
     else:
