@@ -44,6 +44,13 @@ jobs:
         with:
           python-version: '3.11'
 
+      # lxml is the only non-stdlib dependency here. daily_report_v3.py is
+      # deliberately stdlib-only, but gh_trending_real needs a real parser:
+      # a hand-rolled regex over the trending board returned 0 rows, lxml
+      # returns 51. gh_trending_real degrades gracefully if this is ever
+      # missing (ImportError -> skip that one source, radar still runs).
+      - run: pip install --quiet lxml
+
       - name: Run Intel Radar v3 (cloud mode)
         env:
           GH_TOKEN: ${{ github.token }}   # gh 发issue认证·连挂6天缺这个
