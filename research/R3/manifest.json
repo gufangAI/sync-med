@@ -1,0 +1,16 @@
+{
+  "ticket": "R3",
+  "decision_question": "Which platform does the content line attack first?",
+  "decision_owner": "founder + chief-of-staff",
+  "changes_which_decision": "M5 content-line platform priority (gate 3B)",
+  "l0_target_sources": 300,
+  "source_seeds": {
+    "platforms": ["douyin", "bilibili", "xiaohongshu", "wechat channels/gzh", "kuaishou", "zhihu"],
+    "queries": ["中医 内容 平台 流量 对比", "中医 短视频 涨粉 数据", "养生 内容 平台 转化", "中医科普 爆款 平台 分布", "health content platform benchmark china 2026"],
+    "domains_hint": ["新榜/卡思等公开榜单页", "平台官方创作者报告", "公开案例复盘文章"]
+  },
+  "rails": {"no_pii": true, "respect_robots": true, "zero_metered_ai": true,
+            "l0_l1_no_opinions": true, "every_datapoint_needs_url_and_ts": true},
+  "status": "fired 2026-08-31; collection starts after P12 sample passes (P15 gating rule)",
+  "evidence_path": "research/R3/"
+}

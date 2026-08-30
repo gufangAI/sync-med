@@ -1,0 +1,16 @@
+{
+  "ticket": "R2",
+  "decision_question": "B-side pilot letters: which 10 orgs, at what price band?",
+  "decision_owner": "founder + chief-of-staff",
+  "changes_which_decision": "the recipient list and quoted range of the ten probe letters (gate 4.2)",
+  "l0_target_sources": 300,
+  "source_seeds": {
+    "org_types": ["digital shicheng institutions", "tcm content/education companies", "tcm colleges continuing-education"],
+    "queries": ["中医 师承 数字化 平台 采购", "中医 继续教育 平台 预算", "中医 内容机构 课程 定价 B端", "中医 院校 数字资源 采购 公告", "tcm education platform procurement china"],
+    "domains_hint": ["政府采购网公开公告", "院校官网招标页", "机构官网价目", "招股书/年报公开段落"]
+  },
+  "rails": {"no_pii": true, "respect_robots": true, "zero_metered_ai": true,
+            "l0_l1_no_opinions": true, "every_datapoint_needs_url_and_ts": true},
+  "status": "fired 2026-08-31; collection starts after P12 sample passes (P15 gating rule)",
+  "evidence_path": "research/R2/"
+}
