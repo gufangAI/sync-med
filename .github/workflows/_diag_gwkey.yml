@@ -1,0 +1,17 @@
+name: _diag_gwkey
+on: { workflow_dispatch: {} }
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GW_KEY: ${{ secrets.GW_KEY }}
+        run: |
+          python - <<'PY'
+          import os, hashlib
+          k = os.environ.get("GW_KEY", "")
+          print("len =", len(k))
+          print("sha256 =", hashlib.sha256(k.encode()).hexdigest())
+          print("repr_head =", repr(k[:6]), "repr_tail =", repr(k[-4:]))
+          print("has_trailing_ws =", k != k.strip())
+          PY
