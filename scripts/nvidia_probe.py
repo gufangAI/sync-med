@@ -35,7 +35,7 @@ KEY = (os.environ.get("NVIDIA_API_KEY")
        or (os.environ.get("NVIDIA_KEYS", "").split(",")[0].strip())
        or (os.environ.get("NVIDIA_API_KEYS", "").split(",")[0].strip()))
 
-CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "b7362ed77d212bab298a9ae8736c9868")
+CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
 D1_DB = os.environ.get("D1_DATABASE_ID", "2db89d3b-e988-4577-a9e3-fb7c563af72f")
 D1_TOKEN = os.environ.get("D1_API_TOKEN", "")
 

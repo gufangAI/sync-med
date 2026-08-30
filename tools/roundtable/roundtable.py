@@ -20,7 +20,7 @@ except Exception:
 
 WEB_DIR = r"F:\0book\guyaofang-web"
 DB = "guyaofang-db"
-ACCOUNT_ID = "b7362ed77d212bab298a9ae8736c9868"   # CF account(非敏感);Actions 发帖走 D1 REST,scoped token 从 env CF_D1_TOKEN 读(绝不用 Global Key)
+ACCOUNT_ID = os.environ.get("CF_ACCOUNT_ID", "")   # CF account(非敏感);Actions 发帖走 D1 REST,scoped token 从 env CF_D1_TOKEN 读(绝不用 Global Key)
 DB_ID = "2db89d3b-e988-4577-a9e3-fb7c563af72f"
 BASE = "https://gufangai.com"
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))   # 脚本所在目录:本地 = guyaofang-web/tools/roundtable,Actions = repo/tools/roundtable

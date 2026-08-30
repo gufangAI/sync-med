@@ -73,7 +73,7 @@ D1_URL = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACC}/d1/database/{D
 # Not a secret -- resource id from guyaofang-web/wrangler.toml's [[kv_namespaces]] binding
 # "KV" (same convention as warm_thumbs.py's hardcoded R2 bucket name: infra ids that are
 # fixed and non-sensitive don't need a GitHub secret of their own).
-KV_NS = "f7316f9f43744edfaa6d288fbc3c935b"
+KV_NS = os.environ.get("KV_NAMESPACE_ID", "")
 KV_BASE = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACC}/storage/kv/namespaces/{KV_NS}"
 KV_HEADERS = {"Authorization": "Bearer " + D1_TOK}
 

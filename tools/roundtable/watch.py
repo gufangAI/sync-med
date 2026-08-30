@@ -13,7 +13,7 @@ try:
 except Exception:
     pass
 
-ACCOUNT_ID = "b7362ed77d212bab298a9ae8736c9868"
+ACCOUNT_ID = os.environ.get("CF_ACCOUNT_ID", "")
 DB_ID = "2db89d3b-e988-4577-a9e3-fb7c563af72f"
 WINDOW_HOURS = int(os.environ.get("WATCH_WINDOW_HOURS", "3"))
 MIN_EXPECTED = int(os.environ.get("WATCH_MIN_EXPECTED", "2"))   # 窗口内至少应新增几篇

@@ -42,7 +42,7 @@ import cjk_charset
 # cjk_charset.HAN 是「一个汉字」的字符类;这里要判定**整串都是汉字**,所以包一层 +
 HAN_ONLY = re.compile("(?:%s)+$" % cjk_charset.HAN.pattern)
 
-CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "b7362ed77d212bab298a9ae8736c9868")
+CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
 D1_DB      = os.environ.get("D1_DATABASE_ID", "2db89d3b-e988-4577-a9e3-fb7c563af72f")
 D1_TOKEN   = os.environ.get("D1_API_TOKEN", "")
 GATEWAY    = os.environ.get("GW_URL", "https://gufangai.com/api/gateway/chat")
