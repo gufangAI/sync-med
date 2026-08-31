@@ -126,12 +126,9 @@ def expand_topics(kind, existing, want=40, clean_sample=None):
                   f"请往**较少见但确有文献记载**的方向列(次级代谢产物、同类衍生物、"
                   f"冷门药材的特征成分都可以)。\n"
                   f"**直接以 `[` 开头输出 JSON 数组,不要写任何分析、复述或解释。**")
-        # 先找 opencode(实测直接吐数组);它不通再回落网关,两条路都断才算失败
-        try:
-            txt, _ = ask_opencode(SYS_EXPAND, prompt)
-        except Exception as e:
-            print(f"  [扩题] opencode 不通({type(e).__name__} {str(e)[:60]}),回落网关", flush=True)
-            txt, _ = ask(SYS_EXPAND, prompt, max_tokens=3000, supplier=EXPAND_SUPPLIER)
+        # 2026-08-31 拔掉 opencode:它的 deepseek 下线后 400/401,不再先试它。
+        #   直接走我们自己的网关池(supplier=EXPAND_SUPPLIER=zhipu,网关内部有三层容错链)。
+        txt, _ = ask(SYS_EXPAND, prompt, max_tokens=3000, supplier=EXPAND_SUPPLIER)
         # 2026-08-02 血证:这里原来有**自己一套**内联解析,还在用 rfind("]") ——
         #   我上午只把对象解析器换成了 raw_decode,漏了这个数组解析器,
         #   于是扩题稳定报 "Extra data: line 1 column 17" 失败 → 降级回图谱 OCR 碎词

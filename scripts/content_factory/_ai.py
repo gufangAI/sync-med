@@ -164,14 +164,16 @@ def ask_opencode(system, user, timeout=120, max_tokens=3000, need="[", model=Non
 
 
 def ask_best(system, user, **kw):
-    """先 OpenCode,不通再回落网关。产线默认走这个。"""
-    need = kw.pop("need", "[")
-    try:
-        return ask_opencode(system, user, need=need, **{k: v for k, v in kw.items()
-                                                        if k in ("timeout", "max_tokens")})
-    except Exception:
-        return ask(system, user, **{k: v for k, v in kw.items()
-                                    if k in ("timeout", "max_tokens", "supplier", "source")})
+    """走我们自己的网关池(zhipu/sensenova/agnes/gemini/groq/nvidia/siliconflow/modelscope,
+    实测 8 家全绿 + nova-gateway v2 三层韧性容错)。
+
+    【2026-08-31 拔掉 opencode】原为"先 OpenCode 免密端点、不通回落网关"。
+    opencode 的 deepseek 下线后稳定 400/401(创始人实证),它是产线唯一的外部依赖痛点。
+    我们自己的池已建好且更稳,不需要外部兜底 —— 直接走网关,网关内部自带容错链。
+    ask_opencode 函数保留(赛马 race.py 仍可用它做对照),仅把产线主路从它上面摘下。"""
+    need = kw.pop("need", "[")   # 兼容旧签名,网关侧不需要 need
+    return ask(system, user, **{k: v for k, v in kw.items()
+                                if k in ("timeout", "max_tokens", "supplier", "source", "temperature")})
 
 
 def _unfence(t):
