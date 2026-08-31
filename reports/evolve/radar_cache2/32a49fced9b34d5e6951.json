@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "adopt",
+ "metric": "OCR 字符错误率",
+ "how": "替换 Tesseract 为 PaddleOCR",
+ "effort": "中",
+ "current": "Tesseract",
+ "beats": "字符错误率更低，识别速度更快",
+ "why": "PaddleOCR 是基于 PaddlePaddle 的多语言 OCR 工具包，性能优于 Tesseract"
+}

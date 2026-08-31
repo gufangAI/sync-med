@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "skip",
+ "metric": "无",
+ "how": "无",
+ "effort": "无",
+ "current": "前台阅读器目前使用的是自研的Web服务器和HTTPS配置",
+ "beats": "无",
+ "why": "Caddy是一个通用的HTTP/1-2-3 Web服务器，与我们的前台阅读器模块不直接相关，且我们已经在使用自研的Web服务器和HTTPS配置"
+}
