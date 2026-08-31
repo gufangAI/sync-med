@@ -219,7 +219,12 @@ def ask(system, user, timeout=120, max_tokens=2600, supplier=None,
     req = urllib.request.Request(
         GATEWAY, method="POST", data=body,
         headers={"Content-Type": "application/json; charset=utf-8",
-                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126"})
+                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126",
+                 # 2026-08-31 破案:门卫 08-06 加认证后,本函数一直漏带钥匙 → 稳定 401,
+                 #   generation 22 天出货 0 的真因就是这一行。_ai.ask 有带、这份抄漏了
+                 #   ("同一逻辑两处实现,一处漏改"的经典病)。补上,与 _ai.ask 同口径。
+                 **({"X-Gateway-Key": os.environ.get("GW_KEY", "")}
+                    if os.environ.get("GW_KEY") else {})})
     j = json.loads(urllib.request.urlopen(req, timeout=timeout).read())
     txt = j.get("text") or ""
     if not txt and j.get("choices"):
