@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "updated": "2026-08-30",
+ "updated": "2026-08-31",
  "decisions": [
   {
    "source": "arsenal:x1xhlol/system-prompts-and-models-of-ai-tools",
@@ -673,6 +673,26 @@
    "issue": 480,
    "topic": "新技术研判:minar09/awesome-virtual-try-on(3160星)— 收集虚拟试穿相关资源",
    "verdict_ok": true
+  },
+  {
+   "source": "arsenal:av/harbor",
+   "decision": "hold",
+   "basis": "referee-failed",
+   "fingerprint": "ace4fe45c7bf2a4b",
+   "date": "2026-08-31",
+   "issue": 494,
+   "topic": "新技术研判:av/harbor(3198星)— 提供预配置的AI堆栈",
+   "verdict_ok": false
+  },
+  {
+   "source": "arsenal:minar09/awesome-virtual-try-on",
+   "decision": "hold",
+   "basis": "referee-failed",
+   "fingerprint": "4ba334119fbae781",
+   "date": "2026-08-31",
+   "issue": 494,
+   "topic": "新技术研判:minar09/awesome-virtual-try-on(3160星)— 收集虚拟试穿相关资源",
+   "verdict_ok": false
   }
  ]
 }
