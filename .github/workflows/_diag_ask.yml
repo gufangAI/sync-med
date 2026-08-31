@@ -1,0 +1,31 @@
+name: _diag_ask
+on: { workflow_dispatch: {} }
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: probe real ask()
+        env:
+          GW_KEY: ${{ secrets.GW_KEY }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          cd scripts/content_factory
+          python - <<'PY'
+          import os, sys, traceback
+          sys.path.insert(0, ".")
+          import _ai
+          print("GATEWAY =", _ai.GATEWAY)
+          print("GW_KEY present =", bool(os.environ.get("GW_KEY")), "len =", len(os.environ.get("GW_KEY","")))
+          try:
+              txt, model = _ai.ask("你是植物学助理", "药材:Neem。输出JSON。", max_tokens=800)
+              print("OK model=%s text_head=%r" % (model, txt[:80]))
+          except Exception as e:
+              print("RAISED:", type(e).__name__, str(e))
+              traceback.print_exc()
+          PY
