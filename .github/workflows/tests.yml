@@ -37,3 +37,9 @@ jobs:
       # 这一步防的是"哪天 pytest 装不上,CI 直接哑火"。
       - name: 零依赖退路(unittest)
         run: python -m unittest discover -s tests -q
+
+      # 单一实现闸(2026-08-31):防"同一逻辑复制粘贴、漏改一处"复发 ——
+      #   ask()/d1()/parse_json() 抄本漏带网关钥匙,是内容线断产22天的真因。
+      #   冻结今日存量为基线,只拦"新增第二份"或"新硬编码端点"。基线只缩不增。
+      - name: 单一实现闸 (single-source guard)
+        run: python scripts/guard_single_source.py
