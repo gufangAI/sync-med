@@ -16,6 +16,14 @@ from pathlib import Path
 from typing import Optional
 import argparse
 
+# 正文提取(可选依赖):吸收 adbar/trafilatura(6.7k star Apache-2.0,纯CPU无GPU)。
+# 缺失时 fetch_article_text 优雅退回空串,任何消费本脚本的 workflow 都不会因此崩。
+# 装它的只有 intel-radar.yml 主跑(见其 pip 步骤);其余 workflow 无它照常跑,只是不补全文。
+try:
+    import trafilatura as _trafilatura
+except ImportError:
+    _trafilatura = None
+
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -116,6 +124,33 @@ def fetch_url(url: str, timeout: int = 30, data: bytes = None,
         raise RuntimeError(f"\u7f51\u7edc\u8bf7\u6c42\u5931\u8d25: {e}")
     except (http.client.HTTPException, ConnectionError, TimeoutError, OSError) as e:
         raise RuntimeError(f"connection glitch (transient, not fatal): {e}")
+
+
+def fetch_article_text(url: str, max_chars: int = 900, timeout: int = 5) -> str:
+    '''把一个文章页/README 页的脏 HTML 洗成干净正文(去导航/页脚/侧栏),截断返回。
+
+    立此因(2026-08-31 吸收 trafilatura):打分器与合成器此前只看得到 RSS 给的
+    <=500 字摘要,真正的文章正文从没进过 LLM。对精选条目补上干净正文,合成质量
+    立刻提升,且比裸喂整页 HTML 省 token(实测维基一页 90% 是噪声)。
+
+    绝不抛异常:trafilatura 缺失 / 取网失败 / 抽取为空 一律返回 ""(空串),
+    调用方据此决定"有就用、没有就退回摘要",永不因此中断产线。'''
+    if _trafilatura is None or not url:
+        return ""
+    if not (url.startswith("http://") or url.startswith("https://")):
+        return ""
+    try:
+        html = fetch_url(url, timeout=timeout)
+    except Exception:
+        return ""
+    try:
+        txt = _trafilatura.extract(
+            html, include_comments=False, include_tables=False,
+            no_fallback=True, favor_precision=True) or ""
+    except Exception:
+        return ""
+    txt = " ".join(txt.split())
+    return txt[:max_chars]
 
 
 
@@ -867,11 +902,17 @@ def build_synthesis_input(top_items: list, opensource_results: Optional[list] = 
     lines = []
     idx = 1
     for item in top_items[:max_items]:
-        lines.append(
+        block = (
             f"[{idx}] [{item.get('category','')}] {item.get('title','')}\n"
             f"    \u6765\u6e90:{item.get('source','')} | \u6253\u5206:{item.get('score','')}/5 | "
             f"{item.get('reason','')[:120]}"
         )
+        # \u7cbe\u9009\u6761\u76ee\u82e5\u5df2\u88ab enrich_top_items \u8865\u4e0a\u5e72\u51c0\u6b63\u6587,\u9644\u4e00\u6bb5\u6b63\u6587\u6458\u5f55,
+        # \u8ba9\u5408\u6210\u5668\u770b\u5230\u771f\u5b9e\u5185\u5bb9\u800c\u975e\u4ec5\u4e00\u53e5 reason(\u7f3a\u5219\u81ea\u7136\u8df3\u8fc7,\u9000\u56de\u539f\u6837)\u3002
+        _ft = item.get("_fulltext", "")
+        if _ft:
+            block += f"\n    \u6b63\u6587\u6458\u5f55:{_ft}"
+        lines.append(block)
         idx += 1
     for r in (opensource_results or [])[:15]:
         lines.append(
@@ -891,8 +932,30 @@ def build_synthesis_input(top_items: list, opensource_results: Optional[list] = 
     return "\n\n".join(lines) if lines else '(\u4eca\u65e5\u65e0\u7cbe\u534e\u4fe1\u53f7)'
 
 
+def enrich_top_items(top_items: list, cap: int = 8) -> int:
+    '''给排名最高的前 cap 条(有 http 链接的)补干净正文,写入 item["_fulltext"]。
+
+    有界:只补前 cap 条,不是全部 40 条 —— 每条一次网络往返,全量会把一次 run
+    拖慢好几分钟(采集线兵团明确点出的坑)。每条失败静默跳过,整体绝不因此报错。
+    trafilatura 缺失时 fetch_article_text 直接返回空串,本函数等于空转,安全。
+
+    返回真正补上正文的条数(供日志核对,别当摆设 —— "注释承诺必须可验证")。'''
+    n = 0
+    for item in top_items[:cap]:
+        if item.get("_fulltext"):
+            continue
+        txt = fetch_article_text(item.get("url", ""))
+        if txt:
+            item["_fulltext"] = txt
+            n += 1
+    return n
+
+
 def generate_synthesis(top_items: list, use_gateway: bool, models_used: list) -> Optional[dict]:
     '\n    \u591a\u5b66\u79d1\u7efc\u5408\u7814\u5224: \u4e00\u6b21 LLM \u8c03\u7528\uff0c\u628a\u4eca\u5929\u7684\u7cbe\u534e\u4fe1\u53f7\u6309 5 \u7ef4\u5ea6\n    (\u6280\u672f/\u4e2d\u533b\u77e5\u8bc6/\u7ade\u54c1/\u53d8\u73b0/\u98ce\u9669) \u8f93\u51fa"\u53d1\u73b0+\u5bf9\u6211\u4eec\u610f\u5473\u7740\u4ec0\u4e48+\u8981\u4e0d\u8981\u884c\u52a8"\u3002\n    \u67d0\u7ef4\u5ea6\u65e0\u4fe1\u53f7\u5fc5\u987b\u5982\u5b9e\u6807\u6ce8\uff0c\u4e0d\u786c\u7f16\u3002\n    \u8fd4\u56de: {dimension: {"no_signal": bool, "note": str, "items": [...]}, ...} \u6216 None(\u5931\u8d25)\n    '
+    _n_enriched = enrich_top_items(top_items)
+    if _n_enriched:
+        print(f"[多学科研判] 已给 {_n_enriched} 条精选补干净正文(trafilatura)", flush=True)
     items_text = build_synthesis_input(top_items)
     prompt = SYNTHESIS_PROMPT.format(context=SUEAI_CONTEXT, items=items_text)
     messages = [{"role": "user", "content": prompt}]

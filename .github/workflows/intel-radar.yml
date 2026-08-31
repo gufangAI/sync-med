@@ -49,7 +49,12 @@ jobs:
       # a hand-rolled regex over the trending board returned 0 rows, lxml
       # returns 51. gh_trending_real degrades gracefully if this is ever
       # missing (ImportError -> skip that one source, radar still runs).
-      - run: pip install --quiet lxml
+      #
+      # trafilatura: full-text extractor for the synthesis step (strips nav/
+      # footer boilerplate off article pages before they hit the LLM). Also an
+      # optional import -- fetch_article_text returns "" if it's absent, so the
+      # radar runs identically without it, just without the full-text excerpts.
+      - run: pip install --quiet lxml 'trafilatura>=1.8,<3'
 
       - name: Run Intel Radar v3 (cloud mode)
         env:
