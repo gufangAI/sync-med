@@ -29,11 +29,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _smiles import smiles_matches_formula
 from _variant import settle_trials          # noqa: E402  复核跑完结算适应度   # noqa: E402  确定性对账,别再靠模型自省
+from _ai import ask, d1, parse_json, q, GATEWAY  # 2026-08-31 单一实现:删本地抄本,统一走 _ai(带钥匙+body归因)
 
 CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
 D1_DB      = os.environ.get("D1_DATABASE_ID", "")
 D1_TOKEN   = os.environ.get("D1_API_TOKEN", "")
-GATEWAY    = os.environ.get("GW_URL", "https://gufangai.com/api/gateway/chat")
 WORKERS    = int(os.environ.get("CF_WORKERS", "6"))
 REVIEW_VER = "rv-v1-2026-08-02"
 
@@ -58,73 +58,6 @@ SYS_REVIEW = (
     "拿不准某个**已写出的事实**对不对 → hold。**放行一条错的,代价远大于按住一条对的。**\n"
     "只输出 JSON:{\"verdict\":\"pass\"或\"hold\",\"why\":\"20字以内理由\"}"
 )
-
-
-def d1(sql):
-    if not (D1_TOKEN and CF_ACCOUNT and D1_DB):
-        sys.exit("缺 D1_API_TOKEN / CF_ACCOUNT_ID / D1_DATABASE_ID")
-    url = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT}/d1/database/{D1_DB}/query"
-    req = urllib.request.Request(
-        url, method="POST", data=json.dumps({"sql": sql}).encode("utf-8"),
-        headers={"Authorization": "Bearer " + D1_TOKEN, "Content-Type": "application/json"})
-    j = json.loads(urllib.request.urlopen(req, timeout=120).read())
-    if not j.get("success"):
-        raise RuntimeError(str(j.get("errors"))[:250])
-    return (j.get("result") or [{}])[0].get("results") or []
-
-
-# 复核员候选,按"越强越靠前"排。实测(2026-08-02)免费池 12 家里只有这 4 家活着:
-#   nvidia=nemotron-3-ultra-550b · openrouter=同款free · dashscope=qwen-plus · zhipu=glm-4-flash
-# 生成侧目前落在 glm-4-flash,所以复核默认用 550b —— 比生成模型**更强**,而不是随便换一个。
-# 注:先前试过用 source 参数区分链路,实测网关不认(两次都回同一个 glm-4-flash),
-#     只有显式 supplier 才真能换,所以这里改成点名。
-REVIEW_SUPPLIERS = ["nvidia", "dashscope", "openrouter", "zhipu"]
-
-
-def ask(system, user, timeout=120, max_tokens=400, supplier=None,
-        temperature=None, no_fallback=False, json_mode=True):
-    payload = {
-        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "max_tokens": max_tokens,
-        "temperature": 0.1 if temperature is None else float(temperature),
-        "json": bool(json_mode), "source": "content_review",
-    }
-    if supplier:
-        payload["supplier"] = supplier      # 点名供应商;失败仍按容错链兜(fallback 默认 true)
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(
-        GATEWAY, method="POST", data=body,
-        headers={"Content-Type": "application/json; charset=utf-8",
-                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126"})
-    j = json.loads(urllib.request.urlopen(req, timeout=timeout).read())
-    txt = j.get("text") or ""
-    if not txt and j.get("choices"):
-        txt = (j["choices"][0].get("message") or {}).get("content", "")
-    return txt, (j.get("model") or j.get("supplier") or "")
-
-
-def parse_json(t):
-    """只取第一个完整 JSON 对象 —— 与 herb_factory.parse_json 同一套判据(模型爱在 JSON 后面加话)。"""
-    t = (t or "").strip()
-    if t.startswith("```"):
-        parts = t.split("```")
-        t = parts[1] if len(parts) > 1 else t
-        if t.lstrip().lower().startswith("json"):
-            t = t.lstrip()[4:]
-        t = t.strip()
-    a = t.find("{")
-    if a < 0:
-        raise ValueError("没有 JSON:" + t[:60])
-    obj, _ = json.JSONDecoder().raw_decode(t, a)
-    return obj
-
-
-def q(v):
-    if v is None:
-        return "NULL"
-    if isinstance(v, (int, float)):
-        return str(v)
-    return "'" + str(v).replace("'", "''") + "'"
 
 
 SPEC = {
