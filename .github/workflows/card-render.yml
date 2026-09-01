@@ -27,19 +27,25 @@ jobs:
       - name: Install render deps
         working-directory: scripts/content_factory/card
         run: npm install --no-audit --no-fund
-      - name: Render cards
+      - name: Render cards (Node satori→out/*.png)
         working-directory: scripts/content_factory/card
         env:
           CARD_LIMIT: ${{ github.event.inputs.limit }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
-          S_EP: ${{ secrets.S_EP }}
-          S_AK: ${{ secrets.S_AK }}
-          S_SK: ${{ secrets.S_SK }}
-          S_BUCKET: ${{ secrets.S_BUCKET }}
         run: node render_cards.mjs
-      - name: Upload cards
+      # 上传到 123(不是 R2):图片全在 123、前台从 123 取。需 PAN_DIR_CARDS(创始人在 123 建 cards 文件夹给 id)。
+      # 无 PAN_DIR_CARDS(fork/未配)→ 脚本自动跳过上传,只留 artifact。
+      - name: Upload cards to 123
+        if: always()
+        working-directory: scripts/content_factory/card
+        env:
+          PAN_CID: ${{ secrets.PAN_CID }}
+          PAN_SEC: ${{ secrets.PAN_SEC }}
+          PAN_DIR_CARDS: ${{ secrets.PAN_DIR_CARDS }}
+        run: python -m pip install --quiet requests && python upload_cards_123.py
+      - name: Upload cards artifact (核验用)
         if: always()
         uses: actions/upload-artifact@v4
         with:

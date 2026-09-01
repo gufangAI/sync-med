@@ -19,27 +19,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FONT = fs.readFileSync(path.join(HERE, 'NotoSansSC-Regular.ttf'));
 const OUT = path.join(HERE, 'out');
 const LIMIT = parseInt(process.env.CARD_LIMIT || '6', 10);
-
-// R2 上传(可选):有 S_EP/S_AK/S_SK/S_BUCKET(主仓)→卡片 PUT 到 R2 `_cards/formula/` 新前缀持久化。
-// 零 R2 移动铁律:只 PUT 新对象、绝不移动/复制现有图、绝不 LIST。照 ocr.py 写 _ocr/ 同款(S3 兼容)。
-// 无密钥(fork 自测)→ 跳过上传,只出本地 out/ + Actions artifact(不影响渲染验证)。
-const R2_PREFIX = '_cards/formula/';
-let _s3 = null, _bucket = null;
-async function initR2() {
-  const { S_EP, S_AK, S_SK, S_BUCKET } = process.env;
-  if (!(S_EP && S_AK && S_SK && S_BUCKET)) return false;
-  const { S3Client } = await import('@aws-sdk/client-s3');
-  _s3 = new S3Client({ endpoint: S_EP, region: 'auto',
-    credentials: { accessKeyId: S_AK, secretAccessKey: S_SK } });
-  _bucket = S_BUCKET;
-  return true;
-}
-async function putCard(key, png) {
-  if (!_s3) return false;
-  const { PutObjectCommand } = await import('@aws-sdk/client-s3');
-  await _s3.send(new PutObjectCommand({ Bucket: _bucket, Key: key, Body: png, ContentType: 'image/png' }));
-  return true;
-}
+// 本脚本只渲染到 out/;上传到 123(不是 R2)由同目录 upload_cards_123.py 接手(创始人 2026-09-01:
+// 图片全在 123、前台从 123 取,存 R2 是废弃位置)。故这里不碰任何云存储,纯渲染。
 
 function parseComp(c) {
   try { const a = JSON.parse(c); return Array.isArray(a) ? a.join('  ') : String(c); }
@@ -96,24 +77,17 @@ function cardTree(f) {
 
 const formulas = await getFormulas();
 fs.mkdirSync(OUT, { recursive: true });
-const r2on = await initR2();
-console.log(r2on ? `R2 上传: 开(卡片将 PUT 到 ${R2_PREFIX})` : 'R2 上传: 关(无密钥·只出本地+artifact)');
-let n = 0, uploaded = 0;
+let n = 0;
 for (const f of formulas) {
   try {
     const svg = await satori(cardTree(f), { width: 1080, height: 1080, fonts: [{ name: 'Noto', data: FONT, weight: 400, style: 'normal' }] });
     const png = new Resvg(svg, { fitTo: { mode: 'width', value: 1080 } }).render().asPng();
     const safe = String(f.name).replace(/[^一-鿿A-Za-z0-9]/g, '');
     fs.writeFileSync(path.join(OUT, `card_${++n}_${safe}.png`), png);
-    let up = '';
-    if (r2on) {
-      try { await putCard(`${R2_PREFIX}${safe}.png`, png); uploaded++; up = ' ↑R2'; }
-      catch (e) { up = ` !R2失败:${String(e).slice(0, 50)}`; }
-    }
-    console.log(`  ✓ card_${n}_${safe}.png (${(png.length / 1024).toFixed(0)}KB)${up}`);
+    console.log(`  ✓ card_${n}_${safe}.png (${(png.length / 1024).toFixed(0)}KB)`);
   } catch (e) {
     console.log(`  ! 渲染失败 ${f.name}: ${String(e).slice(0, 100)}`);
   }
 }
-console.log(`共渲染 ${n} 张方剂卡 → ${OUT}${r2on ? ` · 已传R2 ${uploaded} 张(${R2_PREFIX})` : ''}`);
+console.log(`共渲染 ${n} 张方剂卡 → ${OUT}(上传123由 upload_cards_123.py 接手)`);
 if (n === 0) process.exit(1);
