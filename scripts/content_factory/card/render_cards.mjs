@@ -69,7 +69,7 @@ function cardTree(f) {
       { type: 'div', props: { style: { display: 'flex', fontSize: 30, lineHeight: 1.6, color: '#d8c9a8' }, children: '【主治】' + ind } },
     ] } },
     { type: 'div', props: { style: { display: 'flex', justifyContent: 'space-between', fontSize: 23, color: faint }, children: [
-      { type: 'div', props: { children: '古方 AI 星图 · guyaofang.cn' } },
+      { type: 'div', props: { children: '古方 AI 星图 · gufangai.com' } },
       { type: 'div', props: { children: '君臣佐使 · 文献溯源' } },
     ] } },
   ] } };
