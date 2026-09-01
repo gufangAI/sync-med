@@ -1,0 +1,33 @@
+# IndexNow 主动推送(每日 + 手动):把内容页推给 Bing/Yandex/Seznam,几分钟内被抓,
+# 不用等爬虫自己排队(新站权重低时可能几个月都爬不完 8 万页)。
+# 免费开放协议、无需注册;只要 https://www.gufangai.com/<key>.txt 内容等于 key 即可(已部署)。
+name: IndexNow Push (主动推送收录)
+
+on:
+  schedule:
+    - cron: '0 18 * * *'   # 每天 18:00 UTC = 02:00 北京·低峰
+  workflow_dispatch:
+    inputs:
+      batch:
+        description: '每批推几条'
+        required: false
+        default: '5000'
+
+concurrency:
+  group: indexnow-push
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Push URLs to IndexNow
+        env:
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+          INDEXNOW_BATCH: ${{ github.event.inputs.batch }}
+        run: python scripts/seo/indexnow_push.py
