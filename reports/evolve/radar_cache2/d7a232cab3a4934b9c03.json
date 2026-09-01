@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR识别准确率",
+ "how": "通过pip安装，集成到现有流程中",
+ "effort": "中",
+ "current": "Tesseract OCR",
+ "beats": "在识别准确率和速度上可能优于Tesseract",
+ "why": "RapidOCR基于ONNXRuntime，可能提供更好的性能"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "检索路由 —— /api/retrieve 统一检索入口，按意图分派到 wiki/graph/volume/FTS",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "暂无",
+ "beats": "",
+ "why": "Elasticsearch 是数据库服务器，需要常驻主机，不符合我们的无服务器架构。"
+}
