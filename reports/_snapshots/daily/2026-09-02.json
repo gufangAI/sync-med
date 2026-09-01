@@ -1,0 +1,97 @@
+{
+ "extra": {},
+ "generated_at": "2026-09-02T02:10:50.959802+08:00",
+ "key": "2026-09-02",
+ "metrics": {
+  "cand_pending": {
+   "err": null,
+   "value": 5777
+  },
+  "daodu_total": {
+   "err": null,
+   "value": 1953
+  },
+  "formulas_books": {
+   "err": null,
+   "value": 1210
+  },
+  "formulas_names": {
+   "err": null,
+   "value": 44563
+  },
+  "formulas_total": {
+   "err": null,
+   "value": 98174
+  },
+  "graph_edges": {
+   "err": null,
+   "value": 233103
+  },
+  "graph_edges_tier1": {
+   "err": null,
+   "value": 1069
+  },
+  "graph_nodes": {
+   "err": null,
+   "value": 69555
+  },
+  "gufang_lib": {
+   "err": null,
+   "value": 0
+  },
+  "guji_visible": {
+   "err": null,
+   "value": 6925
+  },
+  "med_visible": {
+   "err": null,
+   "value": 46803
+  }
+ },
+ "period": "daily",
+ "range": [
+  "2026-09-02",
+  "2026-09-02"
+ ],
+ "run_id": "33540380785",
+ "tables": {
+  "daodu_by_ver": {
+   "err": null,
+   "rows": [
+    {
+     "k": "daodu-v3-ragground",
+     "n": 898
+    },
+    {
+     "k": "daodu-v3-corpus-batch",
+     "n": 893
+    },
+    {
+     "k": "daodu-multi-v1",
+     "n": 162
+    }
+   ]
+  },
+  "med_by_collection": {
+   "err": null,
+   "rows": [
+    {
+     "k": "overseas_guji",
+     "n": 25621
+    },
+    {
+     "k": "overseas",
+     "n": 20896
+    },
+    {
+     "k": "fojing",
+     "n": 273
+    },
+    {
+     "k": "nonmed_junk",
+     "n": 13
+    }
+   ]
+  }
+ }
+}
