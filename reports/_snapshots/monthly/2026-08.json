@@ -1,0 +1,557 @@
+{
+ "extra": {
+  "actions": {
+   "cancelled": 439,
+   "failure": 244,
+   "per_workflow": {
+    "Authoritative Ingest": {
+     "cancelled": 32,
+     "failure": 0,
+     "n": 165,
+     "other": 0,
+     "success": 133
+    },
+    "CodeQL": {
+     "cancelled": 46,
+     "failure": 1,
+     "n": 773,
+     "other": 0,
+     "success": 726
+    },
+    "Competitor & Regulatory Radar": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 4,
+     "other": 0,
+     "success": 4
+    },
+    "Content Factory": {
+     "cancelled": 3,
+     "failure": 12,
+     "n": 239,
+     "other": 0,
+     "success": 224
+    },
+    "Eagle Weekly Hunter": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 6,
+     "other": 0,
+     "success": 6
+    },
+    "Evolve Adopt": {
+     "cancelled": 0,
+     "failure": 3,
+     "n": 48,
+     "other": 0,
+     "success": 45
+    },
+    "Evolve Controller": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 112,
+     "other": 0,
+     "success": 112
+    },
+    "Evolve Improve": {
+     "cancelled": 0,
+     "failure": 3,
+     "n": 34,
+     "other": 0,
+     "success": 31
+    },
+    "Evolve Race": {
+     "cancelled": 1,
+     "failure": 1,
+     "n": 9,
+     "other": 0,
+     "success": 7
+    },
+    "Gitleaks": {
+     "cancelled": 2,
+     "failure": 0,
+     "n": 77,
+     "other": 6,
+     "success": 69
+    },
+    "Graph Community": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 31,
+     "other": 0,
+     "success": 30
+    },
+    "Intel Radar Daily Report v3": {
+     "cancelled": 1,
+     "failure": 1,
+     "n": 32,
+     "other": 0,
+     "success": 30
+    },
+    "Judge Scorecard": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 7,
+     "other": 0,
+     "success": 7
+    },
+    "NVIDIA Model Probe": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 2,
+     "other": 0,
+     "success": 2
+    },
+    "P12 Crawl Sample": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "P15 Research Collect": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 1,
+     "other": 0,
+     "success": 0
+    },
+    "Radar Race": {
+     "cancelled": 1,
+     "failure": 0,
+     "n": 36,
+     "other": 0,
+     "success": 35
+    },
+    "Review Drain": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 447,
+     "other": 0,
+     "success": 446
+    },
+    "Search Index": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 29,
+     "other": 0,
+     "success": 29
+    },
+    "Volume Index": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 159,
+     "other": 0,
+     "success": 158
+    },
+    "clean-embed-ingest": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 116,
+     "other": 0,
+     "success": 115
+    },
+    "code-self-audit": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 5,
+     "other": 0,
+     "success": 5
+    },
+    "ctext_harvest": {
+     "cancelled": 0,
+     "failure": 8,
+     "n": 116,
+     "other": 0,
+     "success": 108
+    },
+    "fangji-ai-refine": {
+     "cancelled": 115,
+     "failure": 1,
+     "n": 116,
+     "other": 0,
+     "success": 0
+    },
+    "fleet-health": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 296,
+     "other": 0,
+     "success": 295
+    },
+    "frontend-sentinel": {
+     "cancelled": 1,
+     "failure": 3,
+     "n": 469,
+     "other": 0,
+     "success": 465
+    },
+    "guard-cjk-range-literal": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "guard-no-list-objects": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 160,
+     "other": 6,
+     "success": 154
+    },
+    "india_harvest": {
+     "cancelled": 0,
+     "failure": 3,
+     "n": 116,
+     "other": 0,
+     "success": 113
+    },
+    "lane-probe": {
+     "cancelled": 2,
+     "failure": 3,
+     "n": 35,
+     "other": 0,
+     "success": 30
+    },
+    "make_video": {
+     "cancelled": 0,
+     "failure": 14,
+     "n": 33,
+     "other": 0,
+     "success": 19
+    },
+    "ocr-ndl": {
+     "cancelled": 1,
+     "failure": 3,
+     "n": 116,
+     "other": 0,
+     "success": 112
+    },
+    "ocr-quality": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 31,
+     "other": 0,
+     "success": 31
+    },
+    "ocr-quality-audit": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 5,
+     "other": 0,
+     "success": 5
+    },
+    "ocr-release": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 31,
+     "other": 0,
+     "success": 31
+    },
+    "ocr-to-rag": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 89,
+     "other": 0,
+     "success": 89
+    },
+    "pan-audit": {
+     "cancelled": 7,
+     "failure": 1,
+     "n": 30,
+     "other": 0,
+     "success": 22
+    },
+    "pan-register": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 31,
+     "other": 0,
+     "success": 30
+    },
+    "pan-tidy": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 491,
+     "other": 0,
+     "success": 490
+    },
+    "r2-usage-audit": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 31,
+     "other": 0,
+     "success": 31
+    },
+    "report-daily": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 30,
+     "other": 0,
+     "success": 29
+    },
+    "report-monthly": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 1,
+     "other": 0,
+     "success": 1
+    },
+    "report-weekly": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 4,
+     "other": 0,
+     "success": 4
+    },
+    "sueai-council": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 32,
+     "other": 0,
+     "success": 32
+    },
+    "sync": {
+     "cancelled": 218,
+     "failure": 1,
+     "n": 220,
+     "other": 1,
+     "success": 0
+    },
+    "team-report-audit": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 31,
+     "other": 0,
+     "success": 31
+    },
+    "tests": {
+     "cancelled": 8,
+     "failure": 20,
+     "n": 160,
+     "other": 6,
+     "success": 126
+    },
+    "warm-dlink": {
+     "cancelled": 0,
+     "failure": 3,
+     "n": 215,
+     "other": 0,
+     "success": 212
+    },
+    "内容工厂哨兵": {
+     "cancelled": 0,
+     "failure": 141,
+     "n": 297,
+     "other": 0,
+     "success": 156
+    },
+    "指挥中心": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 8,
+     "other": 8,
+     "success": 0
+    },
+    "百家论道内容工厂": {
+     "cancelled": 0,
+     "failure": 2,
+     "n": 704,
+     "other": 0,
+     "success": 702
+    },
+    "评论区吵架引擎": {
+     "cancelled": 0,
+     "failure": 5,
+     "n": 213,
+     "other": 0,
+     "success": 208
+    },
+    "🏭 Workflow Sentry · 产线失败兜底哨兵": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 116,
+     "other": 0,
+     "success": 116
+    },
+    "💰 Intake Sentry · 内测申请哨兵": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 171,
+     "other": 0,
+     "success": 171
+    },
+    "📏 Gold Set Full · 金标全量评测": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 3,
+     "other": 0,
+     "success": 2
+    },
+    "🔌 Gateway Sentry · 网关链头哨兵": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 297,
+     "other": 0,
+     "success": 297
+    },
+    "🔍 本地-GitHub 一致性审计": {
+     "cancelled": 0,
+     "failure": 0,
+     "n": 4,
+     "other": 0,
+     "success": 4
+    },
+    "🚨 Compliance Line · 合规红线独立闸": {
+     "cancelled": 0,
+     "failure": 1,
+     "n": 1,
+     "other": 0,
+     "success": 0
+    },
+    "🛡️ Fleet Watch": {
+     "cancelled": 1,
+     "failure": 4,
+     "n": 488,
+     "other": 0,
+     "success": 483
+    }
+   },
+   "success": 6821,
+   "total": 7531
+  },
+  "attendance": {
+   "expected": 31,
+   "missing": [
+    "2026-08-03",
+    "2026-08-04",
+    "2026-08-05",
+    "2026-08-06",
+    "2026-08-07",
+    "2026-08-08",
+    "2026-08-09",
+    "2026-08-10",
+    "2026-08-11",
+    "2026-08-12",
+    "2026-08-13",
+    "2026-08-14",
+    "2026-08-15",
+    "2026-08-16",
+    "2026-08-17",
+    "2026-08-18",
+    "2026-08-19",
+    "2026-08-20",
+    "2026-08-21",
+    "2026-08-22",
+    "2026-08-23",
+    "2026-08-24",
+    "2026-08-25",
+    "2026-08-26",
+    "2026-08-27",
+    "2026-08-28",
+    "2026-08-29",
+    "2026-08-30",
+    "2026-08-31"
+   ],
+   "present": [
+    "2026-08-01",
+    "2026-08-02"
+   ]
+  }
+ },
+ "generated_at": "2026-09-01T14:46:44.642915+08:00",
+ "key": "2026-08",
+ "metrics": {
+  "cand_pending": {
+   "err": null,
+   "value": 5777
+  },
+  "daodu_total": {
+   "err": null,
+   "value": 1953
+  },
+  "formulas_books": {
+   "err": null,
+   "value": 1210
+  },
+  "formulas_names": {
+   "err": null,
+   "value": 44563
+  },
+  "formulas_total": {
+   "err": null,
+   "value": 98174
+  },
+  "graph_edges": {
+   "err": null,
+   "value": 233103
+  },
+  "graph_edges_tier1": {
+   "err": null,
+   "value": 1069
+  },
+  "graph_nodes": {
+   "err": null,
+   "value": 69555
+  },
+  "gufang_lib": {
+   "err": null,
+   "value": 0
+  },
+  "guji_visible": {
+   "err": null,
+   "value": 6925
+  },
+  "med_visible": {
+   "err": null,
+   "value": 46803
+  }
+ },
+ "period": "monthly",
+ "range": [
+  "2026-08-01",
+  "2026-08-31"
+ ],
+ "run_id": "33475217217",
+ "tables": {
+  "daodu_by_ver": {
+   "err": null,
+   "rows": [
+    {
+     "k": "daodu-v3-ragground",
+     "n": 898
+    },
+    {
+     "k": "daodu-v3-corpus-batch",
+     "n": 893
+    },
+    {
+     "k": "daodu-multi-v1",
+     "n": 162
+    }
+   ]
+  },
+  "med_by_collection": {
+   "err": null,
+   "rows": [
+    {
+     "k": "overseas_guji",
+     "n": 25621
+    },
+    {
+     "k": "overseas",
+     "n": 20896
+    },
+    {
+     "k": "fojing",
+     "n": 273
+    },
+    {
+     "k": "nonmed_junk",
+     "n": 13
+    }
+   ]
+  }
+ }
+}
