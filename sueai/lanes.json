@@ -64,7 +64,7 @@
       ],
       "verified": true,
       "status": "error",
-      "lastChecked": "2026-08-31",
+      "lastChecked": "2026-09-01",
       "lastError": "超时 60000ms（境外 lane 请确认已加 --use-env-proxy）",
       "metrics": {
         "latencyMs": 4934,
@@ -90,11 +90,11 @@
       ],
       "tags": [],
       "verified": false,
-      "status": "error",
-      "lastChecked": "2026-08-31",
-      "lastError": "超时 60000ms（境外 lane 请确认已加 --use-env-proxy）",
+      "status": "active",
+      "lastChecked": "2026-09-01",
+      "lastError": null,
       "metrics": {
-        "probeMs": 60000,
+        "probeMs": 249,
         "gateDate": "2026-07-27",
         "gateCases": 6,
         "gatePass": 3,
@@ -122,11 +122,11 @@
       ],
       "verified": true,
       "status": "no_credit",
-      "lastChecked": "2026-08-31",
+      "lastChecked": "2026-09-01",
       "lastError": "HTTP 402 {\"message\":\"Payment required to access this resource. Visit your billing tab.\",\"type\":\"payment_required_error\",\"param\":\"quota\",\"code\":\"payme",
       "metrics": {
         "rateLimit": "tight",
-        "probeMs": 219
+        "probeMs": 121
       },
       "notes": "最快。在 Cloudflare 后面：默认 UA 吃 403（error 1010），必须带浏览器 UA。限流紧，并发压低。"
     },
@@ -146,7 +146,7 @@
       ],
       "verified": true,
       "status": "no_key",
-      "lastChecked": "2026-08-31",
+      "lastChecked": "2026-09-01",
       "lastError": "环境里没有 SILICONFLOW_KEY（也没有别名 SILICONFLOW_API_KEY）",
       "metrics": {
         "passRate72b": 0.69,
@@ -172,11 +172,11 @@
       ],
       "verified": true,
       "status": "active",
-      "lastChecked": "2026-08-31",
+      "lastChecked": "2026-09-01",
       "lastError": null,
       "metrics": {
         "latencyMs": 669,
-        "probeMs": 1066
+        "probeMs": 691
       },
       "notes": "免费档，实测 669ms 返回正确。glm-5.x 是付费档，勿顺手升版本号。"
     },
@@ -195,10 +195,10 @@
       ],
       "verified": true,
       "status": "active",
-      "lastChecked": "2026-08-31",
+      "lastChecked": "2026-09-01",
       "lastError": null,
       "metrics": {
-        "probeMs": 791
+        "probeMs": 2837
       },
       "notes": "免费。粗活主力。"
     },
@@ -218,11 +218,11 @@
         "general"
       ],
       "verified": true,
-      "status": "active",
-      "lastChecked": "2026-08-31",
-      "lastError": null,
+      "status": "no_credit",
+      "lastChecked": "2026-09-01",
+      "lastError": "429 持续（间隔 15s 两次均限流）: HTTP 429 限流（凭据有效，瞬时）: {\"error\":{\"message\":\"rpm exhausted\",\"type\":\"quota_exceeded_error\",\"code\":\"8\"}}",
       "metrics": {
-        "probeMs": 2242
+        "probeMs": 894
       },
       "notes": "商汤免费档转发 deepseek-v4-flash。"
     },
@@ -240,10 +240,10 @@
       "tags": [],
       "verified": false,
       "status": "error",
-      "lastChecked": "2026-08-31",
+      "lastChecked": "2026-09-01",
       "lastError": "HTTP 404 {\"error\":{\"message\":\"model is not found\",\"type\":\"not_found_error\",\"code\":\"5\"}}",
       "metrics": {
-        "probeMs": 247
+        "probeMs": 213
       }
     },
     {
@@ -260,10 +260,10 @@
       "tags": [],
       "verified": false,
       "status": "error",
-      "lastChecked": "2026-08-31",
+      "lastChecked": "2026-09-01",
       "lastError": "HTTP 404 {\"error\":{\"message\":\"model is not found\",\"type\":\"not_found_error\",\"code\":\"5\"}}",
       "metrics": {
-        "probeMs": 239
+        "probeMs": 214
       }
     },
     {
@@ -280,10 +280,10 @@
       "tags": [],
       "verified": false,
       "status": "error",
-      "lastChecked": "2026-08-31",
-      "lastError": "超时 60000ms（境外 lane 请确认已加 --use-env-proxy）",
+      "lastChecked": "2026-09-01",
+      "lastError": "HTTP 404 {\"error\":{\"message\":\"model route not found\",\"type\":\"not_found_error\",\"code\":\"5\"}}",
       "metrics": {
-        "probeMs": 60000
+        "probeMs": 211
       }
     },
     {
