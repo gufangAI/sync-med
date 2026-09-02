@@ -73,14 +73,27 @@ def collect_samples():
 
 
 def blocks_of(page):
-    """把 PPStructureV3 的一页结果摊平成 [(label, ...)]。
+    """把 PPStructureV3 的一页结果摊平成块列表。
 
-    它的返回结构随版本变过，所以按几个已知键依次找，全找不到就返回空并让上层
-    记成零框 —— **不猜、不静默补默认值**。零框如果是解析没对上而不是真没框，
-    会在"类型数=0"上立刻暴露，不会伪装成结论。
+    第一次云端跑出 12 页全零框、0.2 秒 —— 不是它没检出，是我根本没喂对:
+    传了 bytes 给 predict()，而现用探针 detect() 是先落盘再传**路径**;
+    结果对象的 .json 在这个版本里是 **callable**，直接当 dict 取键永远是空。
+    两处都照 ocr_layout_probe.detect() 的多路兜底写，那条是实测能拿到框的路。
     """
-    d = page if isinstance(page, dict) else (getattr(page, "json", None) or {})
-    if isinstance(d, dict) and "res" in d and isinstance(d["res"], dict):
+    # ① 对象属性优先（LayoutDetection 实测可行的那条路）
+    for attr in ("parsing_res_list", "boxes"):
+        v = getattr(page, attr, None)
+        if isinstance(v, list) and v:
+            return v
+    # ② .json —— 可能是属性也可能是方法
+    j = getattr(page, "json", None)
+    if callable(j):
+        try:
+            j = j()
+        except Exception:                                        # noqa: BLE001
+            j = None
+    d = j if isinstance(j, dict) else (page if isinstance(page, dict) else {})
+    if isinstance(d, dict) and isinstance(d.get("res"), dict):
         d = d["res"]
     for key in ("parsing_res_list", "boxes", "layout_det_res"):
         v = d.get(key) if isinstance(d, dict) else None
@@ -109,8 +122,12 @@ def main():
     per_page, labels, zero, sec = [], {}, 0, 0.0
     for tag, img in samples:
         t0 = time.time()
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            f.write(img)
+            path = f.name
         try:
-            res = model.predict(img)
+            res = model.predict(path)
         except Exception as e:                                   # noqa: BLE001
             print("  %s 预测失败: %s" % (tag, str(e)[:140]), flush=True)
             traceback.print_exc()
@@ -124,6 +141,9 @@ def main():
         per_page.append(n)
         if n == 0:
             zero += 1
+            r0 = (res[0] if isinstance(res, list) and res else res)
+            print("  [debug] result type=%s attrs=%s" % (
+                type(r0).__name__, [a for a in dir(r0) if not a.startswith("_")][:14]), flush=True)
         print("  %s: %d 框" % (tag, n), flush=True)
 
     if not per_page:
