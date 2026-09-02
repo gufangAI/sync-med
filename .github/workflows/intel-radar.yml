@@ -2,6 +2,9 @@
 #
 # ============================================================
 
+# 注:挖掘引擎 / 吸收官 / 分类表已于 2026-09-02 迁到私有仓
+# hosonzuo/sueai-forge 的 radar.yml 运行 —— 核心引擎与平台实情不留公开仓。
+# 本 workflow 只保留老雷达(daily_report_v3)与不含平台实情的两张报表。
 name: Intel Radar Daily Report v3
 
 on:
@@ -30,10 +33,10 @@ jobs:
 
     permissions:
       # write is ONLY for reports/arsenal/* (the council's input file + the
-      # ledger + the star snapshots) plus ONE named file,
-      # scripts/crawl_core/fingerprints.json -- see the commit step for why.
-      # The commit step below hard-fails if anything else is staged,
-      # same rail as council.yml.
+      # ledger + the star snapshots). The commit step below hard-fails if
+      # anything else is staged, same rail as council.yml.
+      # (crawl_core 的指纹文件此前也在白名单里;挖掘引擎 2026-09-02 迁到私有仓后,
+      #  本仓不再调用 crawl_core,那条白名单随之撤销 —— 白名单只该有真在用的。)
       contents: write
       issues: write    # gh issue create 发情报日报到手机需要(连挂6天缺这个)
 
@@ -99,49 +102,7 @@ jobs:
           fi
           python scripts/intel_radar/daily_report_v3.py --cloud $EXTRA_ARGS
 
-      # 挖掘引擎(创始人 2026-09-02:「你可以想到的有限,这些是要去挖掘的」
-      # 「建好在后台,也可以自己配置搜索的范围」)。
-      #
-      # 它和上面的 daily_report_v3 是两种发现方式,不重复:
-      #   daily_report_v3  按 scan_plan() 里**手写死的查询表**扫 —— 表里没写的赛道
-      #                    永远看不见。实测代价:整条爬虫赛道从没进过表,于是
-      #                    firecrawl(175,415★)/browser-use(112,014★)/crawl4ai(80,997★)
-      #                    在雷达上根本不存在。
-      #   arsenal_mine     顺着 GitHub 上真实存在的关系边爬(现成排行榜 / trending /
-      #                    awesome 榜单 / topic 图),视野**自己长**,不受我的想象力封顶。
-      #
-      # 放在主流程之后:GitHub API 是 5000 次/小时的共享配额,挖掘排在后面,
-      # 万一配额吃紧,损失的是补充手段而不是主采集。MINE_API_BUDGET 是硬闸门。
-      # 失败不阻断整轮(|| true) —— 同上,补充手段挂了不该拖垮主采集。
-      - name: Mine (自我挖掘·视野不靠手写查询表)
-        if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MINE_API_BUDGET: '900'
-        run: |
-          python -m pip install --quiet pyyaml >/dev/null 2>&1 || true
-          python scripts/intel_radar/arsenal_mine.py || true
 
-      # 把 candidates.json 渲染成人能直接看的 md 榜(创始人 2026-09-02:「输出 md 或表格,
-      # 那么我就可以知道有哪些我们可以选择用的」)。纯读本地 JSON,不重复抓 GitHub;
-      # 失败不阻断整轮(|| true) —— 报表挂了不该拖垮情报采集本身。
-      # 吸收官(创始人 2026-09-02:「一定要都用起来!哪怕只是一个点,都可能是价值」
-      # 「不是应该,你的判断总是错的」)。
-      #
-      # 挖到 ≠ 用起来。挖掘引擎一天能扫回三千多个项目,但真正被吃下来变成
-      # 我们自己东西的,今天盘点只有 15 个(0.4%)。差距不在挖,在吃。
-      #
-      # 它对**每一个**候选提取「哪一个点我们能用」,不许答"用不上" ——
-      # 筛选本身就是瓶颈:判定"用不上"的那一刻,这个项目就永远消失了。
-      # 断点续跑,每轮吃一批,跑过的存 absorb.json 不重复烧网关。
-      - name: Absorb (逐个提取可用点·不筛选)
-        if: always()
-        env:
-          GW_KEY: ${{ secrets.GW_KEY }}
-          ABSORB_LIMIT: '120'
-          ABSORB_WORKERS: '6'
-        run: |
-          python scripts/intel_radar/arsenal_absorb.py || true
 
       - name: Render arsenal boards (md + xlsx)
         if: always()
@@ -151,6 +112,8 @@ jobs:
           # (2026-09-02 实测:漏了它,40 个详解全挂,日志只写"跳过",
           #  不 curl 一次根本看不出是缺 key 还是模型不通)。
           GW_KEY: ${{ secrets.GW_KEY }}
+          PLATFORM_CONTEXT: ${{ secrets.PLATFORM_CONTEXT }}
+          OURS_STACK: ${{ secrets.OURS_STACK }}
           # arsenal_category 现在会给头部项目抓 README 再写详解(以前只喂 300 字描述,
           # 模型再强也变不出它没见过的信息)。抓 README 走 GitHub API,
           # **没有 token 就落进每 IP 60 次/小时的匿名桶**,和同一 runner 上别的作业共用,
@@ -160,9 +123,6 @@ jobs:
           python scripts/intel_radar/arsenal_md.py || true
           python -m pip install --quiet openpyxl >/dev/null 2>&1 || true
           python scripts/intel_radar/arsenal_xlsx.py || true
-          # 分类对比表(创始人 2026-09-02:「出一个类别对比表格…并有详细的说明」)。
-          # 读 mined.json + candidates.json,不重复抓 GitHub。
-          python scripts/intel_radar/arsenal_category.py || true
 
       # The council reads reports/arsenal/candidates.json out of the repo, and
       # the 30-day star delta is computed by diffing star_history.json against
@@ -181,7 +141,6 @@ jobs:
           git config user.name  "intel-radar[bot]"
           git config user.email "intel-radar@users.noreply.github.com"
           git add -- reports/arsenal || true
-          git add -- scripts/crawl_core/fingerprints.json || true
           STAGED=$(git diff --cached --name-only)
           if [ -z "$STAGED" ]; then
             echo "nothing to commit"
@@ -195,7 +154,7 @@ jobs:
           # git 配置、影响面更大;这里只放宽比对,闸本身的严格性不变)。
           OUTSIDE=$(echo "$STAGED" | sed 's/^"//; s/"$//' \
                     | grep -v '^reports/arsenal/' \
-                    | grep -v '^scripts/crawl_core/fingerprints\.json$' || true)
+                    || true)
           if [ -n "$OUTSIDE" ]; then
             echo "::error::intel-radar tried to commit files outside reports/arsenal/:"
             echo "$OUTSIDE"
