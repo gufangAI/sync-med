@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "无",
+ "how": "无",
+ "effort": "无",
+ "current": "cloudflare-ocr-worker",
+ "beats": "无",
+ "why": "Redis 是内存数据库，不适合 OCR 产线处理古籍扫描件转文字的需求"
+}

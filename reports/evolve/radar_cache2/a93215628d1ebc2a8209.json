@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR识别准确率",
+ "how": "",
+ "effort": "",
+ "current": "tesseract.js",
+ "beats": "",
+ "why": "PaddlePaddle/PaddleOCR 与 tesseract.js 家底一致，无需替换"
+}

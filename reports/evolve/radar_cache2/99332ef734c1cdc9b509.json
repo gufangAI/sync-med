@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "sue_graph_nodes/edges 6.9 万节点,2D/3D 力导向可视化",
+ "beats": "",
+ "why": "反向误判红线：看到「数据库/搜索/服务器/引擎/后端/Go/Rust/C++」等字眼直接 skip = 重大失误。必须逐行确认:它是否要求我「先跑一个服务再连它」? 若否,闸门通过。"
+}

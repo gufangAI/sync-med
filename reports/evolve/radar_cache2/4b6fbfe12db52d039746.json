@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "cloudflare-ocr-worker",
+ "beats": "",
+ "why": "反向误判红线：包含‘数据库/搜索/服务器/引擎/后端/Go/Rust/C++’等字眼，直接 skip"
+}
