@@ -109,9 +109,16 @@ def fetch_anysearch(query: str, max_results: int = 6, timeout: int = 30) -> list
         "method": "tools/call",
         "params": {"name": "search", "arguments": {"query": query, "max_results": max_results}},
     }).encode("utf-8")
+    # 2026-09-02:接 ANYSEARCH_API_KEY —— 匿名档可用但**速率限制较低**,而本雷达每轮
+    # 要发几十个查询(竞品6组+监管5组×多关键词),正好卡在限流上。有 key 走 Bearer 拿更高
+    # 速率;**无 key 自动退回匿名**,不会因为忘配 secret 就整条挂掉。
+    _hdrs = {"Content-Type": "application/json"}
+    _ak = os.environ.get("ANYSEARCH_API_KEY", "").strip()
+    if _ak:
+        _hdrs["Authorization"] = "Bearer " + _ak
     try:
         raw = fetch_url(ANYSEARCH_ENDPOINT, timeout=timeout, data=payload,
-                         headers={"Content-Type": "application/json"})
+                         headers=_hdrs)
         data = json.loads(raw)
     except Exception as e:
         print(f"    [AnySearch] '{query[:30]}' 失败: {e}")
