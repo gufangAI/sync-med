@@ -1,0 +1,44 @@
+# 版面分析质量探针(workflow_dispatch·手动触发):
+# 抓真实古籍页跑 PP-DocLayout,报每页版面框数/类型/零框页,回答"竖排古籍质量够不够"。
+# 有 PAN/D1 密钥(主仓)→真古籍;无密钥(fork)→合成样例只验核心。本地禁算力:推理只在 Actions。
+name: OCR Layout Quality Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      books:
+        description: '抽几本医书'
+        required: false
+        default: '3'
+      pages:
+        description: '每本前几页'
+        required: false
+        default: '4'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --quiet "paddleocr>=3,<4" "paddlepaddle==3.0.0" pillow requests
+      - name: Run layout quality probe
+        env:
+          PROBE_BOOKS: ${{ github.event.inputs.books }}
+          PROBE_PAGES: ${{ github.event.inputs.pages }}
+          PAN_CLIENT_ID: ${{ secrets.PAN_CLIENT_ID }}
+          PAN_CLIENT_SECRET: ${{ secrets.PAN_CLIENT_SECRET }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+        run: python ocr_layout_probe.py
+      - name: Upload probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-layout-probe
+          path: ocr_layout_probe.md
+          if-no-files-found: ignore
