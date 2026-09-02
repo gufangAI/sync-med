@@ -1,0 +1,36 @@
+# 寻脉 embedding 缓存预热(周跑 + 手动):
+# 提前把高频方名+常见症状灌进 embedding 缓存,用户首次查热门词也秒回(缓存 TTL 30天)。
+# 纯 POST 生产 /api/retrieve(公开端点)+填缓存,零副作用。本机禁算力→跑 Actions 云端。
+name: Prewarm Embed Cache (寻脉预热)
+
+on:
+  schedule:
+    - cron: '0 20 * * 0'   # 每周日 20:00 UTC = 周一 04:00 北京·低峰
+  workflow_dispatch:
+    inputs:
+      top:
+        description: '取几个高频方名'
+        required: false
+        default: '40'
+
+concurrency:
+  group: prewarm-embed
+  cancel-in-progress: false
+
+jobs:
+  prewarm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet requests
+      - name: Prewarm
+        env:
+          PREWARM_TOP: ${{ github.event.inputs.top }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+        run: python scripts/content_factory/prewarm_embed.py
