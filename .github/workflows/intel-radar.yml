@@ -124,7 +124,13 @@ jobs:
             echo "nothing to commit"
             exit 0
           fi
-          OUTSIDE=$(echo "$STAGED" | grep -v '^reports/arsenal/' || true)
+          # 中文文件名会被 git 输出成带引号的八进制转义:
+          #   "reports/arsenal/åç«æ¦_2026-09-02.xlsx"
+          # 开头多了个引号,`grep -v '^reports/arsenal/'` 匹配不上,于是把**本来就在
+          # arsenal 目录里**的军火榜误判成越界、整轮 fail(2026-09-02 实证)。
+          # 修法:比对前先剥掉首尾引号(git -c core.quotepath=false 也能解,但那要改
+          # git 配置、影响面更大;这里只放宽比对,闸本身的严格性不变)。
+          OUTSIDE=$(echo "$STAGED" | sed 's/^"//; s/"$//' | grep -v '^reports/arsenal/' || true)
           if [ -n "$OUTSIDE" ]; then
             echo "::error::intel-radar tried to commit files outside reports/arsenal/:"
             echo "$OUTSIDE"
