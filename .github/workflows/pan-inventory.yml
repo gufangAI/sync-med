@@ -1,0 +1,91 @@
+name: pan-inventory
+
+# 123 全量清点 —— 把"网盘上到底有多少本、各是什么形态"数成一份可核对的清单。
+#
+# 立此因(创始人 2026-08-28):「123其实还有非常多的PDF没转webp，能不能也导入呢」
+#   本机只读测绘已确认:PDF 全在另一棵树(古籍PDF/)下,而每天在跑的 pan-register.yml
+#   **只扫 GufangP 那一棵**(webp 侧)—— PDF 侧的缺口连报都没报过。
+#   目录名里自带册数的能读出 60,349 册,但 40 个集合里 24 个名字没写数
+#   (上海图书馆全库/国家图书馆藏/台北故宫/天一阁/哈佛…),所以那是**下限不是清点**。
+#
+# 与 pan-register.yml 的分工(别混):
+#   pan-register  每天 03:00 · 把 123 上的目录 id **写进 D1** · 只走 GufangP
+#   pan-inventory 本 workflow · **只数不写** · 走全部顶层 · 产出清单 artifact
+#
+# ⚠️ 本 workflow **不写 D1、不下载文件、不碰 R2**。入库是下一步、单独一个 PR,
+#    且必须过版权闸 —— 这批里有大量国内馆藏与现代整理本,《版权风险台账》的判据是
+#    「影印本可展示 / 现代排印本不可」,整棵树推上去会直接撞线。
+
+on:
+  workflow_dispatch:
+    inputs:
+      roots:
+        description: '只扫这些顶层目录(逗号分隔,留空=全部)'
+        default: ''
+      max_depth:
+        description: '从账号根往下最多几层(书目录通常 3-4 层)'
+        default: '5'
+  schedule:
+    # 每周一次就够:这是"家底盘点"不是"增量同步",增量由 pan-register 每天做。
+    # 09:00 UTC = 17:00 北京,错开 pan-register(03:00 UTC)与内容工厂。
+    - cron: '0 9 * * 1'
+
+concurrency:
+  group: pan-inventory
+  cancel-in-progress: false      # 跑一半被顶掉就白跑 3 小时,让它跑完
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330         # 单账号全量实测 3-5 小时(pan_register 的实测值)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 清点 123（只读，不写 D1）
+        env:
+          PAN_BASE:   ${{ secrets.PAN_BASE }}
+          PAN_CID:    ${{ secrets.PAN_CID }}
+          PAN_SEC:    ${{ secrets.PAN_SEC }}
+          # 第二个账号(PDF 侧 46TB)的凭据目前**不在 secrets 里**。
+          # 脚本缺它就只扫一个账号,并在摘要里明写"只覆盖 1 个账号",不假装扫全了。
+          # 要覆盖全网盘,需要创始人加 PAN_CID_2 / PAN_SEC_2 —— 那是账户级设置,不自行代劳。
+          PAN_CID_2:  ${{ secrets.PAN_CID_2 }}
+          PAN_SEC_2:  ${{ secrets.PAN_SEC_2 }}
+        run: |
+          python scripts/pan_inventory.py \
+            --out pan_inventory.jsonl \
+            --max-depth "${{ inputs.max_depth || '5' }}" \
+            --roots "${{ inputs.roots }}" 2>&1 | tee inventory.log
+
+      - name: 摘要进 Job Summary
+        if: always()
+        run: |
+          {
+            echo "## 123 清点结果"
+            echo
+            echo '```'
+            tail -n 30 inventory.log 2>/dev/null || echo "(没有日志)"
+            echo '```'
+            echo
+            if [ -f pan_inventory.jsonl ]; then
+              echo "清单行数：$(wc -l < pan_inventory.jsonl)"
+            else
+              echo "**没有产出清单** —— 查上面的日志。"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pan-inventory-${{ github.run_id }}
+          path: |
+            pan_inventory.jsonl
+            pan_inventory_stats.json
+            inventory.log
+          retention-days: 30

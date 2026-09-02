@@ -14,20 +14,12 @@ LIMIT = int(os.environ.get("LIMIT", "0") or 0)
 PATHS = ([p.split(",") for p in os.environ["PAN_PATH"].split(";") if p.strip()]
          if os.environ.get("PAN_PATH") else None)  # None -> auto-discover under GufangP
 
-_CN_CAT_PREFIX = {"\u5b50": "zi", "\u53f2": "shi", "\u5225": "bie", "\u522b": "bie", "\u96c6": "ji", "\u7d93": "jing", "\u7ecf": "jing"}
-
-def to_book_id(name):
-    # 2026-07-14 two-layer convention: volume folder named "<id> <title>", first token = book_id.
-    # Chinese catalog prefix -> pinyin to match D1 book_id (e.g. \u5225024-... -> bie024-...);
-    # bare naikaku segment 301-0027-01 -> zi301-0027-01.
-    import re as _re
-    tok = str(name).split()[0] if str(name).split() else str(name)
-    m = _re.match(r"^([\u4e00-\u9fff])(\d{2,3}-\d{4}.*)$", tok)
-    if m and m.group(1) in _CN_CAT_PREFIX:
-        return _CN_CAT_PREFIX[m.group(1)] + m.group(2)
-    if _re.match(r"^\d{3}-", tok):
-        return "zi" + tok
-    return tok
+# book_id 规范：**全仓唯一一份**在 scripts/book_id.py（零依赖，可安全 import）。
+# 2026-08-28 收敛：此处原有一份、pan_inventory.py 又抄了一份，
+# 两份一旦漂移，清点算出的"缺口"就和真实注册行为对不上，而没人会发现。
+import os as _os_bi, sys as _sys_bi
+_sys_bi.path.insert(0, _os_bi.path.dirname(_os_bi.path.abspath(__file__)))
+from book_id import to_book_id                       # noqa: E402
 
 
 S = requests.Session()
