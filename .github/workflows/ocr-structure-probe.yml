@@ -1,0 +1,63 @@
+# PP-StructureV3 对打探针（workflow_dispatch·手动触发）
+#
+# 立此因（2026-09-02）：我们已在用 paddleocr 包里的 LayoutDetection（只给版面框，
+# 实测只分出 text/paragraph_title/image 三类）。同一个包里还有 PPStructureV3
+# （版面 + 表格 + 阅读顺序），**零新依赖、无需 GPU、Apache-2.0 无营收条款**。
+# 到底比现用的强多少，不跑不知道 —— 这个探针就是拿数字对打。
+#
+# 判据与 ocr-layout-probe 同口径，可直接对比 run 33649135911：
+#   现用 LayoutDetection = 平均 4.4 框/页 · 零框页 0 · 3 种类型 · 11.4 秒/页
+# 重点看**类型数**：夹注判据要立足于能不能把结构分开，分不开就无从下手。
+#
+# 本地禁算力铁律：推理只在 Actions 跑，绝不本机。
+
+name: OCR Structure Probe (PP-StructureV3)
+
+on:
+  workflow_dispatch:
+    inputs:
+      books:
+        description: '抽几本医书'
+        required: false
+        default: '3'
+      pages:
+        description: '每本前几页'
+        required: false
+        default: '4'
+
+concurrency:
+  group: ocr-structure-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35     # 比 layout 探针多给 10 分钟：结构分析比纯版面检测重
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 与 ocr-layout-probe 完全同一套依赖 —— 这正是本方案成本低的原因：
+      # PPStructureV3 就在这个包里，不需要引入任何新东西。
+      - run: python -m pip install --quiet "paddleocr>=3,<4" "paddlepaddle==3.0.0" pillow requests
+
+      - name: Run structure probe
+        env:
+          PROBE_BOOKS: ${{ github.event.inputs.books }}
+          PROBE_PAGES: ${{ github.event.inputs.pages }}
+          PAN_CLIENT_ID:     ${{ secrets.PAN_CLIENT_ID }}
+          PAN_CLIENT_SECRET: ${{ secrets.PAN_CLIENT_SECRET }}
+          CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
+          D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+        run: python ocr_structure_probe.py
+
+      - name: Upload probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-structure-probe
+          path: ocr_structure_probe.md
+          if-no-files-found: warn
