@@ -39,9 +39,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      # 与 ocr-layout-probe 完全同一套依赖 —— 这正是本方案成本低的原因：
-      # PPStructureV3 就在这个包里，不需要引入任何新东西。
-      - run: python -m pip install --quiet "paddleocr>=3,<4" "paddlepaddle==3.0.0" pillow requests
+      # 比 ocr-layout-probe 多装一个 paddlex[ocr]：PPStructureV3 的管线依赖在那个 extra 里。
+      # 第一次跑就是栽在这（DependencyError），"零新依赖"说早了 —— 同生态，但要多装一个包。
+      - run: |
+          python -m pip install --quiet "paddleocr>=3,<4" "paddlepaddle==3.0.0" pillow requests
+          python -m pip install --quiet "paddlex[ocr]" || python -m pip install --quiet "paddlex[ocr]==3.0.0"
 
       - name: Run structure probe
         env:
