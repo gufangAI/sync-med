@@ -21,7 +21,7 @@
   "LLM-friendly",光看描述会把它归进 LLM 类而不是爬虫类。
   所以两者都要看,但可靠的那个权重更大。
 
-详细说明走**内部免费池网关**(红线:零按量计费源),给每类的头部项目写四段:
+详细说明走**内部免费额度网关**(红线:零按量计费源),给每类的头部项目写四段:
   做什么 / 怎么用 / 对我们有没有用 / 坑
 写过的存进 details.json 复用,不重复烧网关。
 
@@ -32,6 +32,7 @@
    分类靠"类别"列 + 筛选器,不靠分页;这样能跨类一起排序比较。)
 """
 import io
+import os
 import json
 import os
 import sys
@@ -157,7 +158,7 @@ def classify(row, cats):
 
 
 def ask_gateway(prompt, system, timeout=120):
-    """走内部免费池网关。红线:严禁任何按量计费源。
+    """走内部免费额度网关。红线:严禁任何按量计费源。
 
     返回契约:成功返回文本;失败返回 "" —— 调用方据此跳过,不写半截内容。
     """
@@ -166,7 +167,7 @@ def ask_gateway(prompt, system, timeout=120):
                      {"role": "user", "content": prompt}],
         "max_tokens": 900, "temperature": 0.3, "source": "arsenal_category",
     }).encode()
-    # X-Gateway-Key 是必需的:内部免费池网关不是公开 API,没这个头一律 UNAUTHORIZED。
+    # 网关鉴权头是必需的:内部网关不是公开 API,缺它一律 UNAUTHORIZED。
     # (2026-09-02 实测踩过:漏了这一行 → 40 个详解全部"网关失败",
     #  而失败信息只写"跳过",不看 curl 根本不知道是缺 key 还是模型不通。)
     # key 走环境变量/Secrets 注入,**绝不写进代码** —— 这个仓是 PUBLIC。
@@ -186,17 +187,15 @@ def ask_gateway(prompt, system, timeout=120):
         return ""
 
 
-PLATFORM = """古方 AI 星图 = 中医古籍 AI 平台。现有产线:
-1) RAG检索:2100+医案 + 7700+古籍向量检索,讯飞embedding(绑死不可换)
-2) 古籍OCR:几万本扫描书页,RapidOCR 跑 GitHub Actions,竖排/夹注识别差
-3) 视频产线:Remotion+edge-tts 出专家口播视频,但发布分发=0代码
-4) 图文产线:satori 渲方剂卡,缺自动发布
-5) AI免费池:自建网关,9家免费模型容错链,零按量计费
-6) 鹰眼情报:自建挖掘引擎,五条矿脉自动发现开源
-硬约束:无服务器(CF Workers/GitHub Actions)、本地禁算力、AI 只走内部免费池、
-绝不换 embedding 供应商、GPL/AGPL 代码不能进闭源生产。"""
+PLATFORM = os.environ.get("PLATFORM_CONTEXT") or """一个古籍数字化 AI 平台,若干条产线:
+1) 向量检索线   2) 扫描件 OCR 线   3) 视频产线   4) 图文产线
+5) 自建模型网关(只走免费额度,零按量计费)   6) 开源情报挖掘线
+运行约束:无服务器(边缘函数 / CI runner)、本地禁算力无 GPU、
+AI 调用只走内部免费池、检索向量供应商已锁定不可更换。
+(具体产线数字与卡点走 PLATFORM_CONTEXT 环境变量注入,不写进公开仓 —— 
+ 2026-09-02 血证:六条产线的卡点、家底数字、技术绑定曾被我完整写进 PUBLIC 仓注释。)"""
 
-SYS = """你是古方AI星图平台的技术选型顾问。给你一个 GitHub 项目,
+SYS = """你是本平台的技术选型顾问。给你一个 GitHub 项目,
 写一段**详细的中文说明**让平台负责人判断值不值得用。
 
 四段,每段用「」标题开头,段间换行:

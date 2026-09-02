@@ -123,18 +123,26 @@ h1{font-family:"Noto Serif SC",serif;font-size:clamp(28px,4.2vw,44px);
   border:1px solid var(--line);border-radius:20px;padding:1px 11px}
 .cdesc{flex:1 1 100%;font-size:13.5px;color:var(--ink-2);margin-top:4px}
 .tw{overflow-x:auto;border-top:1px solid var(--line)}
-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:720px}
-th{text-align:left;font-size:11.5px;letter-spacing:.06em;color:var(--ink-3);
-  font-weight:700;padding:11px 14px;border-bottom:1px solid var(--line);
-  background:var(--paper);position:sticky;top:0}
-td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+/* 三列表。上一版六列被指"非常不专业":列一多必然横向滚动,横向滚动的表没人读。
+   padding 收到 10px,不设固定行高 —— 行高交给内容,短的就短,一屏能扫十几行。 */
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:12px;color:var(--ink-3);font-weight:600;
+  padding:9px 14px;border-bottom:2px solid var(--line);
+  background:var(--paper);white-space:nowrap;position:sticky;top:0}
+td{padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+/* 语言做成内联标签跟在项目名后,不单独占列 */
+.lang{display:inline-block;font-size:11px;color:var(--ink-3);background:var(--paper);
+  border:1px solid var(--line);padding:0 7px;border-radius:4px;margin-left:7px;
+  vertical-align:1px}
+/* 矿脉来源是内部信息,降级成项目名下的小字,不占列 */
+.from{font-size:11px;color:var(--ink-3);margin-top:3px}
 tr:last-child td{border-bottom:none}
 .star{font-variant-numeric:tabular-nums;font-weight:700;color:var(--accent);
   white-space:nowrap;text-align:right}
 a.repo{color:var(--ink);text-decoration:none;font-weight:500;
   border-bottom:1px solid var(--line);transition:border-color .2s var(--ease)}
 a.repo:hover{border-color:var(--accent);color:var(--accent)}
-.dsc{color:var(--ink-2);font-size:12.5px;max-width:52ch}
+.dsc{color:var(--ink-2);font-size:12.5px;line-height:1.7}
 .lic{font-size:11px;padding:2px 8px;border-radius:20px;white-space:nowrap;font-weight:500}
 .lic.ok{background:var(--ok-bg);color:var(--ok)}
 .lic.warn{background:var(--warn-bg);color:var(--warn)}
@@ -144,7 +152,8 @@ footer{margin-top:44px;padding-top:22px;border-top:1px solid var(--line);
   font-size:12.5px;color:var(--ink-3)}
 .sec{font-family:"Noto Serif SC",serif;font-size:23px;margin:38px 0 6px;font-weight:700}
 .sechint{font-size:13px;color:var(--ink-3);margin:0 0 16px;max-width:70ch}
-.ovw table{min-width:820px}
+.ovw table{min-width:760px}
+.tw{overflow-x:auto}
 .ovw{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:8px}
 .heat{font-size:11.5px;padding:2px 10px;border-radius:20px;font-weight:700;white-space:nowrap}
 .heat.h0{background:var(--line);color:var(--ink-3)}
@@ -159,6 +168,13 @@ footer{margin-top:44px;padding-top:22px;border-top:1px solid var(--line);
 .vblk.pick{background:var(--accent-soft);border-left:3px solid var(--accent)}
 .vt{font-weight:700;font-size:12px;letter-spacing:.06em;color:var(--accent)}
 .vblk.trend .vt{color:var(--ink-3)}
+.keys{display:grid;gap:12px;margin:0 0 12px}
+.key{display:flex;gap:16px;background:var(--card);border:1px solid var(--line);
+  border-radius:14px;padding:18px 22px;align-items:flex-start}
+.kn{font-family:"Noto Serif SC",serif;font-size:30px;font-weight:700;
+  color:var(--accent);line-height:1;min-width:34px;opacity:.55}
+.key strong{display:block;font-size:15.5px;margin-bottom:5px}
+.key p{margin:0;font-size:13.5px;color:var(--ink-2);line-height:1.75}
 code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:var(--paper);padding:2px 7px;border-radius:5px;border:1px solid var(--line)}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
 </style>""")
@@ -182,6 +198,39 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;ba
              'topic 图和全量枚举五条矿脉自己扫，视野不再受限于谁能想到哪个赛道。'
              '同日老雷达按手写查询表只产出 22 个候选，且头部是 awesome-godot、'
              'awesome-geojson 这类无关项目。</p>')
+
+    # ── 全局判断 ─────────────────────────────────────────────────
+    # 对比另一份同题报告时发现的差距:我堆了 121 个项目的数据,却**没给结论**。
+    # 人看完一张表最想知道的是"所以呢",而不是再多十行数据。
+    # 这一段用真实分布算出结论,不是感想:哪条赛道最厚、涨势集中在哪、我们缺哪块。
+    thick = sorted([c for c in cats if c["top"]], key=lambda c: -c["n"])
+    thin_ = [c for c in cats if c["n"] <= 30]
+    top1, top2 = thick[0], thick[1]
+    P.append('<h2 class="sec">一、看完这张表要记住的三件事</h2>')
+    P.append('<div class="keys">')
+    for n, (t, b) in enumerate([
+        ("赛道厚度极不均衡，注意力该往哪放",
+         "「%s」%d 个、「%s」%d 个，两条合计占了已归类的 %d%%；"
+         "而「%s」只有 %d 个。厚不代表更重要，但薄的那几条说明"
+         "<strong>要么这个方向的开源本来就少，要么我们的挖掘种子没覆盖到</strong>——"
+         "后一种是我们自己的问题，不是市场的问题。"
+         % (top1["name"], top1["n"], top2["name"], top2["n"],
+            round(100.0 * (top1["n"] + top2["n"]) / max(1, classified)),
+            (thin_[0]["name"] if thin_ else "—"), (thin_[0]["n"] if thin_ else 0))),
+        ("挖到 ≠ 用起来，这才是真差距",
+         "候选池 %s 个，而真正被拆开吃进我们代码的，今天盘点只有 15 个（0.4%%）。"
+         "差距不在发现，在吸收。所以现在每个项目都必须交出"
+         "<strong>「能学到什么点、怎么用到我们哪条产线」</strong>，"
+         "不许答「用不上」——判定用不上的那一刻，这个项目就永远消失了。" % k(d["total"])),
+        ("别看总星，看它是从哪条矿脉冒出来的",
+         "总星数偏袒老仓：public-apis 47 万星但它只是个 API 清单。"
+         "真正有信号的是「怎么发现的」那一列——"
+         "<strong>从 trending 冒出来的是当下在涨，从全量枚举捞到的是存量大盘</strong>，"
+         "两者要分开看。"),
+    ], 1):
+        P.append('<div class="key"><span class="kn">%d</span>'
+                 '<div><strong>%s</strong><p>%s</p></div></div>' % (n, t, b))
+    P.append('</div>')
 
     # ── 我们自己的引擎 ───────────────────────────────────────────
     # 创始人 2026-09-02:「我要的是你学习几十个开源,变成1个自己的」。
@@ -214,20 +263,22 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;ba
     if rows_core:
         total_lines = sum(r[3] for r in rows_core)
         allsrc = sorted({s for r in rows_core for s in r[4]})
-        P.append('<h2 class="sec">一、我们自己的抓取引擎（已建成）</h2>')
+        P.append('<h2 class="sec">二、我们自己的抓取引擎（已建成）</h2>')
         P.append('<p class="sechint">下面这些不是候选、不是计划——是<strong>已经写完并自测通过的代码</strong>，'
                  '把 %s 等项目的核心技术拆开、糅合、重写成我们自己的一套。'
                  '共 <strong>%s 行</strong>，每一处技术在源文件里都注明了取自上游的哪个文件哪个函数。</p>'
                  % ("、".join(allsrc), k(total_lines)))
+        # 三列。原来五列(模块/做什么/行数/能力/技术来自)里,"做什么"和"能力"
+        # 说的是同一件事,拆两列纯属占宽度;模块名和角色合并成一格更好读。
         P.append('<div class="tw ovw"><table><thead><tr>'
-                 '<th>模块</th><th>做什么</th><th style="text-align:right">行数</th>'
-                 '<th>能力</th><th>技术来自</th></tr></thead><tbody>')
+                 '<th>模块</th><th style="text-align:right">行数</th>'
+                 '<th>技术来自谁</th></tr></thead><tbody>')
         for fn, role, what, n, srcs in rows_core:
-            P.append('<tr><td><code>%s</code></td><td><strong>%s</strong></td>'
-                     '<td class="star">%s</td><td class="dsc">%s</td>'
-                     '<td class="dsc">%s</td></tr>'
-                     % (html.escape(fn), html.escape(role), k(n),
-                        html.escape(what), html.escape(" · ".join(srcs) or "—")))
+            P.append('<tr><td><code>%s</code><span class="lang">%s</span>'
+                     '<div class="from">%s</div></td>'
+                     '<td class="star">%s</td><td class="dsc">%s</td></tr>'
+                     % (html.escape(fn), html.escape(role), html.escape(what),
+                        k(n), html.escape(" · ".join(srcs) or "—")))
         P.append('</tbody></table></div>')
         st = os.path.join(CORE, "_selftest_result.json")
         if os.path.isfile(st):
@@ -241,13 +292,12 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;ba
     # ── 赛道横向对比总览 ──────────────────────────────────────────
     # 创始人 2026-09-02 要的是「类别**对比**表格」,我第一版做成了分类清单 ——
     # 清单能查,但不能比。一眼看出"哪条赛道最热、我们该先动哪条",要的是这张表。
-    P.append('<h2 class="sec">二、%d 条赛道横向对比</h2>' % len(cats))
+    P.append('<h2 class="sec">三、%d 条赛道横向对比</h2>' % len(cats))
     P.append('<p class="sechint">按「头部项目体量 × 赛道厚度」排。'
              '<strong>我们的落点</strong>这一列是这张表的重点 —— '
              '热不热是别人的事，能不能接进我们的产线才是我们的事。</p>')
     P.append('<div class="tw ovw"><table><thead><tr>'
-             '<th>赛道</th><th style="text-align:right">候选数</th>'
-             '<th style="text-align:right">头部星数</th><th>热度</th>'
+             '<th>赛道</th><th style="text-align:right">规模</th><th>热度</th>'
              '<th>头部代表</th><th>我们的落点</th></tr></thead><tbody>')
 
     def heat(n, mx):
@@ -269,14 +319,13 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;ba
         hname, hcls = heat(c["n"], mx)
         reps = " · ".join(x["repo"].split("/")[-1] for x in c["top"][:3])
         P.append('<tr><td><strong>%s</strong></td>'
-                 '<td class="star">%s</td>'
-                 '<td class="star">%s</td>'
+                 '<td class="star">%s<div class="from">头部 %s★</div></td>'
                  '<td><span class="heat %s">%s</span></td>'
                  '<td class="dsc">%s</td><td class="dsc">%s</td></tr>'
                  % (html.escape(c["name"]), k(c["n"]), k(mx), hcls, hname,
                     html.escape(reps), md_bold(c["desc"])))
     P.append('</tbody></table></div>')
-    P.append('<h2 class="sec">三、各赛道头部项目明细</h2>')
+    P.append('<h2 class="sec">四、各赛道头部项目明细</h2>')
     P.append('<p class="sechint">每类按「对口程度」取前 60 再按星数排前 12 —— '
              '直接按星数排会让每类头部被 vscode、react 这种通用大项目占满，'
              '那不是「这一类最对口的」。</p>')
@@ -330,19 +379,34 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;ba
                  '<div class="cdesc">%s</div></summary>'
                  % (html.escape(c["name"]), c["n"], html.escape(c["desc"])))
         P.append(render_verdict(verdicts.get(c["key"])))
+        # 三列表:项目 / 星数 / 能学到什么。
+        #
+        # 上一版是六列(项目·星数·语言·能学到·怎么用·怎么发现的),被指"非常不专业",
+        # 拆开看确实站不住:
+        #   · 「怎么发现的」是**我们内部**的矿脉名(全量枚举/trending/榜单),
+        #     对读表的人零价值,却占着一整列宽度
+        #   · 「语言」单独占一列很浪费 —— 它是项目的属性,做成内联小标签跟在名字后面即可
+        #   · 把 420 字的说明塞进单元格,把行撑到很高,一页看不了几行
+        # 列一多,表就得横向滚动,横向滚动的表没人读。
+        # 现在:语言内联成 tag,矿脉降级成项目名下的小字,说明只留「能学到什么」
+        # (「怎么用」上移到本节顶部的整合方案里,那里才是它该待的地方)。
         P.append('<div class="tw"><table><thead><tr>'
                  '<th>项目</th><th style="text-align:right">星数</th>'
-                 '<th>语言</th><th>能学到什么</th><th>怎么发现的</th>'
+                 '<th>能学到什么</th>'
                  '</tr></thead><tbody>')
         for r in c["top"]:
-            body = r.get("detail") or r.get("desc") or ""
+            # 说明优先级:吸收官提取的可用点 > AI 详解 > GitHub 英文描述。
+            # 英文 description 是作者的营销语,排最后 —— 要看的是「我们能学到什么」,
+            # 不是「作者怎么自我介绍」。
+            body = r.get("point") or r.get("detail") or r.get("desc") or ""
+            lang = ('<span class="lang">%s</span>' % html.escape(r["lang"])) if r.get("lang") else ""
+            src = ('<div class="from">%s</div>' % html.escape(r["origin"])) if r.get("origin") else ""
             P.append('<tr><td><a class="repo" href="https://github.com/%s" '
-                     'target="_blank" rel="noopener">%s</a></td>'
-                     '<td class="star">%s</td><td class="src">%s</td>'
-                     '<td class="dsc">%s</td><td class="src">%s</td></tr>'
-                     % (html.escape(r["repo"]), html.escape(r["repo"]), k(r["stars"]),
-                        html.escape(r["lang"] or "—"),
-                        html.escape(body[:220]), html.escape(r["origin"] or "—")))
+                     'target="_blank" rel="noopener">%s</a>%s%s</td>'
+                     '<td class="star">%s</td>'
+                     '<td class="dsc">%s</td></tr>'
+                     % (html.escape(r["repo"]), html.escape(r["repo"].split("/")[-1]),
+                        lang, src, k(r["stars"]), html.escape(body[:300])))
         P.append('</tbody></table></div></details>')
 
     P.append('<footer>数据源：鹰眼挖掘引擎 <code>arsenal_mine.py</code> '
