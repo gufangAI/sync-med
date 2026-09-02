@@ -1,0 +1,54 @@
+# 方剂图文卡批量渲染(内容产线·workflow_dispatch):
+# satori+resvg 把 D1 真方剂渲成带出处的分享图文卡(1080×1080 PNG)。
+# 有 D1 密钥(主仓)→真方剂;无密钥(fork)→退样例。本地禁算力:渲染只在 Actions/云端。
+# 本轮出图进 artifact 可下载核验;上传 R2/服务前台是后续。
+name: Card Render (方剂图文卡)
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: '渲染几张'
+        required: false
+        default: '6'
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install render deps
+        working-directory: scripts/content_factory/card
+        run: npm install --no-audit --no-fund
+      - name: Render cards (Node satori→out/*.png)
+        working-directory: scripts/content_factory/card
+        env:
+          CARD_LIMIT: ${{ github.event.inputs.limit }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_API_TOKEN: ${{ secrets.D1_API_TOKEN }}
+        run: node render_cards.mjs
+      # 上传到 123(不是 R2):图片全在 123、前台从 123 取。需 PAN_DIR_CARDS(创始人在 123 建 cards 文件夹给 id)。
+      # 无 PAN_DIR_CARDS(fork/未配)→ 脚本自动跳过上传,只留 artifact。
+      - name: Upload cards to 123
+        if: always()
+        working-directory: scripts/content_factory/card
+        env:
+          PAN_CID: ${{ secrets.PAN_CID }}
+          PAN_SEC: ${{ secrets.PAN_SEC }}
+          PAN_DIR_CARDS: ${{ secrets.PAN_DIR_CARDS }}
+        run: python -m pip install --quiet requests && python upload_cards_123.py
+      - name: Upload cards artifact (核验用)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formula-cards
+          path: scripts/content_factory/card/out/*.png
+          if-no-files-found: warn
