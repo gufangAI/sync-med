@@ -36,15 +36,36 @@ import json
 import os
 import sys
 import time
+import threading
 import datetime
 import urllib.request
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+# 用 reconfigure 原地改,**不要**写成 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, ...):
+# 本文件被别的脚本 import 时会二次包裹,中间那层 TextIOWrapper 无人引用被 GC、
+# __del__ 顺手关掉底层 buffer,之后所有 print 抛 "I/O operation on closed file"。
+# (2026-09-02 实测复现;crawl_core/fetch.py 已是这个写法,这里对齐。)
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:                                            # noqa: BLE001
+    if hasattr(sys.stdout, "buffer"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 ARSENAL = os.path.join(ROOT, "reports", "arsenal")
 CFG = os.path.join(HERE, "category_config.yml")
+
+# README 取用 arsenal_enrich.gh_readme(它内部走 crawl_core 的取页 + 正文两层)。
+# 守着 import 而不是让它炸:这个链条底下压着 lxml / trafilatura 两个非 stdlib 依赖,
+# 缺一个就会把**整张军火分类表**炸掉,而 workflow 里这一步是 `|| true`,炸了还看不见。
+# 拿不到就退回"只有元数据"的老提示词 —— 最坏等于改造前,但必须出声。
+try:
+    sys.path.insert(0, HERE)
+    from arsenal_enrich import gh_readme as _gh_readme            # noqa: E402
+except BaseException as e:                                        # noqa: BLE001
+    _gh_readme = None
+    print("  [warn] 取不到 arsenal_enrich.gh_readme(%s):详解将只依据元数据,"
+          "不读 README —— 详细程度会明显下降" % str(e)[:100])
 
 GATEWAY = os.environ.get("GATEWAY_URL", "https://gufangai.com/api/gateway/chat")
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " \
@@ -57,9 +78,9 @@ LIC_CN = {
     "BSD-2-Clause": "BSD · 可进闭源",
     "ISC": "ISC · 可进闭源",
     "MPL-2.0": "MPL · 文件级传染",
-    "GPL-3.0": "GPL · 传染,只能读架构",
-    "GPL-2.0": "GPL · 传染,只能读架构",
-    "AGPL-3.0": "AGPL · 强传染,一行都不许抄",
+    "GPL-3.0": "GPL · 学思路自研,不抄码",
+    "GPL-2.0": "GPL · 学思路自研,不抄码",
+    "AGPL-3.0": "AGPL · 学思路自研,不抄码",
     "NOASSERTION": "自定义条款 · 必须人工读",
     "": "无许可 · 默认保留全部权利,不可用",
 }
@@ -188,28 +209,69 @@ SYS = """你是古方AI星图平台的技术选型顾问。给你一个 GitHub �
 该说"用不上"就说"用不上"。"""
 
 
-def enrich(rows, cache, limit):
-    """给还没有详解的项目补一段中文详解。已有的直接复用,不重复烧网关。"""
+def enrich(rows, cache, limit, workers=6):
+    """给还没有详解的项目补一段中文详解。已有的直接复用,不重复烧网关。
+
+    **并发跑**。串行版本实测跑 20 分钟一条都没出来:
+      · timeout 设了 120 秒 —— 而网关实测只要 1-6 秒,120 秒纯粹是给自己挖坑,
+        一个慢调用就能把整批拖住
+      · print 到重定向文件时被缓冲,进度看不见,分不清"在跑"还是"卡死"
+    两条一起改:超时压到 45 秒,输出强制 flush,再并发 6 路。
+    6 路是保守取值 —— 免费池本身能扛更多,但我们没必要为了快去压别人的额度。
+    """
     todo = [r for r in rows if not r.get("detail_cn")
             and r["repo"] not in cache][:limit]
     if not todo:
-        print("  详解:都已有,跳过")
+        print("  详解:都已有,跳过", flush=True)
         return 0
-    ok = 0
-    for i, r in enumerate(todo, 1):
+
+    ways = {}
+    ways_lock = threading.Lock()
+
+    def one(r):
+        # README 才是"详细"的来源。创始人 2026-09-02:「功能介绍详细一点,要不然容易被忽略」
+        # —— 而在此之前这个提示词里**只有一句 300 字的 description**,模型再强也变不出
+        # 它没见过的信息。README 走 arsenal_enrich.gh_readme(crawl_core 的取页 + 正文两层),
+        # **不在这里写第二份**(平台铁律:同一份逻辑只许有一份实现)。
+        rm, way = "", "skip"
+        if _gh_readme is not None:
+            try:
+                rm, way = _gh_readme(r["repo"], limit=2500)
+            except Exception as e:                               # noqa: BLE001
+                rm, way = "", "err:" + type(e).__name__
+        with ways_lock:
+            ways[way] = ways.get(way, 0) + 1
         p = ("%s\n\n项目:%s(%s★,%s,许可 %s)\ntopics:%s\n描述:%s\n能力:%s"
              % (PLATFORM, r["repo"], r.get("stars"), r.get("lang") or "未知",
                 r.get("license") or "未标", ", ".join(r.get("topics") or [])[:200],
                 (r.get("desc") or "")[:300], (r.get("capability") or "")[:200]))
-        out = ask_gateway(p, SYS)
-        if out:
-            cache[r["repo"]] = out
-            r["detail_cn"] = out
-            ok += 1
-            print("  [%d/%d] %s ✓ %d字" % (i, len(todo), r["repo"][:40], len(out)))
-        else:
-            print("  [%d/%d] %s 网关失败,跳过" % (i, len(todo), r["repo"][:40]))
-        time.sleep(0.8)
+        if rm:
+            p += "\n\nREADME:\n" + rm
+        # 抓不到 README 时**不跳过**,退回原来的"只有元数据"提示词 ——
+        # 最坏情况等于改造前的行为,不会因为多了一层而少产出。
+        return r, ask_gateway(p, SYS, timeout=45)
+
+    import concurrent.futures as cf
+    ok = fail = 0
+    t0 = time.time()
+    with cf.ThreadPoolExecutor(max_workers=workers) as ex:
+        for i, (r, out) in enumerate(ex.map(one, todo), 1):
+            if out:
+                cache[r["repo"]] = out
+                r["detail_cn"] = out
+                ok += 1
+                print("  [%d/%d] %s ✓ %d字" % (i, len(todo), r["repo"][:38], len(out)),
+                      flush=True)
+            else:
+                fail += 1
+                print("  [%d/%d] %s 网关没返回" % (i, len(todo), r["repo"][:38]),
+                      flush=True)
+    print("  详解:成功 %d · 失败 %d · 耗时 %.0f 秒"
+          % (ok, fail, time.time() - t0), flush=True)
+    # 哨兵:README 各条路各走了几次。api 那一路整批变 0 = token 没注进来或被限流,
+    # 一眼看得见;否则"详解又变短了"这种退化只能靠人肉察觉。
+    print("  README 取法分布:%s"
+          % ("  ".join("%s=%d" % kv for kv in sorted(ways.items())) or "(无)"), flush=True)
     return ok
 
 
@@ -237,7 +299,7 @@ def write_xlsx(groups, cats, out, gen):
 
     note = ("GitHub 军火分类表 · %s · 共 %d 类 %d 个项目 · "
             "分类看「类别」列,点表头筛选器过滤 · "
-            "红底=传染许可(只能读架构不能抄代码) · "
+            "红底=传染许可:读架构学思路、自己重写实现,不复制代码 · "
             "星数为实测值,非榜单转抄"
             % (gen, len(groups), sum(len(v) for v in groups.values())))
     ws.cell(row=1, column=1, value=note).font = Font(
@@ -306,7 +368,8 @@ def write_md(groups, cats, out, gen):
     cat_name = {c["key"]: c["name"] for c in cats}
     L = ["# 军火分类表 · %s" % gen, "",
          "> 挖掘引擎产出按类别归位。星数为**实测值**,不转抄榜单。",
-         "> 许可栏标「传染」的只能读架构,代码一行都不能进我们的闭源生产。", ""]
+         "> 许可栏标「传染」的:**读它的架构、学它的做法,再糅合几家自己重写一个** —— "
+         "不复制代码即可,不是不能用。", ""]
     L.append("## 各类概览")
     L.append("")
     L.append("| 类别 | 数量 | 这一类是干什么的 |")

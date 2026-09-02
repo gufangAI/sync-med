@@ -57,10 +57,15 @@ categories:
   - key: social_out
     name: 社媒发布与分发
     desc: 一份内容自动发到多个平台。**这是我们卡了最久的一环**——内容做出来了,发布链路是零。
-    topics: [auto-publish, social-media-automation, content-automation,
-             cross-posting, publishing, scheduler, n8n, workflow-automation]
-    words: [auto publish, 自动发布, 一键发布, 分发, cross-post, 矩阵运营,
-            content automation, publish automation]
+    # 关键词收紧过一次:原来含 publishing / scheduler / workflow-automation,
+    # 结果把 Ghost(博客)、pandoc(文档转换)、lerna(构建工具)全扫了进来,
+    # 而真货 dreammis/social-auto-upload 被 tiktok 这个 topic 拉去了"社媒抓取"。
+    # 通用词一律删掉,只留**社媒发布**本身的说法。
+    topics: [auto-publish, social-media-automation, cross-posting,
+             social-media-manager, content-distribution, multi-platform-publishing]
+    words: [auto upload, auto publish, 自动发布, 一键发布, 自动上传, 矩阵运营,
+            multi-platform publish, cross-post, 多平台发布, social media automation,
+            自动化上传视频, 发布到社交媒体, 排程发布]
 
   - key: image
     name: 图片生成与处理

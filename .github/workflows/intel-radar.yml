@@ -30,8 +30,10 @@ jobs:
 
     permissions:
       # write is ONLY for reports/arsenal/* (the council's input file + the
-      # ledger + the star snapshots). The commit step below hard-fails if
-      # anything outside that directory is staged, same rail as council.yml.
+      # ledger + the star snapshots) plus ONE named file,
+      # scripts/crawl_core/fingerprints.json -- see the commit step for why.
+      # The commit step below hard-fails if anything else is staged,
+      # same rail as council.yml.
       contents: write
       issues: write    # gh issue create 发情报日报到手机需要(连挂6天缺这个)
 
@@ -123,6 +125,24 @@ jobs:
       # 把 candidates.json 渲染成人能直接看的 md 榜(创始人 2026-09-02:「输出 md 或表格,
       # 那么我就可以知道有哪些我们可以选择用的」)。纯读本地 JSON,不重复抓 GitHub;
       # 失败不阻断整轮(|| true) —— 报表挂了不该拖垮情报采集本身。
+      # 吸收官(创始人 2026-09-02:「一定要都用起来!哪怕只是一个点,都可能是价值」
+      # 「不是应该,你的判断总是错的」)。
+      #
+      # 挖到 ≠ 用起来。挖掘引擎一天能扫回三千多个项目,但真正被吃下来变成
+      # 我们自己东西的,今天盘点只有 15 个(0.4%)。差距不在挖,在吃。
+      #
+      # 它对**每一个**候选提取「哪一个点我们能用」,不许答"用不上" ——
+      # 筛选本身就是瓶颈:判定"用不上"的那一刻,这个项目就永远消失了。
+      # 断点续跑,每轮吃一批,跑过的存 absorb.json 不重复烧网关。
+      - name: Absorb (逐个提取可用点·不筛选)
+        if: always()
+        env:
+          GW_KEY: ${{ secrets.GW_KEY }}
+          ABSORB_LIMIT: '120'
+          ABSORB_WORKERS: '6'
+        run: |
+          python scripts/intel_radar/arsenal_absorb.py || true
+
       - name: Render arsenal boards (md + xlsx)
         if: always()
         env:
@@ -131,6 +151,11 @@ jobs:
           # (2026-09-02 实测:漏了它,40 个详解全挂,日志只写"跳过",
           #  不 curl 一次根本看不出是缺 key 还是模型不通)。
           GW_KEY: ${{ secrets.GW_KEY }}
+          # arsenal_category 现在会给头部项目抓 README 再写详解(以前只喂 300 字描述,
+          # 模型再强也变不出它没见过的信息)。抓 README 走 GitHub API,
+          # **没有 token 就落进每 IP 60 次/小时的匿名桶**,和同一 runner 上别的作业共用,
+          # 24 个 README 很容易被限流成整批空详解。
+          GH_TOKEN: ${{ github.token }}
         run: |
           python scripts/intel_radar/arsenal_md.py || true
           python -m pip install --quiet openpyxl >/dev/null 2>&1 || true
@@ -144,13 +169,19 @@ jobs:
       # itself across runs. Both only work if the files SURVIVE the run -- an
       # artifact-only radar would hand the council nothing and could never
       # measure growth. Same guarded-commit shape as council.yml.
-      - name: commit arsenal ledger (reports/arsenal only)
+      # 除 reports/arsenal 外,**只多一个具名文件**:scripts/crawl_core/fingerprints.json。
+      # 它是 trending 自适应解析的元素指纹(上一次成功时列表长什么样)。
+      # runner 每轮全新,这个文件不 commit 回去就不跨 run 存活,
+      # 那"GitHub 改版也不失效"这条在 Actions 上等于零 —— 自适应层会变成纯装饰。
+      # 放宽的是**一个写死的路径**,不是通配符:闸本身的严格性不变。
+      - name: commit arsenal ledger (reports/arsenal + trending 指纹)
         if: always()
         run: |
           set -e
           git config user.name  "intel-radar[bot]"
           git config user.email "intel-radar@users.noreply.github.com"
           git add -- reports/arsenal || true
+          git add -- scripts/crawl_core/fingerprints.json || true
           STAGED=$(git diff --cached --name-only)
           if [ -z "$STAGED" ]; then
             echo "nothing to commit"
@@ -162,7 +193,9 @@ jobs:
           # arsenal 目录里**的军火榜误判成越界、整轮 fail(2026-09-02 实证)。
           # 修法:比对前先剥掉首尾引号(git -c core.quotepath=false 也能解,但那要改
           # git 配置、影响面更大;这里只放宽比对,闸本身的严格性不变)。
-          OUTSIDE=$(echo "$STAGED" | sed 's/^"//; s/"$//' | grep -v '^reports/arsenal/' || true)
+          OUTSIDE=$(echo "$STAGED" | sed 's/^"//; s/"$//' \
+                    | grep -v '^reports/arsenal/' \
+                    | grep -v '^scripts/crawl_core/fingerprints\.json$' || true)
           if [ -n "$OUTSIDE" ]; then
             echo "::error::intel-radar tried to commit files outside reports/arsenal/:"
             echo "$OUTSIDE"
