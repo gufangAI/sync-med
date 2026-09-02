@@ -97,6 +97,29 @@ jobs:
           fi
           python scripts/intel_radar/daily_report_v3.py --cloud $EXTRA_ARGS
 
+      # 挖掘引擎(创始人 2026-09-02:「你可以想到的有限,这些是要去挖掘的」
+      # 「建好在后台,也可以自己配置搜索的范围」)。
+      #
+      # 它和上面的 daily_report_v3 是两种发现方式,不重复:
+      #   daily_report_v3  按 scan_plan() 里**手写死的查询表**扫 —— 表里没写的赛道
+      #                    永远看不见。实测代价:整条爬虫赛道从没进过表,于是
+      #                    firecrawl(175,415★)/browser-use(112,014★)/crawl4ai(80,997★)
+      #                    在雷达上根本不存在。
+      #   arsenal_mine     顺着 GitHub 上真实存在的关系边爬(现成排行榜 / trending /
+      #                    awesome 榜单 / topic 图),视野**自己长**,不受我的想象力封顶。
+      #
+      # 放在主流程之后:GitHub API 是 5000 次/小时的共享配额,挖掘排在后面,
+      # 万一配额吃紧,损失的是补充手段而不是主采集。MINE_API_BUDGET 是硬闸门。
+      # 失败不阻断整轮(|| true) —— 同上,补充手段挂了不该拖垮主采集。
+      - name: Mine (自我挖掘·视野不靠手写查询表)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MINE_API_BUDGET: '900'
+        run: |
+          python -m pip install --quiet pyyaml >/dev/null 2>&1 || true
+          python scripts/intel_radar/arsenal_mine.py || true
+
       # 把 candidates.json 渲染成人能直接看的 md 榜(创始人 2026-09-02:「输出 md 或表格,
       # 那么我就可以知道有哪些我们可以选择用的」)。纯读本地 JSON,不重复抓 GitHub;
       # 失败不阻断整轮(|| true) —— 报表挂了不该拖垮情报采集本身。
