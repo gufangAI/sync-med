@@ -20,6 +20,13 @@
 name: Evolve Race
 
 on:
+  # 2026-08-27 创始人钦定节奏:「鹰眼每天收集汇报,一周进行一次改进,目前阶段足够」。
+  # 补此 cron 前的实测真相:本 workflow 只有 workflow_dispatch,8-05 手动跑过 3 次后
+  #   **19 天零新变体入场**(evolve_variants 最新一条 2026-08-08)。
+  #   赛道/回滚/谱系/适应度全建好了,唯独没装定时器 —— 值守铁律第二条:
+  #   真活 workflow 必加 cron+concurrency,只留手动触发 = 一断就停、没人发现。
+  schedule:
+    - cron: '10 13 * * 0'     # 每周日 21:10(北京)=13:10 UTC,错开内容工厂(:20)与 Controller(:40)
   workflow_dispatch:
     inputs:
       scope:
@@ -57,8 +64,16 @@ jobs:
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
           PYTHONIOENCODING: utf-8
         run: |
+          # cron 触发时无 inputs:按 ISO 周数奇偶轮换两条产线(双数周 biocomp / 单数周 herb),
+          # 一周只跑一条 —— 保持单 job,避免两个 job 同时 git push 冻结考卷起冲突。
+          SCOPE="${{ github.event.inputs.scope }}"
+          if [ -z "$SCOPE" ]; then
+            W=$(date -u +%V)
+            if [ $((10#$W % 2)) -eq 0 ]; then SCOPE=biocomp; else SCOPE=herb; fi
+            echo "cron 轮换:第 $W 周 -> $SCOPE"
+          fi
           python scripts/evolve/race.py \
-            --scope "${{ github.event.inputs.scope || 'biocomp' }}" \
+            --scope "$SCOPE" \
             --items "${{ github.event.inputs.items || '12' }}" \
             --out race_result.json \
             --save-candidates race_candidates
@@ -112,6 +127,49 @@ jobs:
           PY
           else
             echo "> ⚠️ 没生成结果表,这轮整体失败了。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # 结果必须上升成 Issue —— CLAUDE.md 第 8 条血证:「只写进日志的产线,一律视为没人看」。
+      # 此前本 workflow 只写 Job Summary + artifact,跑完没人看见,等于白跑。
+      - name: 周度进化结果开/更新 Issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY' > issue_body.md
+          import json, os
+          try:
+              d = json.load(open("race_result.json", encoding="utf-8"))
+          except Exception as e:
+              print(f"> WARNING 本轮没生成结果表({type(e).__name__}),整体失败,查 run 日志。")
+              raise SystemExit(0)
+          print(f"卷子 `{d['eval_id']}` | 判分 `{d['scorer']}` | 冠军基准 **{d['baseline']}**\n")
+          print("| 改进者 | 成功 | 连续分 | 相对冠军 | 过闸 | 耗时 |")
+          print("|---|---|---|---|---|---|")
+          for r in d["rows"]:
+              ok = "OK" if r["ok"] else "FAIL"
+              sc = "-" if r["score"] is None else f"**{r['score']}**"
+              dl = "-" if r["delta"] is None else (f"**{r['delta']:+}**" if r["delta"] else "基准")
+              qa = "-" if r["qualified"] is None else f"{r['qualified']}/{r['n']}"
+              print(f"| {r['who']} | {ok} | {sc} | {dl} | {qa} | {r['secs']}s |")
+          win = [r for r in d["rows"] if r["ok"] and r["delta"] and r["delta"] > 0]
+          print()
+          if win:
+              b = max(win, key=lambda r: r["delta"])
+              print(f"**本周有黑马跑赢冠军**:`{b['supplier']}` {b['score']} vs 冠军 {d['baseline']}")
+              print("\n晋升由人拍板 —— 回复本 Issue「过」即执行晋升。")
+          else:
+              print("**本周无人跑赢冠军**(能产合规候选≠不可行;合规率高而分数不高=改进提示词与评测方法的问题)。")
+          PY
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "" >> issue_body.md
+          echo "run: $RUN_URL" >> issue_body.md
+          TITLE="周度进化 · 改进者赛马结果"
+          NUM=$(gh issue list --label evolve --state open --search "$TITLE" --json number,title                 --jq "[.[] | select(.title|startswith(\"$TITLE\"))][0].number" 2>/dev/null || echo "")
+          if [ -n "$NUM" ] && [ "$NUM" != "null" ]; then
+            gh issue comment "$NUM" --body-file issue_body.md && echo "已评论 Issue #$NUM"
+          else
+            gh issue create --title "$TITLE" --label evolve --body-file issue_body.md ||             gh issue create --title "$TITLE" --body-file issue_body.md
           fi
 
       - uses: actions/upload-artifact@v4
