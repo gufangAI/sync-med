@@ -165,14 +165,52 @@ def fetch_bucket(label: str, query: str, lane: str) -> list:
     return out
 
 
+# 垃圾源:搜索结果页/百科词条不是"情报",是噪声。
+# 实证(2026-09-02 量化 Issue #446 的 40 条):bing.com 搜索页占 7 条、baike.baidu.com 占 3 条,
+# 合计 1/4 名额被非新闻占掉,还挤走了真动态。
+JUNK_HOST = re.compile(
+    r"(^|\.)(bing\.com|baike\.baidu\.com|wikipedia\.org|zhihu\.com/search|google\.com)$", re.I)
+# 每个监控目标最多留几条:同一目标刷屏是本雷达最大的可读性杀手。
+# 实证:同一期里「网信办拟人化互动服务管理办法」11 条、广医岐智 6 条、识典古籍 5 条,
+# 40 条情报里一大半在重复讲 6 件事,创始人翻两屏就不想看了。
+PER_TARGET_MAX = 3
+
+
+def _host(u: str) -> str:
+    try:
+        return urllib.parse.urlparse(u).netloc.lower()
+    except Exception:                                            # noqa: BLE001
+        return ""
+
+
+def _target_of(it: dict) -> str:
+    """从 source 串 "[竞品] 识典古籍(字节跳动) · AnySearch" 里抽出监控目标名。"""
+    src = str(it.get("source") or "")
+    m = re.search(r"\]\s*([^·]+)·", src)
+    return (m.group(1).strip() if m else src)[:40]
+
+
 def dedup_items(items: list) -> list:
+    """URL/标题去重 + 剔垃圾源 + 每目标限额(治"同一件事刷屏 11 条")。
+
+    2026-09-02 补后两条:此前只做 URL 去重,同一目标的 N 篇不同文章全留下 →
+    报告变成"6 件事讲 40 遍",打分又几乎全 4 星(25/40),读者根本挑不出重点。
+    """
     seen = set()
+    per_target = {}
     out = []
     for it in items:
-        key = (it.get("url") or "").strip() or (it.get("title") or "").strip()
+        url = (it.get("url") or "").strip()
+        key = url or (it.get("title") or "").strip()
         if not key or key in seen:
             continue
+        if url and JUNK_HOST.search(_host(url)):
+            continue                                  # 搜索页/百科不是情报
+        tgt = _target_of(it)
+        if per_target.get(tgt, 0) >= PER_TARGET_MAX:
+            continue                                  # 同一目标够 3 条就停,把名额让给别的目标
         seen.add(key)
+        per_target[tgt] = per_target.get(tgt, 0) + 1
         out.append(it)
     return out
 
@@ -206,9 +244,20 @@ RADAR_PROMPT_TPL = RADAR_CONTEXT + """
 对每条:
 1. 判断是否是【竞品】或【监管】的真实、有实质信息量的动态(不是纯首页/索引/广告/
    无关同名内容)
-2. 相关则打分 1-5(5=对平台决策直接重要,例如竞品发布重大新功能、新规直接影响
-   我们能不能上线某功能;1=弱相关背景信息),给出 lane("竞品"或"监管") + 一句话
-   理由(说清对我们意味着什么,而不是复述标题)
+2. 相关则打分 1-5。**每一档都有硬判据,严禁全部打 4 分**(2026-09-02 实测:上一期
+   40 条里 25 条打 4 分 = 62%,读者根本挑不出重点,等于没打分):
+     5 = **今天就得做决定**:竞品上线了与我们直接重叠的新功能 / 新规明确禁止或要求
+         某项我们已上线或计划上线的能力(例:AI 问诊资质、生成内容标识义务)
+     4 = **本月要跟进**:竞品有实质新进展(拿到资源/发布模型/重要合作)、新规进入
+         征求意见且与我们业务相关
+     3 = **知道就行**:同行常规动态、行业趋势、与我们只有部分重叠
+     2 = **背景资料**:泛泛的行业报道、政策解读、无具体动作
+     1 = **几乎无关**:蹭词条、旧闻重发、内容与我们业务无实质关系
+   **判断"新旧"**:标题或摘要能看出是两年前及更早的事件,一律降到 1-2 分,不许当新情报。
+   **配额约束**:一批里 5 分最多 2 条,4 分最多占三分之一;拿不准就往低打。
+   给出 lane("竞品"或"监管") + 一句话理由。
+   **理由必须写"我们该做什么/受什么影响",严禁写"可能构成竞争"这类车轱辘话**
+   (上一期几乎每条都是这句,读了等于没读)。
 3. 不相关或纯噪音: 跳过,不要输出
 
 只输出 JSON 数组(无多余文字):
