@@ -76,6 +76,39 @@ LANES = [
      "concurrency": 3, "timeout": 120},
 ]
 
+# Cross-check the list above against sueai/lanes.json, which lane-probe.yml
+# refreshes daily and which calls itself the single source of truth.
+#
+# Before this hook, the two disagreed and nobody noticed: the probe had marked
+# nvidia-gemma-4-31b / nvidia-mistral-nemotron / agnes-2.0-flash as `error` and
+# nvidia-gemma-3n-e4b as `retired`, while this file kept dispatching to all four.
+# The probe knew; the code that spends the quota did not read it.
+#
+# Observe-only by default -- it prints the disagreement on every run and drops
+# nothing. Set LANES_ENFORCE=1 to actually drop the dead ones. Reason for not
+# enforcing straight away: on the audit snapshot only 1 of 8 lanes was `active`,
+# so enforcing blind would have taken this fleet from 8 lanes to 2 with no
+# observation window. Watch a cycle of printed output first, then flip the flag.
+#
+# Fail-open throughout: unreadable lanes.json, or a lane absent from it, changes
+# nothing. Unknown is not dead.
+try:
+    from lanes import filter_dead as _filter_dead_lanes
+except ImportError:                                             # noqa: BLE001
+    try:
+        from scripts.lanes import filter_dead as _filter_dead_lanes
+    except ImportError:
+        _filter_dead_lanes = None
+
+if _filter_dead_lanes is not None:
+    LANES = _filter_dead_lanes(
+        LANES,
+        enforce=os.environ.get("LANES_ENFORCE", "") == "1",
+        label="direct_fleet",
+    )
+else:
+    print("[lanes] scripts/lanes.py not importable -- fleet unchanged", flush=True)
+
 LANE_BY_ID = {l["id"]: l for l in LANES}
 
 RATE_LIMITED = re.compile(r"rate.?limit|too many requests|quota|frequen|1010", re.I)
