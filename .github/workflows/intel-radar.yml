@@ -125,7 +125,7 @@ jobs:
             exit 0
           fi
           # 中文文件名会被 git 输出成带引号的八进制转义:
-          #   "reports/arsenal/åç«æ¦_2026-09-02.xlsx"
+          #   (a Chinese filename shows up octal-escaped by git)
           # 开头多了个引号,`grep -v '^reports/arsenal/'` 匹配不上,于是把**本来就在
           # arsenal 目录里**的军火榜误判成越界、整轮 fail(2026-09-02 实证)。
           # 修法:比对前先剥掉首尾引号(git -c core.quotepath=false 也能解,但那要改
