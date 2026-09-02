@@ -6,14 +6,13 @@
   「输出 xls 格式,整整齐齐,看的更好!我需要完整版,你不要搞阉割版」
   「需要分类输出」
 
-所以:**24 个字段一个不落**(md 版为了可读只挑了 6 列,这里全给),
-并且**按我们的产线分 sheet**,一页一条线,直接看"这条线能用什么"。
+  「一个表格输出,不要多sheet」
+  「名字,总星数,周涨星数,功能」
 
-工作簿结构:
-  ① 总榜        —— 全部候选,按日均涨星降序,24 列全字段
-  ② 优先候选     —— 宽松许可 + 军火库里还没有的新发现(最该先看的)
-  ③~⑧ 按产线分页 —— RAG检索 / 古籍OCR / 视频 / 图文 / 方剂知识 / AI免费池 / 未归类
-  ⑨ 字段说明     —— 每列什么意思、枚举值有哪些(免得看不懂)
+所以:**单张表 + 24 个字段一个不落**。
+列序按创始人挑东西的眼睛顺序:名字 → 总星数 → 周涨星数 → 功能 → 落哪条产线 → ...
+分类不靠分页,靠「落哪条产线」这一列 + 表头筛选器 —— 想看视频线就筛它,
+比在 sheet 间来回翻快,而且能跨线一起排序比较。
 
 零判断:只客观呈现与排序,不替创始人做采纳决定(与 candidates.json 的 contract 一致)。
 数据源:reports/arsenal/candidates.json(鹰眼 arsenal_radar 产出),不重复抓 GitHub。
@@ -150,63 +149,26 @@ def main():
         print("arsenal_xlsx: candidates 为空,不生成空表")
         return 0
 
+    # 创始人 2026-09-02:「一个表格输出,不要多sheet」——
+    # 分类不靠分页,靠「落哪条产线」这一列 + 表头筛选器:想看视频线就筛视频线,
+    # 比在 sheet 之间来回翻快得多,而且能跨线一起排序比较。
     hot = sorted(cands, key=lambda c: (_weekly(c) or 0), reverse=True)
+
     wb = Workbook()
-
     ws = wb.active
-    ws.title = "总榜"
-    write_sheet(ws, hot, "GitHub 军火榜 · %s · 共 %d 个候选 · 按周涨星降序"
-                "(总星数偏袒老仓,周涨星才看得出现在热不热)· 数据源 candidates.json"
+    ws.title = "军火榜"
+    write_sheet(ws, hot,
+                "GitHub 军火榜 · %s · 共 %d 个候选 · 按周涨星降序"
+                "(总星数偏袒老仓,周涨星才看得出现在热不热)· "
+                "分类看「落哪条产线」列,点表头筛选器过滤 · "
+                "黄底=军火库还没有的新发现 · 红底=传染许可(只能读架构不能抄代码)"
                 % (gen, len(hot)))
-
-    pick = [c for c in hot if c.get("license_family") == "permissive" and c.get("new_to_us")]
-    ws2 = wb.create_sheet("优先候选")
-    write_sheet(ws2, pick, "宽松许可(可进闭源生产)+ 军火库里还没有的新发现 —— 共 %d 个,"
-                           "这是最该先看的一批" % len(pick))
-
-    by_line = {}
-    for c in hot:
-        for ln in (c.get("line_candidates") or ["unknown"]):
-            by_line.setdefault(ln, []).append(c)
-    for ln in ["rag", "ocr", "video", "image", "formula", "modelpool", "unknown"]:
-        items = by_line.get(ln)
-        if not items:
-            continue
-        w = wb.create_sheet(LINE_CN.get(ln, ln))
-        write_sheet(w, items, "可用在【%s】的候选 · 共 %d 个 · 按周涨星降序"
-                    % (LINE_CN.get(ln, ln), len(items)))
-
-    # 字段说明页
-    wsd = wb.create_sheet("字段说明")
-    wsd.column_dimensions["A"].width = 18
-    wsd.column_dimensions["B"].width = 96
-    docs = [
-        ("列名", "含义"),
-        ("日均涨星", "总星数 ÷ 仓龄天数。热度的真判据 —— 总星数偏袒老仓,日均涨星才看得出现在热不热。"),
-        ("区间涨星", "两次鹰眼扫描之间的星数增量。首次收录的仓为空,跨 run 才积累得出。"),
-        ("许可类型", "宽松=MIT/Apache/BSD,可进闭源生产;传染=GPL/AGPL,代码碰了我们的闭源就得开源,"
-                     "只能读架构不能抄代码;无许可=默认保留全部权利,法律上不可用。"),
-        ("可吸收形式", "技能包/MCP服务/代码库/架构参考/可部署服务/数据集 —— 决定"
-                       "「直接装」还是「只读源码吸收」。"),
-        ("落哪条产线", "RAG检索线/古籍OCR线/视频产线/图文产线/方剂知识线/AI免费池/未归类。"),
-        ("是否新发现", "军火库(arsenal.json)里还没有的 = 是。黄底标出。"),
-        ("发现查询式", "鹰眼用哪条 GitHub 搜索式扫到它的 —— 可复现、可审计。"),
-        ("", ""),
-        ("免责", "本表只做客观呈现与排序,不替你做采纳判断。选哪个是你的决定。"),
-    ]
-    for i, (a, b) in enumerate(docs, 1):
-        ca = wsd.cell(row=i, column=1, value=a)
-        cb = wsd.cell(row=i, column=2, value=b)
-        ca.font = Font(name="Arial", bold=(i == 1), size=10)
-        cb.font = Font(name="Arial", bold=(i == 1), size=10)
-        cb.alignment = Alignment(wrap_text=True, vertical="top")
 
     out = os.path.join(ARSENAL, "军火榜_%s.xlsx" % gen)
     wb.save(out)
     wb.save(os.path.join(ARSENAL, "军火榜_最新.xlsx"))
     print("arsenal_xlsx: 已生成 %s" % out)
-    print("            工作表: %s" % " / ".join(wb.sheetnames))
-    print("            候选 %d 个 · 字段 %d 列 · 同时写了 军火榜_最新.xlsx" % (len(cands), len(COLS)))
+    print("            单表 · %d 候选 · %d 列 · 同时写了 军火榜_最新.xlsx" % (len(cands), len(COLS)))
     return 0
 
 
