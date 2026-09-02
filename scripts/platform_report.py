@@ -225,6 +225,53 @@ def collect():
 
 
 # ---------------------------------------------------------------------------
+# 真人 vs 爬虫流量口径(2026-08-31 固化·防"49 IP 误读成 49 专业用户"血案)
+# ---------------------------------------------------------------------------
+# 立此因:page_view_log 里 ua_class!='bot' 只挡住自报家门的爬虫;带浏览器 UA 的
+# 爬虫照爬真实内容页,所以"某页去重 IP 数"是**真人上界不是真人数**。对国内中医平台,
+# US 数据中心 IP 占大头基本是爬虫(memory reference_traffic_numbers_are_dirty:
+# /xunmai 曾显示 49 IP,实为 US29/CN6)。故口径必须:漏斗逐层收敛 + 每页 IP 标国别 +
+# 登录态 PV 作硬底。真人数与爬虫数**永远分开出**,禁止把内容页 IP 直接当用户数。
+CONTENT_LIKE = (
+    "(path LIKE '/reader%' OR path LIKE '/starmap%' OR path LIKE '/xunmai%' "
+    "OR path LIKE '/bencao%' OR path LIKE '/fangji%' OR path LIKE '/text%' "
+    "OR path LIKE '/library%' OR path LIKE '/overseas%' OR path='/')"
+)
+TRAFFIC_PAGES = [
+    ("阅读器", "/reader%"), ("星图", "/starmap%"), ("寻脉", "/xunmai%"),
+    ("本草", "/bencao%"), ("方剂", "/fangji%"), ("全文", "/text%"),
+]
+
+
+def collect_traffic(end):
+    """30 天滚动窗口的真人/爬虫漏斗。SELECT-only;任何失败返回 err,绝不拖垮报告。"""
+    d30 = (end - datetime.timedelta(days=30)).isoformat()
+    try:
+        raw = int(scalar(D1_MAIN,
+            "SELECT COUNT(*) FROM page_view_log WHERE day>='%s'" % d30))
+        nonbot = int(scalar(D1_MAIN,
+            "SELECT COUNT(*) FROM page_view_log WHERE day>='%s' AND ua_class!='bot'" % d30))
+        content = int(scalar(D1_MAIN,
+            "SELECT COUNT(*) FROM page_view_log WHERE day>='%s' AND ua_class!='bot' AND %s"
+            % (d30, CONTENT_LIKE)))
+        logged = int(scalar(D1_MAIN,
+            "SELECT COUNT(*) FROM page_view_log WHERE day>='%s' AND is_logged_in=1" % d30))
+        pages = []
+        for name, pat in TRAFFIC_PAGES:
+            rows = d1_query(D1_MAIN,
+                "SELECT country, COUNT(DISTINCT ip_hash) AS n FROM page_view_log "
+                "WHERE day>=? AND ua_class!='bot' AND path LIKE ? "
+                "GROUP BY country ORDER BY n DESC LIMIT 6", [d30, pat])
+            ips = sum(int(r.get("n") or 0) for r in rows)
+            by = ", ".join("%s:%d" % (r.get("country") or "?", int(r.get("n") or 0)) for r in rows)
+            pages.append({"name": name, "path": pat, "ips": ips, "by_country": by})
+        return {"window": d30, "funnel": {"raw": raw, "nonbot": nonbot,
+                "content": content, "logged_in": logged}, "pages": pages, "err": None}
+    except Exception as e:  # noqa: BLE001
+        return {"window": d30, "err": str(e)[:200]}
+
+
+# ---------------------------------------------------------------------------
 # snapshots
 # ---------------------------------------------------------------------------
 def snap_path(period, key):
@@ -389,6 +436,34 @@ def build_md(period, key, start, end, metrics, tables, prev, prev_key, extra):
                 "—" if old is None else "{:,}".format(old),
                 delta_str(cur, old)))
     L.append("")
+
+    # 真人 vs 爬虫流量口径(固化·防"49 IP 误读成 49 专业用户"血案)
+    tf = (extra or {}).get("traffic") or {}
+    L.append(head("真人 vs 爬虫流量口径（近 30 天）"))
+    L.append("")
+    if tf.get("err"):
+        L.append("⚠ 取数失败：`%s`" % tf["err"])
+        L.append("")
+    else:
+        f = tf.get("funnel", {})
+        L.append("> 口径铁律：内容页去重 IP 是**真人上界、不是真人数**——带浏览器 UA 的爬虫照爬真页,")
+        L.append("> 国内中医平台里 US 数据中心 IP 大多是爬虫;登录态 PV 是硬底。禁止把某页 IP 当用户数报。")
+        L.append("")
+        L.append("| 漏斗层 | 30 天 PV | 说明 |")
+        L.append("|---|---:|---|")
+        L.append("| L0 原始 | {:,} | 含全部爬虫扫描 |".format(f.get("raw", 0)))
+        L.append("| L1 去 bot(ua_class≠bot) | {:,} | 只挡自报家门的爬虫 |".format(f.get("nonbot", 0)))
+        L.append("| L2 真内容页 | {:,} | +路由白名单,排扫描噪声 |".format(f.get("content", 0)))
+        L.append("| 🔒 登录态 PV(硬底) | {:,} | 最可信真人信号 |".format(f.get("logged_in", 0)))
+        L.append("")
+        L.append("**核心内容页去重 IP(按国别·真人上界,US 大头须警惕爬虫)：**")
+        L.append("")
+        L.append("| 页面 | 去重 IP | 国别分布 |")
+        L.append("|---|---:|---|")
+        for p in tf.get("pages", []):
+            L.append("| %s | %d | %s |" % (p["name"], p["ips"], p["by_country"] or "—"))
+        L.append("")
+
     for k, _label, _which, _sql in TABLES:
         t = tables.get(k) or {}
         L.append("### " + (t.get("label") or k))
@@ -481,6 +556,14 @@ def main():
     print("-- previous snapshot: %s --" % (prev_key or "none"), flush=True)
 
     extra = {}
+    extra["traffic"] = collect_traffic(end)
+    _tf = extra["traffic"]
+    if _tf.get("err"):
+        print("!! traffic funnel failed: %s" % _tf["err"], flush=True)
+    else:
+        print("-- traffic 30d: raw=%d nonbot=%d content=%d logged_in=%d --" % (
+            _tf["funnel"]["raw"], _tf["funnel"]["nonbot"],
+            _tf["funnel"]["content"], _tf["funnel"]["logged_in"]), flush=True)
     if period in ("weekly", "monthly"):
         try:
             extra["actions"] = actions_stats(start, end)
