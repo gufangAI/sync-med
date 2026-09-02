@@ -57,6 +57,37 @@ jobs:
           else
             gh issue create -R "$GITHUB_REPOSITORY"               --title "OmniRoute no-auth registry changed" --body-file noauth_watch.md
           fi
+
+      # 增量监控:盯吸收候选仓的新 release(arsenal 盯 star,这个盯 release,互补)。
+      # 同 noauth_watch 的 exit 契约:0 静默 / 10 出新版 / 1 全体抓挂。
+      - name: Watch absorb-candidate releases
+        id: relwatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          python scripts/intel_radar/release_watch.py
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" = "1" ]; then exit 1; fi
+          exit 0
+
+      - name: Commit release snapshot and surface the diff
+        if: steps.relwatch.outputs.code == '10'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add scripts/intel_radar/release_snapshot.json
+          git commit -m "chore(intel): release snapshot [skip ci]" && git push || true
+          num=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "Weekly in:title"                 --json number --jq '.[0].number' 2>/dev/null)
+          if [ -n "$num" ] && [ "$num" != "null" ]; then
+            gh issue comment "$num" -R "$GITHUB_REPOSITORY" --body-file release_watch.md
+          else
+            gh issue create -R "$GITHUB_REPOSITORY"               --title "吸收候选仓出新版" --body-file release_watch.md
+          fi
+
       - name: Archive report
         if: always()
         uses: actions/upload-artifact@v4
