@@ -312,6 +312,33 @@ def scan_plan():
         # holds).
         # PROVEN obra/superpowers (261421 stars, rank 59 of 94)
         ("category", "stars:>100000 pushed:>%s" % d30, "updated"),
+        # ---- 2026-09-02 补:视频/图像生成盲区(创始人点名 openmontage、
+        # moneyprinterturbo「这些都看不到」)。实测两个真身:
+        #   harry0703/MoneyPrinterTurbo  119,601★  topics=[content-creation,
+        #     video-automation, ai-video-generator, short-video, ...]
+        #   calesthio/OpenMontage         55,431★  topics=[video-generation,
+        #     text-to-video, agentic-ai, remotion, ...]
+        # OpenMontage 的每一个话题**此前没有任何一条查询覆盖** —— 我们自己就在做
+        # 视频产线,却从没盯过 video-generation / text-to-video,这是结构性盲区。
+        # MoneyPrinterTurbo 虽命中 content-creation,但那条查询 stars:>1000 的结果
+        # 集太大、被 per_page 截断;单独给它一条高星线,保证十万星级别永不漏。
+        ("category", "topic:video-generation stars:>3000 pushed:>%s" % d90, "stars"),
+        ("category", "topic:text-to-video stars:>2000 pushed:>%s" % d90, "stars"),
+        ("category", "topic:ai-video-generator stars:>2000 pushed:>%s" % d90, "stars"),
+        ("category", "topic:video-automation stars:>2000 pushed:>%s" % d90, "stars"),
+        ("category", "topic:image-generation stars:>5000 pushed:>%s" % d90, "stars"),
+        ("category", "topic:agentic-ai stars:>5000 pushed:>%s" % d30, "updated"),
+        # 兜底:十万星以上的内容/视频类,单独一条,永不被 per_page 挤掉
+        ("category", "video in:name,description stars:>20000 pushed:>%s" % d90, "stars"),
+        # ---- 2026-09-02 再补:高星但已沉寂的仓(创始人「还有几十万星的没发现」)。
+        # 实测 multica-ai/andrej-karpathy-skills 209,454★ —— 我们自己的 CLAUDE.md
+        # 就引用它,却从没被鹰眼扫到。真因不是查询式不对,是它 2026-04-20 后停止推送,
+        # 被所有 `pushed:>90d` 过滤掉了。那个过滤本身是对的(死仓不该占名额),
+        # 但**十万星级别的仓即便沉寂也值得知道它存在** —— 那是行业地标,
+        # 沉寂只说明它稳定了,不说明它没用。故单开一条不看推送时间的高星线。
+        # 数量可控:stars:>150000 全球也就百来个,一页装得下,一次调用。
+        ("category", "skill in:name,description stars:>50000", "stars"),
+        ("category", "stars:>150000", "stars"),
         ("category", "skill in:name stars:>500 pushed:>%s" % d90, "stars"),
         # PROVEN alchaincyf/zhangxuefeng-skill (9991 stars, topics=[])
         ("category", "skills in:name stars:>500 pushed:>%s" % d90, "stars"),
