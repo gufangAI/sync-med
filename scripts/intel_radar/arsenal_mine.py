@@ -71,8 +71,37 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
+# 取页一律走 crawl_core.fetch —— **取页逻辑只许有一份实现**(平台铁律,
+# 历史血证:同一份 CJK 正则出现过五份互相打架)。
+# 这里原本自带一套退避重试,它读 Retry-After 用的是 int(...),
+# GitHub 发 HTTP-date 形态时 int() 抛异常被吞、等待归 0,再落到写死的 20 秒兜底 ——
+# 服务端明明说了该等多久,我们从来没读到过。委托出去就顺带补上了这个洞。
+# 故意**不做 import 失败的降级**:静默退回旧实现就等于又养出第二份实现。
+sys.path.insert(0, os.path.abspath(os.path.join(HERE, "..")))
+from crawl_core import fetch as _fetch                        # noqa: E402
+
 UA = "gufang-arsenal-mine/1.0"
 API = "https://api.github.com"
+
+# 各域的节流参数分开配 —— 用同一个数就是拿最松的域的经验套最严的域。
+#   api.github.com  0.7s:authenticated 配额 5000/小时 ≈ 每 0.72 秒一次才刚好用完;
+#                        取 0.7 + 抖动(实际落在 0.35~1.05s)。并发压到 2。
+#   github.com      1.2s:沿用本文件 mine_trending 原来就在用、且已跑通的 sleep(1.2)。
+#
+# **惰性建**,不在模块级建:建 Fetcher 会去探本机代理端口(TCP 连接),
+# 那是 import 的副作用。schedule.py 已经因为 arsenal_mine 的模块级副作用踩过雷,
+# 不再往同一个坑里加东西。
+_FETCHER = None
+
+
+def _fetcher():
+    global _FETCHER
+    if _FETCHER is None:
+        _FETCHER = _fetch.Fetcher(
+            per_host={"api.github.com": {"delay": 0.7, "concurrency": 2},
+                      "github.com": {"delay": 1.2, "concurrency": 1}},
+            verbose=True)
+    return _FETCHER
 
 # 配额闸门。每次真实 API 调用 +1,任何矿脉都不许越过 BUDGET。
 _calls = 0
@@ -105,51 +134,28 @@ def _get(url, accept="application/vnd.github+json", timeout=40, retries=2):
 
     (平台铁律:遇错误码禁止硬重试 —— 这里的退避是读取 GitHub 自己给的
      Retry-After / X-RateLimit-Reset,属于按服务端指示等待,不是盲目重试。)
+
+    返回契约**一字未变**(委托改造前后一致):
+      json 响应 → dict/list;raw 响应 → str;404 或彻底失败 → None;配额用尽 → 抛 BudgetExhausted。
+
+    传输、退避、错误分类、指纹、代理全部委托给 crawl_core.fetch,本函数只剩配额闸门。
+    委托带来的三处实际变化(不是"更健壮"这种空话):
+      ① Retry-After 的 HTTP-date 形态现在真的读得到了(旧实现 int() 抛异常被吞、等待归 0)
+      ② 429 走域级状态机:同一批并发请求同时挨的 429 只推进一次指数,不再各退各的
+      ③ 403 分两种:带 Retry-After 的是二级限流(等),不带的才是封禁(换身份)
     """
     global _calls
     if _calls >= BUDGET:
         raise BudgetExhausted("已用 %d 次调用,达到 MINE_API_BUDGET=%d" % (_calls, BUDGET))
-    last = None
-    for attempt in range(retries + 1):
-        _calls += 1
-        req = urllib.request.Request(url, headers=_headers(accept))
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                raw = r.read()
-                if accept.endswith("raw"):
-                    return raw.decode("utf-8", "replace")
-                return json.loads(raw.decode("utf-8", "replace"))
-        except urllib.error.HTTPError as e:                       # noqa: PERF203
-            last = e
-            if e.code in (403, 429):
-                wait = 0
-                try:
-                    wait = int(e.headers.get("Retry-After") or 0)
-                except Exception:                                 # noqa: BLE001
-                    wait = 0
-                if not wait:
-                    try:
-                        reset = int(e.headers.get("X-RateLimit-Reset") or 0)
-                        wait = max(0, reset - int(time.time())) if reset else 0
-                    except Exception:                             # noqa: BLE001
-                        wait = 0
-                wait = min(wait or 20, 90)
-                if attempt < retries:
-                    print("    限流,按服务端指示等 %ds" % wait)
-                    time.sleep(wait)
-                    continue
-            if e.code == 404:
-                return None
-            break
-        except Exception as e:                                    # noqa: BLE001
-            last = e
-            if attempt < retries:
-                time.sleep(2)
-                continue
-            break
-    if isinstance(last, urllib.error.HTTPError) and last.code == 404:
-        return None
-    return None
+    f = _fetcher()
+    before = f.calls
+    try:
+        return _fetch.github_api_get(url, accept=accept, timeout=timeout,
+                                     retries=retries, fetcher=f)
+    finally:
+        # 配额按**真实发出的请求数**计,重试也算 —— 旧实现每次 attempt 都 +1,
+        # 这里用差值取到同一个数,配额口径不因委托而变松。
+        _calls += max(1, f.calls - before)
 
 
 def api_calls_used():
@@ -398,6 +404,74 @@ def mine_costars(seeds, stargazer_sample=25, per_user=40, verbose=True):
 
 
 # ---------------------------------------------------------------------------
+# 矿脉 ⑥ 全量枚举 —— 唯一一条能给出「保证」而不是「尽力」的矿脉
+# ---------------------------------------------------------------------------
+
+def mine_universe(threshold=50000, verbose=True):
+    """把全球星数 ≥ threshold 的仓**一个不漏**地枚举出来。
+
+    这条矿脉和其它五条性质不同:别的都是"多挖一点",这条是**闭合的**。
+
+    实测(2026-09-02,gh api total_count):
+        stars:>150000    全球  56 个仓  →  1 次调用
+        stars:>100000    全球 127 个仓  →  2 次调用
+        stars:>50000     全球 483 个仓  →  5 次调用
+        stars:>30000     全球 1186 个仓 → 12 次调用
+    结果集小到能整个装进几页,于是「≥5 万星的项目永远不会漏」
+    **不再是碰运气,是可以断言的机器保证**。
+
+    这正是治本的那一刀。此前鹰眼漏掉 firecrawl(175,415★)、browser-use
+    (112,014★)、puppeteer(95,536★)、crawl4ai(80,997★)、Scrapling(77,867★),
+    根因是"我手写的查询表里没有爬虫赛道" —— 而只要枚举是闭合的,
+    **我想没想到某个赛道就不再重要了**。创始人 2026-09-02 那句
+    「你可以想到的有限,这些是要去挖掘的」,答案就是这条。
+
+    注意 GitHub 搜索接口有 1000 条结果的硬上限,所以 threshold 不能压太低:
+    stars:>30000 已有 1186 条 > 1000,会被截断。10000 这种量级必须改成
+    分区间查询(stars:10000..15000 这样切),这里不做 —— 5 万这一档已经
+    覆盖了"大到不该看不见"的全部范围,再往下是相关性问题不是视野问题。
+    """
+    found, page = {}, 1
+    q = "stars:>%d" % threshold
+    while True:
+        url = ("%s/search/repositories?q=%s&sort=stars&order=desc&per_page=100&page=%d"
+               % (API, urllib.parse.quote(q), page))
+        try:
+            res = _get(url)
+        except BudgetExhausted:
+            if verbose:
+                print("  配额用尽,全量枚举停在第 %d 页(这条本该跑完,配额该调大)" % page)
+            break
+        items = (res or {}).get("items") or []
+        if not items:
+            break
+        total = (res or {}).get("total_count") or 0
+        for it in items:
+            fn = it.get("full_name")
+            if not fn:
+                continue
+            found[fn] = {
+                "stars": it.get("stargazers_count") or 0,
+                "lang": it.get("language"),
+                "topics": it.get("topics") or [],
+                "desc": (it.get("description") or "")[:240],
+                "license": ((it.get("license") or {}).get("spdx_id") or ""),
+                "pushed_at": it.get("pushed_at"),
+                "is_list": is_awesome_repo(it),
+            }
+        if verbose and page == 1:
+            print("  全球 stars:>%d 共 %d 个仓,开始全量枚举" % (threshold, total))
+        if len(found) >= total or page >= 10 or len(items) < 100:
+            break
+        page += 1
+        time.sleep(0.8)
+    if verbose:
+        print("  枚举到 %d 个(元数据搜索接口直接给全,无需再补全 → 零额外配额)"
+              % len(found))
+    return found
+
+
+# ---------------------------------------------------------------------------
 # 矿脉 ④ 现成排行榜(配额效率最高的一条)
 # ---------------------------------------------------------------------------
 
@@ -463,9 +537,12 @@ def mine_trending(ranges=("daily", "weekly", "monthly"), langs=(None,), verbose=
     排行榜看的是**存量总星**(老仓占优),trending 看的是**当下涨势**(新仓才露头)。
     只看总星会永远错过刚起来的东西 —— 这正是鹰眼此前"只发现老项目"的另一半原因。
 
-    走 urllib + 环境代理(国内直连 github.com 常超时;Actions 上无需代理)。
+    取页走 crawl_core.fetch:代理有无是会话的一个属性(本机 1082 / Actions 直连),
+    这里**一行分支都不写**;UA 也不再是写死的 Chrome/122(那是个 2024 年的版本号,
+    钉在一个两年前的版本上本身就是特征),改由会话派生的具体版本指纹。
     """
     found = {}
+    f = _fetcher()
     for lang in langs:
         for rng in ranges:
             url = "https://github.com/trending"
@@ -473,12 +550,13 @@ def mine_trending(ranges=("daily", "weekly", "monthly"), langs=(None,), verbose=
                 url += "/" + urllib.parse.quote(lang)
             url += "?since=" + rng
             try:
-                req = urllib.request.Request(url, headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
-                    "Accept": "text/html,application/xhtml+xml",
-                })
-                html = urllib.request.urlopen(req, timeout=40).read().decode("utf-8", "replace")
+                html = f.fetch(url).text
+            except _fetch.BrowserRequiredError as e:
+                # 挑战页:纯 HTTP 拿不下了。这是"该上浏览器"的客观证据,
+                # 不是"再多轮换几次代理"的信号 —— 必须显式报出来,别静默当成没趋势项目。
+                if verbose:
+                    print("  trending %s/%s 撞上反爬挑战页:%s" % (lang or "all", rng, str(e)[:80]))
+                continue
             except Exception as e:                                # noqa: BLE001
                 if verbose:
                     print("  trending %s/%s 抓取失败:%s" % (lang or "all", rng, str(e)[:60]))
@@ -610,6 +688,20 @@ def main():
     # 顺序是按**配额性价比**排的,不是按重要性:先吃一次调用能拿 100 个项目的
     # 现成榜单,再吃 trending(零 API 配额,走 HTML),最后才轮到费配额的搜索类矿脉。
     # 配额万一中途耗尽,损失的是最贵的那条,不是最值钱的那条。
+    # 全量枚举排最前面:它是唯一给「保证」的一条,5 次调用就闭合,
+    # 而且搜索接口直接返回完整元数据,连补全那一步都省了。
+    # 万一配额出意外,最该活下来的是这条。
+    uni_th = int(m.get("universe_threshold", 50000))
+    print("\n⑥ 全量枚举矿脉(≥%d★ 一个不漏 —— 这条是保证,不是尽力)" % uni_th)
+    try:
+        uv = mine_universe(threshold=uni_th)
+    except BudgetExhausted as e:
+        print("  " + str(e)); uv = {}
+    for r, meta in uv.items():
+        all_hits[r] = meta
+        origin.setdefault(r, []).append("全量枚举:≥%d★" % uni_th)
+    print("  小计 %d 个项目(已用 %d 次调用)" % (len(uv), _calls))
+
     print("\n⓪ 排行榜矿脉(别人已排好序的榜,一次调用吃一批)")
     try:
         rk = mine_rankings(cfg.get("ranking_sources") or [])
@@ -666,11 +758,49 @@ def main():
     else:
         print("\n③ 同好矿脉:配置里关着(enable_costars: false),跳过")
 
+    # ── 断点续跑 ────────────────────────────────────────────────────
+    # 血证(2026-09-02,我自己踩的):第一轮挖到 2853 个项目,第二轮拿 budget=60
+    # 做小规模验证,配额在补全阶段前就耗尽 → 所有挖到的仓名因为"没有元数据"
+    # 被整批丢弃 → mined.json 被覆盖成 **0 个**。挖到的东西全白挖。
+    #
+    # 治法:挖到的仓名和补全是两件事,分开存。
+    #   已补全的进 mined,没补全的进 pending,下轮**优先补 pending**。
+    # GitHub Actions 有 6 小时上限、API 有 5000/小时配额,一轮补不完是常态,
+    # 所以这不是异常处理,是正常工作方式。
+    prev_pending = []
+    outdir = os.path.join(ROOT, "reports", "arsenal")
+    out = os.path.join(outdir, "mined.json")
+    prev = {}
+    if os.path.isfile(out):
+        try:
+            with io.open(out, encoding="utf-8") as f:
+                old = json.load(f)
+            prev_pending = list(old.get("pending") or [])
+            # 上轮已补全的元数据也留着复用,省下重复的 API 调用
+            for r in (old.get("mined") or []):
+                if r.get("repo") and r.get("stars") is not None:
+                    prev[r["repo"]] = r
+        except Exception:                                        # noqa: BLE001
+            prev_pending, prev = [], {}
+
+    # 上轮已补全过的直接复用,不再花调用
+    reused = 0
+    for r, v in list(all_hits.items()):
+        if (not v or "stars" not in (v or {})) and r in prev:
+            all_hits[r] = prev[r]
+            reused += 1
+
     need = [r for r, v in all_hits.items() if not v or "stars" not in (v or {})]
-    print("\n④ 补全元数据(%d 个待补,星数一律实测不抄榜单)" % len(need))
+    # 上轮欠下的排前面 —— 否则每轮都在补新挖到的,欠账永远轮不到
+    need = [r for r in prev_pending if r in all_hits and r in need] + \
+           [r for r in need if r not in prev_pending]
+    print("\n④ 补全元数据(%d 个待补 · 复用上轮 %d 个 · 上轮欠账 %d 个优先)"
+          % (len(need), reused, len([r for r in prev_pending if r in need])))
     hy = hydrate(need)
     for r, meta in hy.items():
         all_hits[r] = meta
+    # 这轮没轮到的,记成欠账留给下轮,**绝不丢弃**
+    pending = [r for r in need if r not in hy]
     rows = []
     for r, meta in all_hits.items():
         if not meta or "stars" not in meta:
@@ -682,17 +812,26 @@ def main():
         rows.append(meta)
     rows.sort(key=lambda x: (-x["score"], -(x.get("stars") or 0)))
 
-    outdir = os.path.join(ROOT, "reports", "arsenal")
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
-    out = os.path.join(outdir, "mined.json")
+
+    # 只增不减:这轮没补全的老结果照样留着。否则一次小配额的运行
+    # 就会把上一轮的成果洗掉(2026-09-02 实测:2853 个被洗成 0 个)。
+    by_repo = {r["repo"]: r for r in rows}
+    for r, v in prev.items():
+        if r not in by_repo:
+            by_repo[r] = v
+    rows = sorted(by_repo.values(), key=lambda x: (-(x.get("score") or 0),
+                                                   -(x.get("stars") or 0)))
     with io.open(out, "w", encoding="utf-8") as f:
-        json.dump({"mined": rows, "api_calls": _calls,
+        json.dump({"mined": rows, "pending": pending, "api_calls": _calls,
                    "seeds": seeds, "total": len(rows)},
                   f, ensure_ascii=False, indent=1)
 
     print("\n══ 挖掘完成 ══")
-    print("  挖到 %d 个项目 · 用了 %d 次 API 调用 · 落盘 %s" % (len(rows), _calls, out))
+    print("  库里共 %d 个项目(本轮新补 %d) · 欠账 %d 个留给下轮 · 用了 %d 次调用"
+          % (len(rows), len(hy), len(pending), _calls))
+    print("  落盘 %s" % out)
     print("\n  相关性最高的 15 个:")
     for r in rows[:15]:
         print("    %+4d  ★%-8s %-42s %s"

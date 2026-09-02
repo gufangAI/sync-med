@@ -125,10 +125,19 @@ jobs:
       # 失败不阻断整轮(|| true) —— 报表挂了不该拖垮情报采集本身。
       - name: Render arsenal boards (md + xlsx)
         if: always()
+        env:
+          # 分类表要给头部项目写中文详解,走内部免费池网关。
+          # 没有这个 key,网关直接回 UNAUTHORIZED,详解会**整批静默失败**
+          # (2026-09-02 实测:漏了它,40 个详解全挂,日志只写"跳过",
+          #  不 curl 一次根本看不出是缺 key 还是模型不通)。
+          GW_KEY: ${{ secrets.GW_KEY }}
         run: |
           python scripts/intel_radar/arsenal_md.py || true
           python -m pip install --quiet openpyxl >/dev/null 2>&1 || true
           python scripts/intel_radar/arsenal_xlsx.py || true
+          # 分类对比表(创始人 2026-09-02:「出一个类别对比表格…并有详细的说明」)。
+          # 读 mined.json + candidates.json,不重复抓 GitHub。
+          python scripts/intel_radar/arsenal_category.py || true
 
       # The council reads reports/arsenal/candidates.json out of the repo, and
       # the 30-day star delta is computed by diffing star_history.json against

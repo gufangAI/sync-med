@@ -43,6 +43,17 @@ seeds:
     - heygen-com/hyperframes         #  43,648★ Apache「写HTML渲染视频·为agent而生」
     - browser-use/video-use          #  23,240★ MIT「用 coding agent 剪视频」
     - nexu-io/html-video             #   4,504★ Apache HTML→视频
+  社媒发布分发:
+    # 这一类是平台卡得最久的一环:内容做出来了,发布链路是零代码。
+    # 2026-09-02 实测挖到的真货,星数与许可都是 gh api 当场查的:
+    - dreammis/social-auto-upload    # 14,728★ MIT  抖音/小红书/视频号/TikTok/YouTube/B站
+    - yikart/AiToEarn                # 25,646★ MIT
+    - Katzca/AutoSocial              #    643★ MIT  本地社媒自动化面板
+  社媒抓取:
+    - NanmiCoder/MediaCrawler        # 64,307★ 但许可是 NOASSERTION(非商用条款),
+                                     # 平台要变现 → **一行都不许贴**,只作赛道坐标用
+    - Panniantong/Agent-Reach        # 77,478★ MIT
+    - putyy/res-downloader           # 19,651★ Apache 视频号/抖音/快手/小红书资源下载
   agent技能库:
     - K-Dense-AI/scientific-agent-skills  # 41,858★ MIT 165个科学skill+100+数据库
     - Panniantong/Agent-Reach        #  77,468★ 挖掘引擎自己挖到的
@@ -91,6 +102,8 @@ mining:
   per_topic: 30          # 每个话题取前几名
   awesome_max_files: 12  # 每张榜单最多读几个 md 文件
   enable_costars: false  # 同好矿脉(协同过滤)。很费配额,想深挖时才开
+  universe_threshold: 50000  # 全量枚举门槛。5万=483个仓5次调用闭合;调到3万=1186个仓12次调用
+                             # (再往下会撞 GitHub 搜索 1000 条硬上限,得改分区间查)
   api_budget: 900        # 本轮最多打多少次 GitHub API。5000/小时是总配额,
                          # 留足余量给雷达主扫描,别把配额烧穿害它跑不起来
 

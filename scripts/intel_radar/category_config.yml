@@ -1,0 +1,127 @@
+# ═══════════════════════════════════════════════════════════════════════
+# 军火分类表 —— 挖回来的几千个项目按类别归位,方便逐类挑
+# ═══════════════════════════════════════════════════════════════════════
+#
+# 立此因(创始人 2026-09-02):
+#   「出一个类别对比表格,爬虫搜索类,代码优化skill,科研类,社媒类,
+#     图片生成,视频生成,社媒输出类,网关管理等等,并有详细的说明!」
+#
+# 挖掘引擎(arsenal_mine.py)一轮能挖到几千个项目,平铺成一张表没法看。
+# 按类别归位之后,想挑视频工具就只看视频那几十行,不用在几千行里翻。
+#
+# ── 怎么改 ────────────────────────────────────────────────────────────
+# 想加一个类别 → 在下面照抄一段,写清它的关键词就行。
+# 关键词命中越多分越高;topics 命中比 description 命中权重高
+# (topics 是作者自己打的标签,比描述文案可靠)。
+# ─────────────────────────────────────────────────────────────────────
+
+categories:
+
+  - key: crawler
+    name: 爬虫抓取与搜索
+    desc: 把网页/接口的数据拿下来。我们四条线都要用:鹰眼抓情报、社媒抓素材、古籍站抓书、RAG 抓语料。
+    topics: [web-scraping, scraper, crawler, crawling, spider, scraping,
+             web-crawler, data-extraction, ai-crawler, ai-scraping,
+             browser-automation, headless-browser, playwright, puppeteer,
+             search-engine, websearch, web-search, serp]
+    words: [crawl, scrap, spider, 爬虫, 抓取, 采集, headless, browser automation,
+            search engine, web search]
+
+  - key: skill
+    name: 代码与Agent技能包
+    desc: 直接挂到 Claude Code / Codex 上就能用的能力包。吸收成本最低的一类——不用改架构,装上就有。
+    topics: [claude-skills, agent-skills, skills, claude-code, mcp, mcp-server,
+             model-context-protocol, ai-agent, agentic-ai, coding-agent,
+             prompt-engineering, llm-tools]
+    words: [skill, mcp server, agent framework, coding agent, claude code,
+            技能, 插件]
+
+  - key: research
+    name: 科研与深度研究
+    desc: 多轮检索+交叉验证+出报告。对我们的价值在「AI寻脉」和古籍考据——同一套方法论换个语料库。
+    topics: [deep-research, research-agent, scientific-computing, bioinformatics,
+             cheminformatics, chemoinformatics, drug-discovery, genomics,
+             literature-review, rag, retrieval-augmented-generation,
+             vector-database, embeddings, semantic-search]
+    words: [deep research, research agent, literature, 文献, 检索增强,
+            scientific, 科研, rag, retrieval, embedding, vector]
+
+  - key: social_in
+    name: 社媒抓取
+    desc: 从小红书/抖音/B站/微博把内容与数据拿下来。做选题、看对手、找爆款规律靠它。
+    topics: [xiaohongshu, douyin, tiktok, bilibili, weibo, zhihu, kuaishou,
+             social-media, social-media-crawler, media-crawler]
+    words: [小红书, 抖音, 快手, 微博, 知乎, bilibili, tiktok, instagram,
+            social media crawler, 媒体采集]
+
+  - key: social_out
+    name: 社媒发布与分发
+    desc: 一份内容自动发到多个平台。**这是我们卡了最久的一环**——内容做出来了,发布链路是零。
+    topics: [auto-publish, social-media-automation, content-automation,
+             cross-posting, publishing, scheduler, n8n, workflow-automation]
+    words: [auto publish, 自动发布, 一键发布, 分发, cross-post, 矩阵运营,
+            content automation, publish automation]
+
+  - key: image
+    name: 图片生成与处理
+    desc: 出图、改图、排版成卡片。我们的图文产线(方剂卡/古籍卡)靠这类。
+    topics: [image-generation, text-to-image, stable-diffusion, comfyui,
+             diffusion, image-editing, inpainting, image-processing,
+             poster, design-to-code]
+    words: [text to image, image generation, 生图, 出图, diffusion, comfyui,
+            海报, 图片编辑, 排版]
+
+  - key: video
+    name: 视频生成与剪辑
+    desc: 从脚本到成片。我们的专家口播视频产线用得上;hyperframes/video-use 这类"agent 驱动剪辑"是新路子。
+    topics: [video-generation, text-to-video, ai-video-generator,
+             video-automation, video-editing, remotion, ffmpeg,
+             short-video, video-processing, subtitle, tts, text-to-speech]
+    words: [video generation, text to video, 视频生成, 剪辑, 口播, 数字人,
+            remotion, ffmpeg, 字幕, 配音, tts]
+
+  - key: gateway
+    name: AI网关与模型池
+    desc: 统一接一堆模型 + 自动切换 + 探活。我们自建免费池的直接参照物。
+    topics: [ai-gateway, llm-gateway, openai-api, openai-compatible,
+             api-gateway, load-balancing, llm-router, free-api,
+             api-proxy, model-router]
+    words: [ai gateway, llm gateway, api aggregator, 中转, 聚合, 网关,
+            load balance, fallback, 免费api, openai compatible]
+
+  - key: ocr
+    name: OCR与版面识别
+    desc: 扫描页→可检索文本。我们几万本古籍扫描件全靠它,竖排/夹注是难点。
+    topics: [ocr, document-ai, layout-analysis, pdf-extraction, table-recognition,
+             handwriting-recognition, document-parsing, text-recognition]
+    words: [ocr, 文字识别, 版面, layout, pdf extract, 表格识别, 古籍识别,
+            document parsing]
+
+  - key: doc
+    name: 文档管理与知识库
+    desc: PDF/EPUB/网页存进来、切好、检索得到。我们几万本古籍与医案的"入库到可查"这一段全在这里。
+    topics: [knowledge-base, knowledge-management, document-management,
+             note-taking, obsidian, pdf, epub, ebook, markdown,
+             second-brain, personal-knowledge-management, wiki,
+             document-processing, text-splitting, chunking]
+    words: [knowledge base, 知识库, 文档管理, 笔记, obsidian, 电子书,
+            pdf, epub, 切分, chunk, 全文检索, 归档]
+
+  - key: infra
+    name: 工程基建与调度
+    desc: 队列、断点续跑、并发、缓存、可观测。不直接产出内容,但决定前面几类跑不跑得稳。
+    topics: [workflow-engine, task-queue, scheduler, orchestration,
+             observability, monitoring, caching, distributed]
+    words: [task queue, 队列, 调度, 断点, 幂等, 限流, retry, backoff,
+            observability, 监控]
+
+# 这些类别以外的项目归入"未分类",不丢弃 —— 分类器认不出来不等于它没价值,
+# 丢掉它就又变成"我想不到的看不见"(正是挖掘引擎要治的那个病)。
+uncategorized_name: 未分类
+
+# 每个类别在表里最多列几个(按分数降序)。设 0 = 不限
+per_category_limit: 40
+
+# 详细说明:走内部免费池网关给 top N 写四段中文详解
+# (做什么/怎么用/对我们有没有用/坑)。每次跑给多少个新项目写。
+enrich_per_run: 66
