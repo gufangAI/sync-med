@@ -76,7 +76,42 @@ jobs:
           D1_API_TOKEN:   ${{ secrets.D1_API_TOKEN }}
           GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
           PYTHONIOENCODING: utf-8
-        run: python scripts/evolve/ranks.py --years 2026 || echo 'ranks失败不致命,垂直词排序兜底'
+        run: |
+          # --recent 3：日榜有 886 期(2024 起)，日常只吃最近 3 期即可；
+          #   历史回填另跑一次 `--years 2026,2025,2024 --recent 0`，轨迹表幂等可续跑。
+          # --report：把 by_kind 期次/条数落成 json，供下一步做哨兵判定。
+          set +e
+          python scripts/evolve/ranks.py --years 2026 --recent 3 --report evolve_ranks.json
+          echo "ranks_exit=$?" >> "$GITHUB_ENV"
+          set -e
+
+      # 哨兵：ranks 的结果必须在人眼前出现一次。
+      # 立此因(2026-08-27)：此前 list_files 静默吞 404 + 这一步 `|| echo 失败不致命`，
+      #   两层叠加把「日榜/周榜恒为 0 期」藏了 23 天，期间星速信号全靠 8 期月榜撑着。
+      - name: 榜单采集哨兵(零期次/零解析要出声)
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          try:
+              d = json.load(open("evolve_ranks.json", encoding="utf-8"))
+          except Exception as e:
+              print(f"### 榜单采集\n\n> 没生成结果表({type(e).__name__})，本轮 ranks 整体失败，查上一步日志。")
+              raise SystemExit(0)
+          print("### 榜单采集")
+          print()
+          print("| 榜 | 期次 | 解析条数 |")
+          print("|---|---|---|")
+          for k, v in sorted(d.get("by_kind", {}).items()):
+              print(f"| {k} | {v['periods']} | {v['items']} |")
+          print()
+          print(f"轨迹入库 `gh_growth` **{d.get('growth_saved', 0)}** 条 · 池内唯一仓 {d.get('pool_total', '?')}")
+          empty = d.get("empty_kinds") or []
+          if empty:
+              print()
+              print(f"> **WARNING 这些榜零解析：{', '.join(empty)}** —— 上游目录结构或版式可能又变了。")
+              print("> 判据：正常状态下三个榜都该有条数。零解析不是正常状态。")
+          PY
 
       - name: 缺口驱动采集(从我们的短板出发定向抓,不捡热门)
         env:
