@@ -48,23 +48,43 @@ FORM_CN = {
 LIC_CN = {"permissive": "宽松·可进闭源", "copyleft": "传染·只能读架构",
           "none": "无许可·不可用", "unknown": "未知·需人工确认"}
 
-# 24 列全字段(表头, 取值函数)
+def _weekly(c):
+    """周涨星数。优先用两次扫描之间的真实增量(stars_delta 换算成 7 天口径);
+    没有区间数据时(首次收录的仓)退回 日均涨星 × 7 —— 前者是真实测量,后者是
+    生涯均值估算,两者混排会误导,故在"周涨星"旁另有"数据来源"标注。"""
+    d, w = c.get("stars_delta"), c.get("stars_delta_window_days")
+    if isinstance(d, (int, float)) and isinstance(w, (int, float)) and w > 0:
+        return round(d * 7.0 / w, 1)
+    spd = c.get("stars_per_day_lifetime")
+    return round(spd * 7, 1) if isinstance(spd, (int, float)) else None
+
+
+def _weekly_src(c):
+    d, w = c.get("stars_delta"), c.get("stars_delta_window_days")
+    if isinstance(d, (int, float)) and isinstance(w, (int, float)) and w > 0:
+        return "实测(%d天区间)" % w
+    return "估算(生涯日均×7)"
+
+
+# 列序(创始人 2026-09-02:「名字,总星数,周涨星数,功能」)——
+# 挑东西时眼睛落的顺序就是这个:先认名字,再看多热,再看涨得快不快,最后看能干嘛。
+# 其余字段(许可/产线/链接/元数据)按重要性依次往后。
 COLS = [
-    ("仓库",            lambda c: c.get("repo") or ""),
-    ("链接",            lambda c: c.get("url") or ""),
+    ("名字",            lambda c: c.get("repo") or ""),
     ("总星数",          lambda c: c.get("stars") or 0),
-    ("日均涨星",        lambda c: c.get("stars_per_day_lifetime")),
-    ("区间涨星",        lambda c: c.get("stars_delta")),
-    ("区间天数",        lambda c: c.get("stars_delta_window_days")),
-    ("语言",            lambda c: c.get("lang") or ""),
-    ("许可证",          lambda c: c.get("license") or ""),
-    ("许可类型",        lambda c: LIC_CN.get(c.get("license_family") or "unknown", "未知")),
-    ("可吸收形式",      lambda c: "/".join(FORM_CN.get(x, x) for x in (c.get("transfer_forms") or []))),
+    ("周涨星数",        _weekly),
+    ("功能",            lambda c: c.get("capability") or c.get("description") or ""),
     ("落哪条产线",      lambda c: "/".join(LINE_CN.get(x, x) for x in (c.get("line_candidates") or []))),
-    ("能做什么",        lambda c: c.get("capability") or ""),
+    ("可吸收形式",      lambda c: "/".join(FORM_CN.get(x, x) for x in (c.get("transfer_forms") or []))),
+    ("许可类型",        lambda c: LIC_CN.get(c.get("license_family") or "unknown", "未知")),
+    ("是否新发现",      lambda c: "是" if c.get("new_to_us") else "否"),
+    ("链接",            lambda c: c.get("url") or ""),
+    ("周涨星来源",      _weekly_src),
+    ("日均涨星",        lambda c: c.get("stars_per_day_lifetime")),
     ("原始描述",        lambda c: c.get("description") or ""),
     ("证据",            lambda c: c.get("evidence") or ""),
-    ("是否新发现",      lambda c: "是" if c.get("new_to_us") else "否"),
+    ("许可证",          lambda c: c.get("license") or ""),
+    ("语言",            lambda c: c.get("lang") or ""),
     ("军火库已有",      lambda c: "是" if c.get("known_in_arsenal") else "否"),
     ("已蒸馏",          lambda c: "是" if c.get("distilled") else "否"),
     ("话题标签",        lambda c: ", ".join(c.get("topics") or [])),
@@ -102,17 +122,17 @@ def write_sheet(ws, rows, note=None):
             cell = ws.cell(row=i, column=j, value=fn(cd))
             cell.font = BODY_FONT
             cell.border = BORDER
-            cell.alignment = Alignment(vertical="top", wrap_text=(j in (12, 13, 14, 18, 24)))
-            if j == 3:
+            cell.alignment = Alignment(vertical="top", wrap_text=(j in (4, 12, 13, 18, 24)))
+            if j == 2:
                 cell.number_format = "#,##0"
-            if j in (4, 5):
+            if j in (3, 11):
                 cell.number_format = "0.0"
         if cd.get("new_to_us"):
-            ws.cell(row=i, column=15).fill = NEW_FILL
+            ws.cell(row=i, column=8).fill = NEW_FILL
         if lic_fam == "copyleft":
-            ws.cell(row=i, column=9).fill = COPYLEFT_FILL
+            ws.cell(row=i, column=7).fill = COPYLEFT_FILL
     # 列宽
-    widths = [30, 46, 10, 10, 10, 10, 12, 16, 18, 16, 16, 40, 46, 34, 11, 11, 9, 26, 12, 12, 10, 11, 14, 44]
+    widths = [32, 11, 11, 48, 16, 16, 18, 11, 46, 18, 10, 44, 34, 16, 12, 11, 9, 26, 12, 12, 10, 11, 14, 44]
     for j, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(j)].width = w
     ws.freeze_panes = ws.cell(row=head_row + 1, column=1)
@@ -130,13 +150,13 @@ def main():
         print("arsenal_xlsx: candidates 为空,不生成空表")
         return 0
 
-    hot = sorted(cands, key=lambda c: (c.get("stars_per_day_lifetime") or 0), reverse=True)
+    hot = sorted(cands, key=lambda c: (_weekly(c) or 0), reverse=True)
     wb = Workbook()
 
     ws = wb.active
     ws.title = "总榜"
-    write_sheet(ws, hot, "GitHub 军火榜 · %s · 共 %d 个候选 · 按日均涨星降序"
-                "(总星数偏袒老仓,日均涨星才看得出现在热不热)· 数据源 candidates.json"
+    write_sheet(ws, hot, "GitHub 军火榜 · %s · 共 %d 个候选 · 按周涨星降序"
+                "(总星数偏袒老仓,周涨星才看得出现在热不热)· 数据源 candidates.json"
                 % (gen, len(hot)))
 
     pick = [c for c in hot if c.get("license_family") == "permissive" and c.get("new_to_us")]
@@ -153,7 +173,7 @@ def main():
         if not items:
             continue
         w = wb.create_sheet(LINE_CN.get(ln, ln))
-        write_sheet(w, items, "可用在【%s】的候选 · 共 %d 个 · 按日均涨星降序"
+        write_sheet(w, items, "可用在【%s】的候选 · 共 %d 个 · 按周涨星降序"
                     % (LINE_CN.get(ln, ln), len(items)))
 
     # 字段说明页
