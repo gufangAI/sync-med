@@ -97,6 +97,16 @@ jobs:
           fi
           python scripts/intel_radar/daily_report_v3.py --cloud $EXTRA_ARGS
 
+      # 把 candidates.json 渲染成人能直接看的 md 榜(创始人 2026-09-02:「输出 md 或表格,
+      # 那么我就可以知道有哪些我们可以选择用的」)。纯读本地 JSON,不重复抓 GitHub;
+      # 失败不阻断整轮(|| true) —— 报表挂了不该拖垮情报采集本身。
+      - name: Render arsenal boards (md + xlsx)
+        if: always()
+        run: |
+          python scripts/intel_radar/arsenal_md.py || true
+          python -m pip install --quiet openpyxl >/dev/null 2>&1 || true
+          python scripts/intel_radar/arsenal_xlsx.py || true
+
       # The council reads reports/arsenal/candidates.json out of the repo, and
       # the 30-day star delta is computed by diffing star_history.json against
       # itself across runs. Both only work if the files SURVIVE the run -- an
