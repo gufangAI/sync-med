@@ -17,6 +17,17 @@ concurrency:
   group: roundtable-factory
   cancel-in-progress: false
 
+# 2026-08-28 补 permissions：下面「失败上报 Issue(哨兵)」那一步用的是
+# GITHUB_TOKEN 的默认权限，而本仓默认是只读 —— 实证见姊妹 workflow
+# watch-roundtable.yml 的 run 33114029499：
+#   POST /repos/gufangAI/sync-med/issues → 403 Resource not accessible by integration
+# 这一步只在 `if: failure()` 时跑，所以症状是**只在真出事那次才炸**：
+# 平时全绿看不出来，真失败那次告警发不出去，还把 run 又拖红一层。
+# 对照本仓 12 个能正常写 Issue 的 workflow，它们都显式声明了 issues: write。
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   produce:
     runs-on: ubuntu-latest
