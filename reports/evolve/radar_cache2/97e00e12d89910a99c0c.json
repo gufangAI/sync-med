@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR识别准确率",
+ "how": "集成到现有流程中，作为OCR工具替换",
+ "effort": "中",
+ "current": "基于 Tesseract 和 EasyOCR 的组合",
+ "beats": "在特定语言和字符集上的识别准确率",
+ "why": "RapidOCR 在多种编程语言和字符集上表现优异"
+}

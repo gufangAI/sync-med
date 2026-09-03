@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "skip",
+ "metric": "无",
+ "how": "无",
+ "effort": "无",
+ "current": "依托 Vectorize 或外部向量 API，嵌入模型 bge-m3 / text-embedding-3-small",
+ "beats": "无",
+ "why": "Redis 是内存数据库，与 RAG 向量检索无直接关联"
+}

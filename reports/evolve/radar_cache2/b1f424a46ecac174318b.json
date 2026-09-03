@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "OCR识别准确率",
+ "how": "直接替换现有OCR引擎",
+ "effort": "小",
+ "current": "基于 Tesseract 的定制化版本",
+ "beats": "无",
+ "why": "我们已在使用基于 Tesseract 的定制化版本"
+}

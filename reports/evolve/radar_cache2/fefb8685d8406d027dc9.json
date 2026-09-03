@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "watch",
+ "metric": "图谱构建效率",
+ "how": "集成 graphify 库进行图谱构建和可视化",
+ "effort": "中",
+ "current": "使用 sue_graph_nodes/edges 和 D3-force 进行构建和可视化",
+ "beats": "构建速度和可视化效率可能更高",
+ "why": "Graphify-Labs 提供高效的知识图谱构建和可视化工具"
+}

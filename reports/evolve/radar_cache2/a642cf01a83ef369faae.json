@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "skip",
+ "metric": "无",
+ "how": "无",
+ "effort": "无",
+ "current": "tcm-rag-768",
+ "beats": "无",
+ "why": "Redis 是一个内存数据库，而我们的 RAG向量检索模块使用的是 tcm-rag-768，它是一个基于磁盘的向量索引库，两者功能不同，Redis 不适用于我们的场景"
+}

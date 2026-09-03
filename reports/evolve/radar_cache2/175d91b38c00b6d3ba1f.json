@@ -1,0 +1,10 @@
+{
+ "module": "检索路由 —— /api/retrieve 统一检索入口，按意图分派到 wiki/graph/volume/FTS",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "目前使用的是基于 Vectorize 的向量检索系统",
+ "beats": "",
+ "why": "Elasticsearch 已在我们的 RAG向量检索模块中使用"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "RAG向量检索",
+ "verdict": "watch",
+ "metric": "检索速度、召回率",
+ "how": "集成到现有向量检索流程中",
+ "effort": "中",
+ "current": "依托 Vectorize 或外部向量 API，嵌入模型 bge-m3 / text-embedding-3-small",
+ "beats": "检索速度和召回率",
+ "why": "LightRAG 提供双级检索和知识图谱增强"
+}

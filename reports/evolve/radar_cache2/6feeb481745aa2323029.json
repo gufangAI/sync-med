@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "skip",
+ "metric": "PDF转文字准确性",
+ "how": "集成到现有流程中",
+ "effort": "小",
+ "current": "基于 PaddleOCR 的 OCR 识别和 PDF 处理库",
+ "beats": "无",
+ "why": "已在家底:OCR产线使用PaddleOCR进行PDF转文字"
+}

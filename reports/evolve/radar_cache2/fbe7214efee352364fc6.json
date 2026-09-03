@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "OCR识别准确率",
+ "how": "集成PaddleOCR作为OCR产线后端",
+ "effort": "中",
+ "current": "基于 Tesseract 和 EasyOCR",
+ "beats": "在多语言支持上",
+ "why": "PaddleOCR在多语言OCR识别上有优势"
+}
