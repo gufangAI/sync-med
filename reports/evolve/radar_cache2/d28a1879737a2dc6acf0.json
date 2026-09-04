@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "watch",
+ "metric": "Web服务器性能和安全性",
+ "how": "作为Cloudflare Pages的替代或补充",
+ "effort": "小",
+ "current": "前台阅读器由 Cloudflare Pages 提供服务",
+ "beats": "在性能、扩展性和HTTPS自动配置上可能优于Cloudflare Pages",
+ "why": "Caddy是一个快速且可扩展的Web服务器，支持自动HTTPS"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "前台阅读器",
+ "verdict": "watch",
+ "metric": "PDF转换质量与效率",
+ "how": "集成到现有PDF处理流程中",
+ "effort": "中",
+ "current": "使用Tesseract OCR和PDF.js进行PDF到Markdown的转换",
+ "beats": "在转换质量、布局检测和公式识别上可能优于现有方案",
+ "why": "具有高质量PDF转换功能，但需进一步评估与现有工具的兼容性和性能"
+}

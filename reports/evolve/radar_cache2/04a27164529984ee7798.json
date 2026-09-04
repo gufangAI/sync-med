@@ -1,0 +1,10 @@
+{
+ "module": "采集下载线",
+ "verdict": "skip",
+ "metric": "无",
+ "how": "无",
+ "effort": "无",
+ "current": "无",
+ "beats": "无",
+ "why": "Redis 是内存数据库，不适合用于需要长期运行服务的采集下载线模块"
+}

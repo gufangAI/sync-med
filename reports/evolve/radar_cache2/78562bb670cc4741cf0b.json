@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "识别准确率、处理速度",
+ "how": "集成PaddleOCR作为后端识别引擎",
+ "effort": "中",
+ "current": "目前使用Tesseract OCR进行图像识别",
+ "beats": "在识别准确率和处理速度上可能优于Tesseract",
+ "why": "PaddleOCR是一个高性能的OCR工具，但需进一步评估与现有方案的对比结果"
+}
