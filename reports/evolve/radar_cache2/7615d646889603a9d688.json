@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "古籍手写体OCR准确率",
+ "how": "集成到GitHub Actions中",
+ "effort": "中",
+ "current": "Tesseract",
+ "beats": "在古籍手写体OCR准确率上",
+ "why": "PaddlePaddle可能提供更优的模型和性能"
+}

@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "",
+ "beats": "",
+ "why": "Graphify-Labs/graphify 是一个纯库，不需要长期常驻服务器，但我们的知识图谱星图模块已经使用了知名的图数据库和图引擎，如 Neo4j，因此不需要替换。"
+}

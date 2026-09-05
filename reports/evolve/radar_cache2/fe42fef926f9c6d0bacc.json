@@ -1,0 +1,10 @@
+{
+ "module": "知识图谱星图",
+ "verdict": "skip",
+ "metric": "",
+ "how": "",
+ "effort": "",
+ "current": "Neo4j",
+ "beats": "",
+ "why": "我们已经使用Neo4j作为知识图谱星图的核心数据库，且项目本身需要长期运行的服务，不符合Cloudflare Serverless的运行形态。"
+}

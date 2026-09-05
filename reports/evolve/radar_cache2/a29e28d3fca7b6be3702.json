@@ -1,0 +1,10 @@
+{
+ "module": "OCR产线",
+ "verdict": "watch",
+ "metric": "古籍手写体OCR准确率",
+ "how": "集成到GitHub Actions中",
+ "effort": "小",
+ "current": "Tesseract",
+ "beats": "在古籍手写体OCR准确率上",
+ "why": "RapidOCR基于ONNXRuntime，可能在特定场景下表现更优"
+}
